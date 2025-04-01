@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Parkir</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        :root {
+            --primary-color: #1a73e8;
+            --secondary-color: #1557b0;
+            --success-color: #28a745;
+            --background-color: #f0f2f5;
+            --card-background: white;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+
+        body {
+            background-color: var(--background-color);
+            padding: 20px;
+            transition: background-color 0.3s;
+            color: var(--text-color);
+        }
+
+        /* Dark mode styles */
+        body.dark-mode {
+            --background-color: #1a1a1a;
+            --card-background: #2d2d2d;
+            --text-color: #ffffff;
+            --border-color: #404040;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: var(--card-background);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            background: none;
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 5px;
+            width: auto;
+        }
+
+        .tab-button.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .chart-container {
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            height: 400px;
+        }
+
+        .header {
+            background-color: #1a73e8;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .parking-form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+        }
+
+        .parking-list {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .status-active {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .status-completed {
+            color: #6c757d;
+        }
+
+        #ratesList {
+            margin-top: 20px;
+        }
+
+        .rate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .rate-info {
+            flex-grow: 1;
+        }
+
+        .rate-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-delete {
+            background-color: #dc3545;
+        }
+
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            gap: 15px;
+        }
+
+        .pagination button {
+            width: auto;
+            min-width: 100px;
+        }
+
+        .pagination button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #pageInfo {
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+    <div class="container">
+        <div class="header">
+            <h1>Sistem Parkir</h1>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('parking')">Parkir</button>
+            <button class="tab-button" onclick="showTab('dashboard')">Dashboard</button>
+            <button class="tab-button" onclick="showTab('reports')">Laporan</button>
+        </div>
+
+        <div id="parking" class="tab-content active">
+
+        <div class="parking-form">
+            <h2>Registrasi Kendaraan</h2>
+            <form id="parkingForm">
+                <div class="form-group">
+                    <label for="plateNumber">Nomor Plat:</label>
+                    <input type="text" id="plateNumber" required>
+                </div>
+                <div class="form-group">
+                    <label for="vehicleType">Jenis Kendaraan:</label>
+                    <select id="vehicleType" required>
+                        <option value="motor">Motor</option>
+                        <option value="mobil">Mobil</option>
+                    </select>
+                </div>
+                <button type="submit">Daftar Masuk</button>
+            </form>
+        </div>
+
+        <div class="parking-list">
+            <h2>Daftar Kendaraan Parkir</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tiket ID</th>
+                        <th>Plat Nomor</th>
+                        <th>Jenis</th>
+                        <th>Waktu Masuk</th>
+                        <th>Status</th>
+                        <th>Tarif</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="parkingList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="dashboard" class="tab-content">
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3>Total Kendaraan Hari Ini</h3>
+                <div id="todayVehicles" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pendapatan Hari Ini</h3>
+                <div id="todayIncome" class="stat-value">Rp 0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Kendaraan Aktif</h3>
+                <div id="activeVehicles" class="stat-value">0</div>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h3>Grafik Pendapatan Harian</h3>
+            <canvas id="incomeChart"></canvas>
+        </div>
+    </div>
+
+    <div id="reports" class="tab-content">
+        <div class="parking-form">
+            <div class="form-group">
+                <label for="reportType">Jenis Laporan</label>
+                <select id="reportType" onchange="changeReportType()">
+                    <option value="daily">Laporan Harian</option>
+                    <option value="monthly">Laporan Bulanan</option>
+                </select>
+            </div>
+            <div id="dateSelector" class="form-group">
+                <label for="reportDate">Tanggal</label>
+                <input type="date" id="reportDate">
+            </div>
+            <div id="monthSelector" class="form-group" style="display: none;">
+                <label for="reportMonth">Bulan</label>
+                <input type="month" id="reportMonth">
+            </div>
+            <button onclick="generateReport()">Generate Laporan</button>
+        </div>
+        <div class="parking-list">
+            <h2>Hasil Laporan</h2>
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Total Kendaraan</th>
+                        <th>Total Pendapatan</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+            <div class="pagination">
+                <button id="prevPage" disabled>Sebelumnya</button>
+                <span id="pageInfo">Halaman <span id="currentPage">1</span></span>
+                <button id="nextPage">Selanjutnya</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

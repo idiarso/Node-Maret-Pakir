@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Parking Exit Point</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .status.ready {
+            background-color: #e8f5e9;
+        }
+        .status.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .ticket-info {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .ticket-info.visible {
+            display: block;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Parking Exit Point</h1>
+        <div id="status" class="status">Checking status...</div>
+        <div id="ticketInfo" class="ticket-info">
+            <h3>Ticket Information</h3>
+            <p>ID: <span id="ticketId"></span></p>
+            <p>Plate: <span id="plateNumber"></span></p>
+            <p>Entry Time: <span id="entryTime"></span></p>
+            <p>Duration: <span id="duration"></span></p>
+            <p>Fee: <span id="fee"></span></p>
+        </div>
+        <button id="scanTicket">Scan Ticket</button>
+        <button id="processPayment" disabled>Process Payment</button>
+        <div class="log" id="log"></div>
+    </div>
+    <script>
+        const { ipcRenderer } = require('electron');
+        
+        // Update status
+        async function updateStatus() {
+            try {
+                const result = await ipcRenderer.invoke('get-status');
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = `Status: ${result.status}`;
+                statusDiv.className = `status ${result.status === 'ready' ? 'ready' : 'error'}`;
+            } catch (error) {
+                console.error('Error getting status:', error);
+            }
+        }
+
+        // Scan ticket
+        document.getElementById('scanTicket').addEventListener('click', async () => {
+            const button = document.getElementById('scanTicket');
+            button.disabled = true;
+            
+            try {
+                const result = await ipcRenderer.invoke('scan-ticket');
+                if (result.success) {
+                    displayTicketInfo(result.data);
+                    document.getElementById('processPayment').disabled = false;
+                    log('Ticket scanned successfully');
+                } else {
+                    log('Error scanning ticket: ' + result.error);
+                }
+            } catch (error) {
+                log('Error: ' + error.message);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        // Process payment
+        document.getElementById('processPayment').addEventListener('click', async () => {
+            const button = document.getElementById('processPayment');
+            button.disabled = true;
+            
+            try {
+                const ticketId = document.getElementById('ticketId').textContent;
+                const result = await ipcRenderer.invoke('process-payment', ticketId);
+                if (result.success) {
+                    log('Payment processed successfully');
+                    clearTicketInfo();
+                } else {
+                    log('Error processing payment: ' + result.error);
+                }
+            } catch (error) {
+                log('Error: ' + error.message);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        // Display ticket information
+        function displayTicketInfo(ticket) {
+            document.getElementById('ticketInfo').classList.add('visible');
+            document.getElementById('ticketId').textContent = ticket.id;
+            document.getElementById('plateNumber').textContent = ticket.plateNumber;
+            document.getElementById('entryTime').textContent = new Date(ticket.entryTime).toLocaleString();
+            
+            const duration = calculateDuration(ticket.entryTime);
+            document.getElementById('duration').textContent = duration;
+            
+            const fee = calculateFee(duration);
+            document.getElementById('fee').textContent = `Rp ${fee.toLocaleString()}`;
+        }
+
+        // Clear ticket information
+        function clearTicketInfo() {
+            document.getElementById('ticketInfo').classList.remove('visible');
+            document.getElementById('processPayment').disabled = true;
+        }
+
+        // Calculate duration
+        function calculateDuration(entryTime) {
+            const now = new Date();
+            const entry = new Date(entryTime);
+            const diff = now - entry;
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            return `${hours}h ${minutes}m`;
+        }
+
+        // Calculate fee
+        function calculateFee(duration) {
+            // Implement fee calculation logic here
+            return 5000; // Example fixed fee
+        }
+
+        // Logging function
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Initial status check
+        updateStatus();
+        
+        // Update status every 5 seconds
+        setInterval(updateStatus, 5000);
+    </script>
+</body>
+</html> 

@@ -1,0 +1,24 @@
+{
+  "name": "parking-entry-point",
+  "version": "1.0.0",
+  "description": "Parking Entry Point Application",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "tsc && electron .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "dev": "concurrently \"npm run watch\" \"npm run start\""
+  },
+  "dependencies": {
+    "electron": "^28.0.0",
+    "serialport": "^12.0.0",
+    "node-webcam": "^0.8.2",
+    "node-thermal-printer": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/serialport": "^8.0.2",
+    "typescript": "^5.0.0",
+    "concurrently": "^8.2.0"
+  }
+} 
