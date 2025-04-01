@@ -6,10 +6,10 @@ export class User extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number = 0;
 
-    @Column({ unique: true })
+    @Column({ unique: true, nullable: true })
     username: string = '';
 
-    @Column({ name: 'password_hash' })
+    @Column({ name: 'password_hash', nullable: true })
     passwordHash: string = '';
 
     @Column({ name: 'full_name' })

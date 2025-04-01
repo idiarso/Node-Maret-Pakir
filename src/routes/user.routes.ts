@@ -2,7 +2,7 @@ import { Router, RequestHandler } from 'express';
 import { UserController } from '../controllers/user.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { AuthenticatedRequest, UserRole, MessageResponse, LoginResponse, UserProfile } from '../shared/types';
-import { Pool } from 'pg';
+import { DataSource } from 'typeorm';
 
 interface LoginRequest {
   email: string;
@@ -20,9 +20,9 @@ interface UpdateProfileRequest {
   newPassword?: string;
 }
 
-export const createUserRouter = (db: Pool) => {
+export const createUserRouter = (dataSource: DataSource) => {
   const router = Router();
-  const userController = new UserController(db);
+  const userController = new UserController(dataSource);
 
   // Public routes
   const loginHandler: RequestHandler = async (req, res) => {

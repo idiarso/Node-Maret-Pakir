@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import AppDataSource from './config/ormconfig';
+import AppDataSource, { initializeDatabase } from './config/ormconfig';
 import ticketRoutes from './routes/ticket.routes';
 import deviceRoutes from './routes/device.routes';
 import authRoutes from './routes/auth.routes';
@@ -554,7 +554,7 @@ app.get('/health', (req, res) => {
 // Initialize database and start server
 const startServer = async () => {
   try {
-    await AppDataSource.initialize();
+    const dataSource = await initializeDatabase();
     console.log('Database connection established');
     
     app.listen(port, () => {

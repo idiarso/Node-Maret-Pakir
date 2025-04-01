@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, OneToMany } from "typeorm";
+import { GateLog } from "./GateLog";
 
 export enum GateType {
     ENTRY = "ENTRY",
@@ -76,4 +77,7 @@ export class Gate {
 
     @UpdateDateColumn()
     updated_at!: Date;
+
+    @OneToMany(() => GateLog, log => log.gate)
+    logs!: GateLog[];
 } 

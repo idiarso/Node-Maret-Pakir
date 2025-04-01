@@ -13,7 +13,11 @@
     "migrate": "typeorm-ts-node-commonjs migration:run -d src/server/config/ormconfig.ts",
     "migrate:revert": "typeorm-ts-node-commonjs migration:revert -d src/server/config/ormconfig.ts",
     "seed": "ts-node src/server/seeds/1709913600000-InitialData.ts",
-    "setup:db": "ts-node src/server/scripts/setup-db.ts"
+    "setup:db": "ts-node src/server/scripts/setup-db.ts",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "npm run typeorm migration:generate -- -d src/server/config/ormconfig.ts",
+    "migration:run": "npm run typeorm migration:run -- -d src/server/config/ormconfig.ts",
+    "migration:revert": "npm run typeorm migration:revert -- -d src/server/config/ormconfig.ts"
   },
   "keywords": [
     "parking",

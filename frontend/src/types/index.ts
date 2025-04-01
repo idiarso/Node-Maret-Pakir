@@ -41,17 +41,14 @@ export interface VehicleInput {
 // Parking session types
 export interface ParkingSession {
   id: number;
-  vehicleId: number;
-  parkingAreaId: number;
-  entryTime: Date;
-  exitTime?: Date;
-  entryGateId?: number;
-  exitGateId?: number;
-  entryOperatorId?: number;
-  exitOperatorId?: number;
+  vehicle: Vehicle;
+  parkingArea: ParkingArea;
+  entry_time: Date;
+  exit_time?: Date;
   status: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
+  ticket?: Ticket;
 }
 
 export interface ParkingSessionInput {

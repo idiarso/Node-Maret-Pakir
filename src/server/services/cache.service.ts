@@ -15,30 +15,10 @@ export class CacheService {
   private useRedis: boolean = false;
 
   private constructor() {
-    try {
-      this.redis = new Redis({
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        password: process.env.REDIS_PASSWORD,
-        maxRetriesPerRequest: 1,
-        connectTimeout: 1000
-      });
-
-      this.redis.on('error', (error) => {
-        console.error('Redis connection error:', error);
-        this.useRedis = false;
-        this.redis = null;
-      });
-
-      this.redis.on('connect', () => {
-        console.log('Redis connected successfully');
-        this.useRedis = true;
-      });
-    } catch (error) {
-      console.error('Error initializing Redis:', error);
-      this.useRedis = false;
-      this.redis = null;
-    }
+    // Using memory cache only
+    this.useRedis = false;
+    this.redis = null;
+    console.log('Cache service initialized with memory cache');
   }
 
   public static getInstance(): CacheService {

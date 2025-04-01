@@ -35,23 +35,40 @@ export class ParkingAreaController {
     static async createParkingArea(req: Request, res: Response) {
         try {
             const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
-            const { name, capacity } = req.body;
+            const { name, location, capacity, status } = req.body;
             
-            if (!name || !capacity) {
-                return res.status(400).json({ message: "Name and capacity are required" });
+            if (!name || !location || !capacity) {
+                return res.status(400).json({ message: "Name, location, and capacity are required" });
+            }
+
+            // Validate capacity
+            const capacityNum = parseInt(capacity);
+            if (isNaN(capacityNum) || capacityNum <= 0) {
+                return res.status(400).json({ message: "Capacity must be a positive number" });
+            }
+
+            // Validate status
+            const validStatuses = ['active', 'inactive', 'maintenance'];
+            const normalizedStatus = (status || 'active').toLowerCase();
+            if (!validStatuses.includes(normalizedStatus)) {
+                return res.status(400).json({ message: "Invalid status. Must be one of: active, inactive, maintenance" });
             }
 
             const parkingArea = parkingAreaRepository.create({
                 name,
-                capacity,
+                capacity: capacityNum,
                 occupied: 0,
-                status: "ACTIVE"
+                status: normalizedStatus
             });
 
             await parkingAreaRepository.save(parkingArea);
             res.status(201).json(parkingArea);
-        } catch (error) {
-            res.status(500).json({ message: "Error creating parking area", error });
+        } catch (error: any) {
+            console.error('Error creating parking area:', error);
+            res.status(500).json({ 
+                message: "Error creating parking area", 
+                error: error.message || 'Unknown error occurred' 
+            });
         }
     }
 
@@ -69,13 +86,30 @@ export class ParkingAreaController {
             }
 
             if (name) parkingArea.name = name;
-            if (capacity) parkingArea.capacity = capacity;
-            if (status) parkingArea.status = status;
+            if (capacity) {
+                const capacityNum = parseInt(capacity);
+                if (isNaN(capacityNum) || capacityNum <= 0) {
+                    return res.status(400).json({ message: "Capacity must be a positive number" });
+                }
+                parkingArea.capacity = capacityNum;
+            }
+            if (status) {
+                const validStatuses = ['active', 'inactive', 'maintenance'];
+                const normalizedStatus = status.toLowerCase();
+                if (!validStatuses.includes(normalizedStatus)) {
+                    return res.status(400).json({ message: "Invalid status. Must be one of: active, inactive, maintenance" });
+                }
+                parkingArea.status = normalizedStatus;
+            }
 
             await parkingAreaRepository.save(parkingArea);
             res.json(parkingArea);
-        } catch (error) {
-            res.status(500).json({ message: "Error updating parking area", error });
+        } catch (error: any) {
+            console.error('Error updating parking area:', error);
+            res.status(500).json({ 
+                message: "Error updating parking area", 
+                error: error.message || 'Unknown error occurred' 
+            });
         }
     }
 

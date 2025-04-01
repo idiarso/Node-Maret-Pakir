@@ -2,12 +2,11 @@ import { Router } from 'express';
 import { VehicleController } from '../controllers/vehicle.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { UserRole, AuthenticatedRequestHandler } from '../shared/types';
-import { Pool } from 'pg';
-import { RequestHandler } from 'express';
+import { DataSource } from 'typeorm';
 
-export const createVehicleRouter = (db: Pool) => {
+export const createVehicleRouter = (dataSource: DataSource) => {
   const router = Router();
-  const vehicleController = new VehicleController(db);
+  const vehicleController = new VehicleController(dataSource);
 
   // Protected routes
   router.post('/', authMiddleware(), vehicleController.registerVehicle as AuthenticatedRequestHandler);

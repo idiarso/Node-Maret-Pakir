@@ -218,12 +218,12 @@ export const deviceService = {
 // Parking Sessions API
 export const parkingSessionService = {
   getAll: async (): Promise<ParkingSession[]> => {
-    const response = await api.get<{data: ParkingSession[]}>('/api/parking-sessions');
-    return response.data.data as ParkingSession[];
+    const response = await api.get<ParkingSession[]>('/api/parking-sessions');
+    return response.data;
   },
   getById: async (id: number): Promise<ParkingSession> => {
     const response = await api.get<ParkingSession>(`/api/parking-sessions/${id}`);
-    return response.data as ParkingSession;
+    return response.data;
   },
   update: async (id: number, data: Partial<ParkingSession>): Promise<ParkingSession> => {
     const response = await api.put<ParkingSession>(`/api/parking-sessions/${id}`, data);

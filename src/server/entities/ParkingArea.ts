@@ -1,13 +1,16 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from "typeorm";
 import { ParkingSession } from "./ParkingSession";
 
-@Entity()
+@Entity('parking_areas')
 export class ParkingArea {
     @PrimaryGeneratedColumn()
     id!: number;
 
     @Column()
     name!: string;
+
+    @Column()
+    location!: string;
 
     @Column()
     capacity!: number;

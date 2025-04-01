@@ -38,19 +38,20 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import { parkingSessionService } from '../services/api';
+import { ParkingSession } from '../types';
 
 const ParkingSessionsPage: FC = () => {
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<ParkingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [selectedSession, setSelectedSession] = useState<ParkingSession | null>(null);
   const [formData, setFormData] = useState({
-    licensePlate: '',
-    vehicleType: '',
-    entryTime: '',
-    exitTime: '',
+    license_plate: '',
+    vehicle_type: '',
+    entry_time: '',
+    exit_time: '',
     status: ''
   });
 
@@ -59,12 +60,11 @@ const ParkingSessionsPage: FC = () => {
     setError(null);
     try {
       const data = await parkingSessionService.getAll();
-      // Add mock image URLs if they don't exist
-      const enhancedData = data && Array.isArray(data) ? data.map(session => ({
+      const enhancedData = data.map(session => ({
         ...session,
-        vehicleImageUrl: session.vehicleImageUrl || `https://source.unsplash.com/random/300x200?car&sig=${session.id}`,
-        barcodeImageUrl: session.barcodeImageUrl || `https://barcodeapi.org/api/code128/${session.licensePlate.replace(/\s/g, '')}`
-      })) : [];
+        vehicleImageUrl: `https://source.unsplash.com/random/300x200?car&sig=${session.id}`,
+        barcodeImageUrl: `https://barcodeapi.org/api/code128/${session.vehicle.license_plate.replace(/\s/g, '')}`
+      }));
       setSessions(enhancedData);
     } catch (err) {
       console.error('Error fetching parking sessions:', err);
@@ -89,18 +89,18 @@ const ParkingSessionsPage: FC = () => {
     }
   };
 
-  const handleViewDetails = (session: any) => {
+  const handleViewDetails = (session: ParkingSession) => {
     setSelectedSession(session);
     setOpenDetailsDialog(true);
   };
 
-  const handleEditSession = (session: any) => {
+  const handleEditSession = (session: ParkingSession) => {
     setSelectedSession(session);
     setFormData({
-      licensePlate: session.licensePlate,
-      vehicleType: session.vehicleType,
-      entryTime: new Date(session.entryTime).toISOString().slice(0, 16),
-      exitTime: session.exitTime ? new Date(session.exitTime).toISOString().slice(0, 16) : '',
+      license_plate: session.vehicle.license_plate,
+      vehicle_type: session.vehicle.type,
+      entry_time: session.entry_time.toISOString(),
+      exit_time: session.exit_time?.toISOString() || '',
       status: session.status
     });
     setOpenEditDialog(true);
@@ -167,9 +167,9 @@ const ParkingSessionsPage: FC = () => {
           <div class="ticket">
             <div class="header">Parking Ticket</div>
             <div class="info"><strong>ID:</strong> ${session.id}</div>
-            <div class="info"><strong>License Plate:</strong> ${session.licensePlate}</div>
-            <div class="info"><strong>Vehicle Type:</strong> ${session.vehicleType}</div>
-            <div class="info"><strong>Entry Time:</strong> ${new Date(session.entryTime).toLocaleString()}</div>
+            <div class="info"><strong>License Plate:</strong> ${session.license_plate}</div>
+            <div class="info"><strong>Vehicle Type:</strong> ${session.vehicle_type}</div>
+            <div class="info"><strong>Entry Time:</strong> ${new Date(session.entry_time).toLocaleString()}</div>
             <div class="barcode">
               <img src="${session.barcodeImageUrl}" alt="Barcode" />
             </div>
@@ -291,11 +291,11 @@ const ParkingSessionsPage: FC = () => {
                         src={session.barcodeImageUrl}
                       />
                     </TableCell>
-                    <TableCell>{session.licensePlate}</TableCell>
-                    <TableCell>{session.vehicleType}</TableCell>
-                    <TableCell>{new Date(session.entryTime).toLocaleString()}</TableCell>
+                    <TableCell>{session.license_plate}</TableCell>
+                    <TableCell>{session.vehicle_type}</TableCell>
+                    <TableCell>{new Date(session.entry_time).toLocaleString()}</TableCell>
                     <TableCell>
-                      {session.exitTime ? new Date(session.exitTime).toLocaleString() : '-'}
+                      {session.exit_time ? new Date(session.exit_time).toLocaleString() : '-'}
                     </TableCell>
                     <TableCell>{formatDuration(session.durationMinutes)}</TableCell>
                     <TableCell>
@@ -381,7 +381,7 @@ const ParkingSessionsPage: FC = () => {
         {selectedSession && (
           <>
             <DialogTitle>
-              Parking Session Details - {selectedSession.licensePlate}
+              Parking Session Details - {selectedSession.license_plate}
             </DialogTitle>
             <DialogContent dividers>
               <Grid container spacing={3}>
@@ -395,8 +395,8 @@ const ParkingSessionsPage: FC = () => {
                     />
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Vehicle Information</Typography>
-                      <Typography><strong>License Plate:</strong> {selectedSession.licensePlate}</Typography>
-                      <Typography><strong>Vehicle Type:</strong> {selectedSession.vehicleType}</Typography>
+                      <Typography><strong>License Plate:</strong> {selectedSession.license_plate}</Typography>
+                      <Typography><strong>Vehicle Type:</strong> {selectedSession.vehicle_type}</Typography>
                       <Typography><strong>Status:</strong> {selectedSession.status}</Typography>
                     </CardContent>
                   </Card>
@@ -406,8 +406,8 @@ const ParkingSessionsPage: FC = () => {
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Session Information</Typography>
                       <Typography><strong>ID:</strong> {selectedSession.id}</Typography>
-                      <Typography><strong>Entry Time:</strong> {new Date(selectedSession.entryTime).toLocaleString()}</Typography>
-                      <Typography><strong>Exit Time:</strong> {selectedSession.exitTime ? new Date(selectedSession.exitTime).toLocaleString() : '-'}</Typography>
+                      <Typography><strong>Entry Time:</strong> {new Date(selectedSession.entry_time).toLocaleString()}</Typography>
+                      <Typography><strong>Exit Time:</strong> {selectedSession.exit_time ? new Date(selectedSession.exit_time).toLocaleString() : '-'}</Typography>
                       <Typography><strong>Duration:</strong> {formatDuration(selectedSession.durationMinutes)}</Typography>
                       <Typography><strong>Fee:</strong> {selectedSession.fee ? `Rp ${selectedSession.fee.toLocaleString('id-ID')}` : '-'}</Typography>
                       <Typography><strong>Entry Gate:</strong> {selectedSession.entryGateId || '-'}</Typography>
@@ -484,8 +484,8 @@ const ParkingSessionsPage: FC = () => {
               margin="normal"
               fullWidth
               label="License Plate"
-              name="licensePlate"
-              value={formData.licensePlate}
+              name="license_plate"
+              value={formData.license_plate}
               onChange={handleInputChange}
             />
             
@@ -493,8 +493,8 @@ const ParkingSessionsPage: FC = () => {
               <InputLabel id="vehicle-type-label">Vehicle Type</InputLabel>
               <Select
                 labelId="vehicle-type-label"
-                name="vehicleType"
-                value={formData.vehicleType}
+                name="vehicle_type"
+                value={formData.vehicle_type}
                 label="Vehicle Type"
                 onChange={handleInputChange}
               >
@@ -508,9 +508,9 @@ const ParkingSessionsPage: FC = () => {
               margin="normal"
               fullWidth
               label="Entry Time"
-              name="entryTime"
+              name="entry_time"
               type="datetime-local"
-              value={formData.entryTime}
+              value={formData.entry_time}
               onChange={handleInputChange}
               InputLabelProps={{ shrink: true }}
             />
@@ -519,9 +519,9 @@ const ParkingSessionsPage: FC = () => {
               margin="normal"
               fullWidth
               label="Exit Time"
-              name="exitTime"
+              name="exit_time"
               type="datetime-local"
-              value={formData.exitTime}
+              value={formData.exit_time}
               onChange={handleInputChange}
               InputLabelProps={{ shrink: true }}
             />

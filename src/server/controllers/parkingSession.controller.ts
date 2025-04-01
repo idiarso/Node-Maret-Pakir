@@ -19,8 +19,15 @@ export class ParkingSessionController {
             
             return res.status(200).json(parkingSessions);
         } catch (error) {
-            logger.error('Error fetching parking sessions:', error);
-            return res.status(500).json({ message: 'Error fetching parking sessions' });
+            logger.error('Error fetching parking sessions:', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                timestamp: new Date().toISOString()
+            });
+            return res.status(500).json({ 
+                message: 'Error fetching parking sessions',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
         }
     }
 

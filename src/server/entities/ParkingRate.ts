@@ -2,11 +2,11 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 // Define the enum for vehicle types
 export enum VehicleType {
-    CAR = "CAR",
-    MOTORCYCLE = "MOTORCYCLE",
-    TRUCK = "TRUCK",
-    VAN = "VAN",
-    BUS = "BUS"
+    MOTOR = "MOTOR",
+    MOBIL = "MOBIL",
+    TRUK = "TRUK",
+    BUS = "BUS",
+    VAN = "VAN"
 }
 
 @Entity("parking_rates")
@@ -58,4 +58,4 @@ export class ParkingRate {
 
     @UpdateDateColumn({ type: 'timestamp with time zone' })
     updated_at!: Date;
-} 
+}

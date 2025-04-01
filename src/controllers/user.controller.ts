@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
-import { Pool } from 'pg';
+import { DataSource } from 'typeorm';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { AuthenticatedRequest } from '../shared/types';
 import { UserRole } from '../shared/types';
+import { User } from '../server/entities/User';
 
 interface LoginResponse {
   token: string;
@@ -27,19 +28,19 @@ interface MessageResponse {
 }
 
 export class UserController {
-  constructor(private db: Pool) {}
+  private userRepository;
+
+  constructor(private dataSource: DataSource) {
+    this.userRepository = dataSource.getRepository(User);
+  }
 
   public login = async (req: Request, res: Response<LoginResponse | MessageResponse>) => {
     try {
       const { email, password } = req.body;
 
-      const result = await this.db.query(
-        'SELECT * FROM users WHERE email = $1',
-        [email]
-      );
+      const user = await this.userRepository.findOne({ where: { email } });
 
-      const user = result.rows[0];
-      if (!user || !(await bcrypt.compare(password, user.password))) {
+      if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
@@ -55,7 +56,7 @@ export class UserController {
           id: user.id,
           email: user.email,
           role: user.role,
-          name: user.name
+          name: user.fullName
         }
       });
     } catch (error) {
@@ -67,23 +68,24 @@ export class UserController {
     try {
       const { email, password, name, role } = req.body;
 
-      const existingUser = await this.db.query(
-        'SELECT * FROM users WHERE email = $1',
-        [email]
-      );
+      const existingUser = await this.userRepository.findOne({ where: { email } });
 
-      if (existingUser.rows.length > 0) {
+      if (existingUser) {
         return res.status(400).json({ message: 'Email already registered' });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const result = await this.db.query(
-        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, role, name',
-        [email, hashedPassword, name, role]
-      );
+      const user = this.userRepository.create({
+        email,
+        passwordHash: hashedPassword,
+        fullName: name,
+        role,
+        username: email // Using email as username for now
+      });
 
-      const user = result.rows[0];
+      await this.userRepository.save(user);
+
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role },
         process.env.JWT_SECRET!,
@@ -96,7 +98,7 @@ export class UserController {
           id: user.id,
           email: user.email,
           role: user.role,
-          name: user.name
+          name: user.fullName
         }
       });
     } catch (error) {
@@ -108,16 +110,18 @@ export class UserController {
     try {
       const userId = req.user?.id;
 
-      const result = await this.db.query(
-        'SELECT id, email, name, role FROM users WHERE id = $1',
-        [userId]
-      );
+      const user = await this.userRepository.findOne({ where: { id: userId } });
 
-      if (result.rows.length === 0) {
+      if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      res.json(result.rows[0]);
+      res.json({
+        id: user.id,
+        email: user.email,
+        name: user.fullName,
+        role: user.role
+      });
     } catch (error) {
       res.status(500).json({ message: 'Internal server error' });
     }
@@ -128,31 +132,23 @@ export class UserController {
       const userId = req.user?.id;
       const { name, currentPassword, newPassword } = req.body;
 
-      const user = await this.db.query(
-        'SELECT * FROM users WHERE id = $1',
-        [userId]
-      );
+      const user = await this.userRepository.findOne({ where: { id: userId } });
 
-      if (user.rows.length === 0) {
+      if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
 
       if (newPassword) {
-        if (!(await bcrypt.compare(currentPassword, user.rows[0].password))) {
+        if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
           return res.status(401).json({ message: 'Invalid current password' });
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await this.db.query(
-          'UPDATE users SET name = $1, password = $2 WHERE id = $3',
-          [name, hashedPassword, userId]
-        );
-      } else {
-        await this.db.query(
-          'UPDATE users SET name = $1 WHERE id = $2',
-          [name, userId]
-        );
+        user.passwordHash = hashedPassword;
       }
+
+      user.fullName = name;
+      await this.userRepository.save(user);
 
       res.json({ message: 'Profile updated successfully' });
     } catch (error) {
@@ -166,11 +162,16 @@ export class UserController {
         return res.status(403).json({ message: 'Insufficient permissions' });
       }
 
-      const result = await this.db.query(
-        'SELECT id, email, name, role FROM users ORDER BY id'
-      );
+      const users = await this.userRepository.find({
+        select: ['id', 'email', 'fullName', 'role']
+      });
 
-      res.json(result.rows);
+      res.json(users.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.fullName,
+        role: user.role
+      })));
     } catch (error) {
       res.status(500).json({ message: 'Internal server error' });
     }
@@ -184,12 +185,9 @@ export class UserController {
 
       const { id } = req.params;
 
-      const result = await this.db.query(
-        'DELETE FROM users WHERE id = $1 RETURNING id',
-        [id]
-      );
+      const result = await this.userRepository.delete(id);
 
-      if (result.rows.length === 0) {
+      if (result.affected === 0) {
         return res.status(404).json({ message: 'User not found' });
       }
 
@@ -198,4 +196,4 @@ export class UserController {
       res.status(500).json({ message: 'Internal server error' });
     }
   };
-} 
+}
