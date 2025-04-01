@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import AppDataSource from './config/ormconfig';
 import ticketRoutes from './routes/ticket.routes';
+import deviceRoutes from './routes/device.routes';
 import { Logger } from '../shared/services/Logger';
 import { errorHandler } from './middleware';
 
@@ -16,6 +17,7 @@ app.use(express.static(path.join(__dirname, '../../public')));
 
 // Routes
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/devices', deviceRoutes);
 
 // Serve SPA
 app.get('*', (req, res) => {

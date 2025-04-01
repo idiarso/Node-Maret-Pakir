@@ -24,6 +24,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  TooltipProps,
 } from 'recharts';
 
 interface DashboardStats {
@@ -158,7 +159,7 @@ const DashboardPage: React.FC = () => {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={revenueData}
+                data={revenueData || []}
                 margin={{
                   top: 5,
                   right: 30,

@@ -94,13 +94,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
+    env:
+      PROD_HOST: ${{ vars.PROD_HOST }}
+      PROD_USERNAME: ${{ vars.PROD_USERNAME }}
+      PROD_SSH_KEY: ${{ vars.PROD_SSH_KEY }}
     steps:
     - name: Deploy to production
       uses: appleboy/ssh-action@master
       with:
-        host: ${{ secrets.PROD_HOST }}
-        username: ${{ secrets.PROD_USERNAME }}
-        key: ${{ secrets.PROD_SSH_KEY }}
+        host: ${{ env.PROD_HOST }}
+        username: ${{ env.PROD_USERNAME }}
+        key: ${{ env.PROD_SSH_KEY }}
         script: |
           cd /var/www/NodeTSpark
           git pull origin main

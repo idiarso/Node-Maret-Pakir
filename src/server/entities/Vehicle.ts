@@ -1,53 +1,36 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToOne, JoinColumn } from 'typeorm';
-import { VehicleType } from '../../shared/types';
-import { User } from './User';
-import { PaymentTransaction } from './PaymentTransaction';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
+import { ParkingSession } from "./ParkingSession";
+import { Membership } from "./Membership";
 
-@Entity()
+@Entity("vehicles")
 export class Vehicle {
-  @PrimaryGeneratedColumn()
-  id!: number;
+    @PrimaryGeneratedColumn()
+    id!: number;
 
-  @Column({ unique: true })
-  ticketNumber!: string;
+    @Column({ unique: true })
+    plate_number!: string;
 
-  @Column({
-    type: 'enum',
-    enum: VehicleType
-  })
-  vehicleType!: VehicleType;
+    @Column()
+    type!: string;
 
-  @Column()
-  entryImagePath!: string;
+    @Column({ nullable: true })
+    owner_name?: string;
 
-  @Column()
-  entryTime!: Date;
+    @Column({ nullable: true })
+    owner_contact?: string;
 
-  @Column({ nullable: true })
-  exitImagePath!: string;
+    @Column({ nullable: true })
+    registration_date?: Date;
 
-  @Column({ nullable: true })
-  exitTime!: Date;
+    @OneToMany(() => ParkingSession, session => session.vehicle)
+    parkingSessions!: ParkingSession[];
 
-  @ManyToOne(() => User)
-  @JoinColumn()
-  entryOperator!: User;
+    @OneToMany(() => Membership, membership => membership.vehicle)
+    memberships!: Membership[];
 
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn()
-  exitOperator!: User;
+    @CreateDateColumn()
+    created_at!: Date;
 
-  @OneToOne(() => PaymentTransaction, (payment) => payment.vehicle, { nullable: true })
-  @JoinColumn()
-  payment!: PaymentTransaction;
-
-  @UpdateDateColumn()
-  updatedAt!: Date;
-
-  @Column({ default: false })
-  isExited!: boolean;
-
-  constructor(partial: Partial<Vehicle> = {}) {
-    Object.assign(this, partial);
-  }
+    @UpdateDateColumn()
+    updated_at!: Date;
 } 

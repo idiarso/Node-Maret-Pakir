@@ -19,6 +19,9 @@ export const RevenueWidget: React.FC = () => {
     }).format(amount);
   };
 
+  const todayGrowth = data?.todayGrowth ?? 0;
+  const monthGrowth = data?.monthGrowth ?? 0;
+
   return (
     <DashboardCard
       title="Revenue Overview"
@@ -40,9 +43,9 @@ export const RevenueWidget: React.FC = () => {
           </Typography>
           <Typography
             variant="body2"
-            color={data?.todayGrowth >= 0 ? 'success.main' : 'error.main'}
+            color={todayGrowth >= 0 ? 'success.main' : 'error.main'}
           >
-            {data?.todayGrowth >= 0 ? '+' : ''}{data?.todayGrowth ?? 0}% vs yesterday
+            {todayGrowth >= 0 ? '+' : ''}{todayGrowth}% vs yesterday
           </Typography>
         </Box>
 
@@ -55,9 +58,9 @@ export const RevenueWidget: React.FC = () => {
           </Typography>
           <Typography
             variant="body2"
-            color={data?.monthGrowth >= 0 ? 'success.main' : 'error.main'}
+            color={monthGrowth >= 0 ? 'success.main' : 'error.main'}
           >
-            {data?.monthGrowth >= 0 ? '+' : ''}{data?.monthGrowth ?? 0}% vs last month
+            {monthGrowth >= 0 ? '+' : ''}{monthGrowth}% vs last month
           </Typography>
         </Box>
 
