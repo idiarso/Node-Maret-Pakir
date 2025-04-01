@@ -24,6 +24,11 @@ interface VehicleEntry {
   photo: string;
 }
 
+interface EntryResponse {
+  success: boolean;
+  message: string;
+}
+
 const EntryPage: React.FC = () => {
   const [plateNumber, setPlateNumber] = useState('');
   const [vehicleType, setVehicleType] = useState('');
@@ -32,7 +37,7 @@ const EntryPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const { mutate: submitEntry, isLoading } = useMutation({
+  const { mutate: submitEntry, isPending } = useMutation<EntryResponse, Error, VehicleEntry>({
     mutationFn: async (entry: VehicleEntry) => {
       // TODO: Replace with actual API call
       const response = await fetch('/api/entry', {
@@ -195,10 +200,10 @@ const EntryPage: React.FC = () => {
                 type="submit"
                 variant="contained"
                 color="primary"
-                disabled={isLoading}
+                disabled={isPending}
                 sx={{ mt: 2 }}
               >
-                {isLoading ? <CircularProgress size={24} /> : 'Simpan'}
+                {isPending ? <CircularProgress size={24} /> : 'Simpan'}
               </Button>
             </Box>
           </CardContent>

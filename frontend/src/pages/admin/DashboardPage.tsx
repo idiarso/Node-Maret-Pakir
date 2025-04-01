@@ -16,7 +16,15 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 
 interface DashboardStats {
   totalVehicles: number;
@@ -148,7 +156,7 @@ const DashboardPage: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={revenueData}
                 margin={{
