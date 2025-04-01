@@ -5,7 +5,6 @@ import {
   CardContent,
   Typography,
   TextField,
-  Button,
   Alert,
   CircularProgress,
   Switch,
@@ -13,8 +12,6 @@ import {
   Divider,
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
 
 interface ParkingRate {
   id: number;
@@ -30,15 +27,6 @@ interface SystemConfig {
   value: string;
   description: string;
 }
-
-const validationSchema = Yup.object({
-  baseRate: Yup.number()
-    .min(0, 'Tarif dasar harus lebih dari atau sama dengan 0')
-    .required('Tarif dasar wajib diisi'),
-  hourlyRate: Yup.number()
-    .min(0, 'Tarif per jam harus lebih dari atau sama dengan 0')
-    .required('Tarif per jam wajib diisi'),
-});
 
 const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
