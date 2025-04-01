@@ -15,14 +15,34 @@ import usersRoutes from './routes/users';
 import paymentsRoutes from './routes/payments';
 import { Logger } from '../shared/services/Logger';
 import { errorHandler } from './middleware';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import { CacheService } from './services/cache.service';
 
 const app = express();
 const logger = Logger.getInstance();
+const port = process.env.PORT || 3000;
+
+// Initialize Redis cache service
+const cacheService = CacheService.getInstance();
+
+// Rate limiting configuration
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Middleware
+app.use(helmet()); // Security headers
+app.use(compression()); // Compress responses
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../public')));
+app.use(limiter); // Apply rate limiting
 
 // Routes - ensure all are properly imported as router functions
 app.use('/api/tickets', ticketRoutes);
@@ -526,21 +546,33 @@ app.get('*', (req, res) => {
 // Error handling
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-
-// Start server
-app.listen(PORT, () => {
-    logger.info(`Server is running on port ${PORT}`);
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Initialize database connection
-AppDataSource.initialize()
-    .then(() => {
-        logger.info('Database connection established');
-    })
-    .catch((error: Error) => {
-        logger.error('Error connecting to database:', error);
-        process.exit(1);
+// Initialize database and start server
+const startServer = async () => {
+  try {
+    await AppDataSource.initialize();
+    console.log('Database connection established');
+    
+    app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
     });
+  } catch (error) {
+    console.error('Error starting server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received. Closing HTTP server and database connection...');
+  await AppDataSource.destroy();
+  process.exit(0);
+});
 
 export default app; 

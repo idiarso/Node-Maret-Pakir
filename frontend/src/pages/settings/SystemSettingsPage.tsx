@@ -1,4 +1,4 @@
-import { useState, FC, useRef, useEffect } from 'react';
+import React, { useState, FC } from 'react';
 import { 
   Typography, 
   Box, 
@@ -6,37 +6,25 @@ import {
   Button, 
   CircularProgress, 
   TextField,
+  Switch,
+  FormControlLabel,
   Divider,
   Grid,
-  InputAdornment,
-  Avatar,
   Snackbar,
-  Alert
+  Alert,
+  Card,
+  CardContent,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
-import UploadIcon from '@mui/icons-material/Upload';
 import { settingsService } from '../../services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SystemSettings } from '../../types';
+import PageWrapper from '../../components/PageWrapper';
 
-const dateFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'];
-const timeFormats = ['HH:mm:ss', 'HH:mm', 'hh:mm a', 'h:mm a'];
-
-const SystemSettingsPage: FC = () => {
-  const [formData, setFormData] = useState<Partial<SystemSettings>>({
-    companyName: '',
-    address: '',
-    contactPhone: '',
-    contactEmail: '',
-    taxId: '',
-    currency: 'IDR',
-    dateFormat: 'DD/MM/YYYY',
-    timeFormat: 'HH:mm'
-  });
-  
-  const [logo, setLogo] = useState<File | null>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  
+const SystemSettingsContent: FC = () => {
   const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: 'success' | 'error'}>({
     open: false,
     message: '',
@@ -54,15 +42,30 @@ const SystemSettingsPage: FC = () => {
     queryFn: settingsService.getSystemSettings
   });
 
-  // Update form data when settings are loaded
-  useEffect(() => {
+  const [formData, setFormData] = useState<SystemSettings>({
+    systemName: settings?.systemName || 'Parking Management System',
+    companyName: settings?.companyName || '',
+    contactEmail: settings?.contactEmail || '',
+    contactPhone: settings?.contactPhone || '',
+    sessionTimeout: settings?.sessionTimeout || 30,
+    enableNotifications: settings?.enableNotifications || true,
+    maintenanceMode: settings?.maintenanceMode || false,
+    maxParkingTime: settings?.maxParkingTime || 24,
+    currency: settings?.currency || 'IDR',
+    taxRate: settings?.taxRate || 10
+  });
+
+  // Update form when settings are loaded
+  React.useEffect(() => {
     if (settings) {
-      setFormData(settings);
+      setFormData({
+        ...settings
+      });
     }
   }, [settings]);
 
   const updateSettingsMutation = useMutation({
-    mutationFn: (data: Partial<SystemSettings>) => settingsService.updateSystemSettings(data),
+    mutationFn: (data: SystemSettings) => settingsService.updateSystemSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['systemSettings'] });
       setSnackbar({
@@ -81,23 +84,11 @@ const SystemSettingsPage: FC = () => {
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const { name, value, checked, type } = e.target;
     setFormData({
       ...formData,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     });
-  };
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setLogo(e.target.files[0]);
-      // In a real implementation, we would upload the logo to a server
-      // and update the companyLogo property with the URL
-      setFormData({
-        ...formData,
-        companyLogo: URL.createObjectURL(e.target.files[0])
-      });
-    }
   };
 
   const handleSaveSettings = () => {
@@ -130,167 +121,191 @@ const SystemSettingsPage: FC = () => {
         System Settings
       </Typography>
       <Typography variant="body1" paragraph>
-        Configure system-wide settings and company information.
+        Configure global system settings and preferences.
       </Typography>
 
-      <Paper sx={{ p: 3, mt: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Company Information
-        </Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-              <Avatar 
-                src={formData.companyLogo} 
-                alt={formData.companyName} 
-                sx={{ width: 100, height: 100, mr: 2 }}
-              />
-              <Box>
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={handleLogoChange}
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 3, mt: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Organization Information
+            </Typography>
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="System Name"
+                  name="systemName"
+                  value={formData.systemName}
+                  onChange={handleInputChange}
                 />
-                <Button
-                  variant="outlined"
-                  startIcon={<UploadIcon />}
-                  onClick={() => logoInputRef.current?.click()}
-                >
-                  Upload Logo
-                </Button>
-              </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Company Name"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInputChange}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Contact Email"
+                  name="contactEmail"
+                  type="email"
+                  value={formData.contactEmail}
+                  onChange={handleInputChange}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Contact Phone"
+                  name="contactPhone"
+                  value={formData.contactPhone}
+                  onChange={handleInputChange}
+                />
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" gutterBottom>
+              System Configuration
+            </Typography>
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Session Timeout (minutes)"
+                  name="sessionTimeout"
+                  type="number"
+                  value={formData.sessionTimeout}
+                  onChange={handleInputChange}
+                  InputProps={{ inputProps: { min: 5, max: 120 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Max Parking Time (hours)"
+                  name="maxParkingTime"
+                  type="number"
+                  value={formData.maxParkingTime}
+                  onChange={handleInputChange}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Currency"
+                  name="currency"
+                  value={formData.currency}
+                  onChange={handleInputChange}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Tax Rate (%)"
+                  name="taxRate"
+                  type="number"
+                  value={formData.taxRate}
+                  onChange={handleInputChange}
+                  InputProps={{ inputProps: { min: 0, max: 100 } }}
+                />
+              </Grid>
+            </Grid>
+
+            <Box sx={{ mt: 3 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.enableNotifications}
+                    onChange={handleInputChange}
+                    name="enableNotifications"
+                  />
+                }
+                label="Enable System Notifications"
+              />
             </Box>
-            
-            <TextField
-              fullWidth
-              label="Company Name"
-              name="companyName"
-              value={formData.companyName || ''}
-              onChange={handleInputChange}
-              margin="normal"
-            />
-            
-            <TextField
-              fullWidth
-              label="Tax ID"
-              name="taxId"
-              value={formData.taxId || ''}
-              onChange={handleInputChange}
-              margin="normal"
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Address"
-              name="address"
-              value={formData.address || ''}
-              onChange={handleInputChange}
-              margin="normal"
-              multiline
-              rows={3}
-            />
-            
-            <TextField
-              fullWidth
-              label="Contact Phone"
-              name="contactPhone"
-              value={formData.contactPhone || ''}
-              onChange={handleInputChange}
-              margin="normal"
-            />
-            
-            <TextField
-              fullWidth
-              label="Contact Email"
-              name="contactEmail"
-              type="email"
-              value={formData.contactEmail || ''}
-              onChange={handleInputChange}
-              margin="normal"
-            />
-          </Grid>
+
+            <Box sx={{ mt: 2, mb: 3 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.maintenanceMode}
+                    onChange={handleInputChange}
+                    name="maintenanceMode"
+                  />
+                }
+                label="Maintenance Mode"
+              />
+            </Box>
+
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button 
+                variant="contained" 
+                startIcon={<SaveIcon />}
+                onClick={handleSaveSettings}
+                disabled={updateSettingsMutation.isPending}
+              >
+                Save Settings
+              </Button>
+            </Box>
+          </Paper>
         </Grid>
-        
-        <Divider sx={{ my: 3 }} />
-        
-        <Typography variant="h6" gutterBottom>
-          System Configuration
-        </Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Currency"
-              name="currency"
-              value={formData.currency || 'IDR'}
-              onChange={handleInputChange}
-              margin="normal"
-              InputProps={{
-                startAdornment: <InputAdornment position="start">Symbol</InputAdornment>,
-              }}
-            />
-          </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                System Information
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText primary="Version" secondary={settings?.version || "1.0.0"} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Environment" secondary={process.env.NODE_ENV || "development"} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Last Updated" secondary={settings?.lastUpdated ? new Date(settings.lastUpdated).toLocaleString() : "Unknown"} />
+                </ListItem>
+              </List>
+            </CardContent>
+          </Card>
           
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              select
-              label="Date Format"
-              name="dateFormat"
-              value={formData.dateFormat || 'DD/MM/YYYY'}
-              onChange={handleInputChange}
-              margin="normal"
-              SelectProps={{
-                native: true,
-              }}
-            >
-              {dateFormats.map((format) => (
-                <option key={format} value={format}>
-                  {format}
-                </option>
-              ))}
-            </TextField>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              select
-              label="Time Format"
-              name="timeFormat"
-              value={formData.timeFormat || 'HH:mm'}
-              onChange={handleInputChange}
-              margin="normal"
-              SelectProps={{
-                native: true,
-              }}
-            >
-              {timeFormats.map((format) => (
-                <option key={format} value={format}>
-                  {format}
-                </option>
-              ))}
-            </TextField>
-          </Grid>
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                System Health
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                Current system status and performance indicators.
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText primary="Server Status" secondary={settings?.serverStatus || "Online"} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Database Status" secondary={settings?.databaseStatus || "Connected"} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Active Users" secondary={settings?.activeUsers || "0"} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="System Load" secondary={settings?.systemLoad || "Normal"} />
+                </ListItem>
+              </List>
+            </CardContent>
+          </Card>
         </Grid>
-        
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button 
-            variant="contained" 
-            startIcon={<SaveIcon />}
-            onClick={handleSaveSettings}
-            disabled={updateSettingsMutation.isPending}
-          >
-            Save Settings
-          </Button>
-        </Box>
-      </Paper>
+      </Grid>
 
       <Snackbar 
         open={snackbar.open} 
@@ -303,6 +318,15 @@ const SystemSettingsPage: FC = () => {
         </Alert>
       </Snackbar>
     </Box>
+  );
+};
+
+// Wrap the component with PageWrapper for error boundary
+const SystemSettingsPage: FC = () => {
+  return (
+    <PageWrapper title="System Settings">
+      <SystemSettingsContent />
+    </PageWrapper>
   );
 };
 

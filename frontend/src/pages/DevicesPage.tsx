@@ -227,61 +227,64 @@ const DevicesPage: React.FC = () => {
         </Box>
       )}
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Location</TableCell>
-              <TableCell>Connection</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Last Ping</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {devices.map((device) => (
-              <TableRow key={device.id}>
-                <TableCell>{device.id}</TableCell>
-                <TableCell>{device.name}</TableCell>
-                <TableCell>{device.type}</TableCell>
-                <TableCell>{device.location}</TableCell>
-                <TableCell>
-                  {device.ipAddress ? `IP: ${device.ipAddress}` : ''}
-                  {device.port ? `Port: ${device.port}` : ''}
-                </TableCell>
-                <TableCell>
-                  <Chip 
-                    label={device.status} 
-                    color={getStatusColor(device.status) as any}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {device.lastPing ? new Date(device.lastPing).toLocaleString() : 'N/A'}
-                </TableCell>
-                <TableCell>
-                  <IconButton size="small" onClick={() => handleOpenDialog(device)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleDeleteDevice(device.id)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-            {devices.length === 0 && (
+      <Paper sx={{ p: 3 }}>
+        <TableContainer>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={8} align="center">
-                  No devices found
-                </TableCell>
+                <TableCell>ID</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Connection</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Last Ping</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {Array.isArray(devices) && devices.length > 0 ? (
+                devices.map((device) => (
+                  <TableRow key={device.id}>
+                    <TableCell>{device.id}</TableCell>
+                    <TableCell>{device.name}</TableCell>
+                    <TableCell>{device.type}</TableCell>
+                    <TableCell>{device.location}</TableCell>
+                    <TableCell>
+                      {device.ipAddress ? `IP: ${device.ipAddress}` : ''}
+                      {device.port ? `Port: ${device.port}` : ''}
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={device.status} 
+                        color={getStatusColor(device.status) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {device.lastPing ? new Date(device.lastPing).toLocaleString() : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <IconButton size="small" onClick={() => handleOpenDialog(device)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => handleDeleteDevice(device.id)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    No devices found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {/* Add/Edit Device Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>

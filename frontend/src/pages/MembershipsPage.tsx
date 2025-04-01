@@ -152,11 +152,13 @@ const MembershipsPage: FC = () => {
     return new Date(date).toLocaleDateString('id-ID');
   };
 
-  const filteredMemberships = memberships.filter(membership => 
-    membership.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    membership.membershipNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    membership.vehiclePlate.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMemberships = searchTerm ? 
+    (Array.isArray(memberships) ? memberships.filter(membership => 
+      membership.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      membership.membershipNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      membership.vehiclePlate.toLowerCase().includes(searchTerm.toLowerCase())
+    ) : []) : 
+    memberships;
 
   return (
     <Box>
@@ -210,7 +212,7 @@ const MembershipsPage: FC = () => {
         />
       </Box>
 
-      <Paper sx={{ p: 3, mt: 2 }}>
+      <Paper sx={{ p: 3 }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
@@ -234,40 +236,48 @@ const MembershipsPage: FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredMemberships.map((membership) => (
-                  <TableRow key={membership.id}>
-                    <TableCell>{membership.membershipNumber}</TableCell>
-                    <TableCell>{membership.customerName}</TableCell>
-                    <TableCell>{membership.membershipType}</TableCell>
-                    <TableCell>{membership.vehiclePlate}</TableCell>
-                    <TableCell>{formatDate(membership.startDate)}</TableCell>
-                    <TableCell>{formatDate(membership.endDate)}</TableCell>
-                    <TableCell>{membership.discountRate}%</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={membership.status} 
-                        color={getStatusColor(membership.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton 
-                        size="small" 
-                        color="primary" 
-                        onClick={() => handleOpenDialog(membership)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        color="error" 
-                        onClick={() => handleDeleteMembership(membership.id)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                {Array.isArray(filteredMemberships) && filteredMemberships.length > 0 ? (
+                  filteredMemberships.map((membership) => (
+                    <TableRow key={membership.id}>
+                      <TableCell>{membership.membershipNumber}</TableCell>
+                      <TableCell>{membership.customerName}</TableCell>
+                      <TableCell>{membership.membershipType}</TableCell>
+                      <TableCell>{membership.vehiclePlate}</TableCell>
+                      <TableCell>{formatDate(membership.startDate)}</TableCell>
+                      <TableCell>{formatDate(membership.endDate)}</TableCell>
+                      <TableCell>{membership.discountRate}%</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={membership.status} 
+                          color={getStatusColor(membership.status) as any}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <IconButton 
+                          size="small" 
+                          color="primary" 
+                          onClick={() => handleOpenDialog(membership)}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          color="error" 
+                          onClick={() => handleDeleteMembership(membership.id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      No memberships found
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>

@@ -31,24 +31,16 @@ import { settingsService } from '../../services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BackupSettings } from '../../types';
 import { format } from 'date-fns';
+import PageWrapper from '../../components/PageWrapper';
 
-const BackupSettingsPage: FC = () => {
-  const [formData, setFormData] = useState<Partial<BackupSettings>>({
-    autoBackup: true,
-    backupFrequency: 'DAILY',
-    backupTime: '02:00',
-    backupLocation: '/backups',
-    retentionPeriodDays: 30
-  });
-  
-  const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: 'success' | 'error' | 'info'}>({
+const BackupSettingsContent: FC = () => {
+  const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: 'success' | 'error'}>({
     open: false,
     message: '',
     severity: 'success'
   });
   
   const queryClient = useQueryClient();
-  const [isBackupInProgress, setIsBackupInProgress] = useState(false);
   
   const { 
     data: settings, 
@@ -56,14 +48,36 @@ const BackupSettingsPage: FC = () => {
     error 
   } = useQuery({
     queryKey: ['backupSettings'],
-    queryFn: settingsService.getBackupSettings,
-    onSuccess: (data) => {
-      setFormData(data);
-    }
+    queryFn: settingsService.getBackupSettings
   });
 
+  const [formData, setFormData] = useState<BackupSettings>({
+    autoBackup: settings?.autoBackup || false,
+    backupFrequency: settings?.backupFrequency || 'DAILY',
+    backupLocation: settings?.backupLocation || 'local',
+    cloudServiceUrl: settings?.cloudServiceUrl || '',
+    cloudServiceKey: settings?.cloudServiceKey || '',
+    lastBackupDate: settings?.lastBackupDate,
+    maxBackupCount: settings?.maxBackupCount || 5
+  });
+
+  // Update form when settings are loaded
+  React.useEffect(() => {
+    if (settings) {
+      setFormData({
+        autoBackup: settings.autoBackup,
+        backupFrequency: settings.backupFrequency,
+        backupLocation: settings.backupLocation,
+        cloudServiceUrl: settings.cloudServiceUrl || '',
+        cloudServiceKey: settings.cloudServiceKey || '',
+        lastBackupDate: settings.lastBackupDate,
+        maxBackupCount: settings.maxBackupCount
+      });
+    }
+  }, [settings]);
+
   const updateSettingsMutation = useMutation({
-    mutationFn: (data: Partial<BackupSettings>) => settingsService.updateBackupSettings(data),
+    mutationFn: (data: BackupSettings) => settingsService.updateBackupSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backupSettings'] });
       setSnackbar({
@@ -83,23 +97,18 @@ const BackupSettingsPage: FC = () => {
 
   const triggerBackupMutation = useMutation({
     mutationFn: settingsService.triggerBackup,
-    onMutate: () => {
-      setIsBackupInProgress(true);
-    },
-    onSuccess: (data) => {
-      setIsBackupInProgress(false);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backupSettings'] });
       setSnackbar({
         open: true,
-        message: data.message || 'Backup completed successfully',
+        message: 'Backup process started successfully',
         severity: 'success'
       });
     },
     onError: () => {
-      setIsBackupInProgress(false);
       setSnackbar({
         open: true,
-        message: 'Failed to create backup',
+        message: 'Failed to start backup process',
         severity: 'error'
       });
     }
@@ -182,16 +191,16 @@ const BackupSettingsPage: FC = () => {
               />
             </Box>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth disabled={!formData.autoBackup}>
                   <InputLabel id="backup-frequency-label">Backup Frequency</InputLabel>
                   <Select
                     labelId="backup-frequency-label"
-                    name="backupFrequency"
                     value={formData.backupFrequency}
                     label="Backup Frequency"
                     onChange={handleFrequencyChange}
+                    name="backupFrequency"
                   >
                     <MenuItem value="DAILY">Daily</MenuItem>
                     <MenuItem value="WEEKLY">Weekly</MenuItem>
@@ -199,43 +208,66 @@ const BackupSettingsPage: FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Backup Time"
-                  name="backupTime"
-                  type="time"
-                  value={formData.backupTime}
-                  onChange={handleInputChange}
-                  disabled={!formData.autoBackup}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Backup Location"
-                  name="backupLocation"
-                  value={formData.backupLocation}
-                  onChange={handleInputChange}
-                  disabled={!formData.autoBackup}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Retention Period (Days)"
-                  name="retentionPeriodDays"
+                  label="Max Backups to Keep"
                   type="number"
-                  value={formData.retentionPeriodDays}
+                  name="maxBackupCount"
+                  value={formData.maxBackupCount}
                   onChange={handleInputChange}
                   disabled={!formData.autoBackup}
-                  InputProps={{ inputProps: { min: 1, max: 365 } }}
+                  helperText="Older backups will be automatically deleted"
                 />
               </Grid>
+            </Grid>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" gutterBottom>
+              Backup Location
+            </Typography>
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel id="backup-location-label">Backup Storage Location</InputLabel>
+                  <Select
+                    labelId="backup-location-label"
+                    value={formData.backupLocation}
+                    label="Backup Storage Location"
+                    onChange={handleInputChange}
+                    name="backupLocation"
+                  >
+                    <MenuItem value="local">Local Storage</MenuItem>
+                    <MenuItem value="cloud">Cloud Storage</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              {formData.backupLocation === 'cloud' && (
+                <>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Cloud Service URL"
+                      name="cloudServiceUrl"
+                      value={formData.cloudServiceUrl}
+                      onChange={handleInputChange}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Cloud Service API Key"
+                      name="cloudServiceKey"
+                      value={formData.cloudServiceKey}
+                      onChange={handleInputChange}
+                      type="password"
+                    />
+                  </Grid>
+                </>
+              )}
             </Grid>
 
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
@@ -252,48 +284,66 @@ const BackupSettingsPage: FC = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Card>
+          <Card sx={{ mt: 2 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Backup Status
+                Manual Backup
               </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                Start a new backup process manually or restore from an existing backup.
+              </Typography>
+              
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Last backup: {formatDateTime(settings?.lastBackupDate)}
+              </Typography>
+              
               <List>
-                <ListItem>
-                  <ListItemText 
-                    primary="Last Backup" 
-                    secondary={formatDateTime(settings?.lastBackupAt)} 
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="Next Scheduled Backup" 
-                    secondary={formatDateTime(settings?.nextBackupAt)} 
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="Automatic Backup" 
-                    secondary={
-                      <Chip 
-                        label={settings?.autoBackup ? 'Enabled' : 'Disabled'} 
-                        color={settings?.autoBackup ? 'success' : 'default'}
-                        size="small"
-                      />
-                    } 
-                  />
-                </ListItem>
+                {settings?.recentBackups?.map((backup, index) => (
+                  <ListItem key={index}>
+                    <ListItemText 
+                      primary={formatDateTime(backup.date)} 
+                      secondary={`Size: ${backup.size}`} 
+                    />
+                    <Chip 
+                      size="small" 
+                      label={backup.type} 
+                      color={backup.type === 'FULL' ? 'primary' : 'secondary'}
+                    />
+                  </ListItem>
+                ))}
               </List>
             </CardContent>
             <CardActions>
-              <Button
-                fullWidth
-                variant="contained"
+              <Button 
+                fullWidth 
+                variant="contained" 
                 color="primary"
-                startIcon={isBackupInProgress ? <CircularProgress size={24} color="inherit" /> : <CloudUploadIcon />}
+                startIcon={<CloudUploadIcon />}
                 onClick={handleTriggerBackup}
-                disabled={isBackupInProgress || triggerBackupMutation.isPending}
+                disabled={triggerBackupMutation.isPending}
               >
-                {isBackupInProgress ? 'Backup in Progress' : 'Create Backup Now'}
+                Backup Now
+              </Button>
+            </CardActions>
+          </Card>
+          
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Restore Backup
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Restore your system from a previously created backup. This will replace current data.
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button 
+                fullWidth 
+                variant="outlined" 
+                color="primary"
+                startIcon={<CloudDownloadIcon />}
+              >
+                Restore From Backup
               </Button>
             </CardActions>
           </Card>
@@ -311,6 +361,15 @@ const BackupSettingsPage: FC = () => {
         </Alert>
       </Snackbar>
     </Box>
+  );
+};
+
+// Wrap the component with PageWrapper for error boundary
+const BackupSettingsPage: FC = () => {
+  return (
+    <PageWrapper title="Backup Settings">
+      <BackupSettingsContent />
+    </PageWrapper>
   );
 };
 

@@ -26,6 +26,7 @@ import { settingsService } from '../../services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LanguageSettings } from '../../types';
 import { useLanguage } from '../../contexts/LanguageContext';
+import PageWrapper from '../../components/PageWrapper';
 
 const availableLanguages = [
   { code: 'en', name: 'English' },
@@ -40,7 +41,7 @@ const availableLanguages = [
   { code: 'de', name: 'German' }
 ];
 
-const LanguageSettingsPage: FC = () => {
+const LanguageSettingsContent: FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: 'success' | 'error'}>({
     open: false,
@@ -247,7 +248,7 @@ const LanguageSettingsPage: FC = () => {
           ))}
         </List>
 
-        <Box sx={{ display: 'flex', mt: 3, maxWidth: 400 }}>
+        <Box sx={{ display: 'flex', mt: 2, mb: 1 }}>
           <FormControl fullWidth sx={{ mr: 1 }}>
             <InputLabel id="add-language-label">{translate('addLanguage') || 'Add Language'}</InputLabel>
             <Select
@@ -287,6 +288,15 @@ const LanguageSettingsPage: FC = () => {
         </Alert>
       </Snackbar>
     </Box>
+  );
+};
+
+// Wrap the component with PageWrapper for error boundary
+const LanguageSettingsPage: FC = () => {
+  return (
+    <PageWrapper title="Language Settings">
+      <LanguageSettingsContent />
+    </PageWrapper>
   );
 };
 

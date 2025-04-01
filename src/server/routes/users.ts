@@ -1,20 +1,20 @@
 import { Router } from 'express';
-import { getRepository } from 'typeorm';
+import AppDataSource from '../config/ormconfig';
 import { User } from '../entities/User';
 import { UserRole } from '../../shared/types';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 
 const router = Router();
+const userRepository = AppDataSource.getRepository(User);
 
 // User login
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const userRepository = getRepository(User);
     const user = await userRepository.findOne({
-      where: { username, isActive: true }
+      where: { username, active: true }
     });
 
     if (!user) {
@@ -30,12 +30,9 @@ router.post('/login', async (req, res) => {
     user.lastLogin = new Date();
     await userRepository.save(user);
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-    );
+    // Generate JWT token with a simpler approach
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    const token = jwt.sign({ id: user.id, role: user.role }, secret);
 
     res.json({
       token,
@@ -66,14 +63,13 @@ router.post('/', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const userRepository = getRepository(User);
     const user = userRepository.create({
       username,
       passwordHash,
       fullName,
       email,
       role: role as UserRole,
-      isActive: true
+      active: true
     });
 
     await userRepository.save(user);
@@ -93,9 +89,8 @@ router.post('/', async (req, res) => {
 // Get all users (admin only)
 router.get('/', async (req, res) => {
   try {
-    const userRepository = getRepository(User);
     const users = await userRepository.find({
-      select: ['id', 'username', 'fullName', 'email', 'role', 'isActive', 'lastLogin']
+      select: ['id', 'username', 'fullName', 'email', 'role', 'active', 'lastLogin']
     });
     res.json(users);
   } catch (error) {
@@ -107,7 +102,6 @@ router.get('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { fullName, email, role, isActive, password } = req.body;
-    const userRepository = getRepository(User);
 
     const user = await userRepository.findOne({
       where: { id: parseInt(req.params.id) }
@@ -121,7 +115,7 @@ router.put('/:id', async (req, res) => {
     if (fullName) user.fullName = fullName;
     if (email) user.email = email;
     if (role) user.role = role as UserRole;
-    if (typeof isActive === 'boolean') user.isActive = isActive;
+    if (typeof isActive === 'boolean') user.active = isActive;
     
     // Update password if provided
     if (password) {
@@ -137,7 +131,7 @@ router.put('/:id', async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
-      isActive: user.isActive
+      active: user.active
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update user' });

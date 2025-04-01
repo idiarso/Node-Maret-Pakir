@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    networks:
+      - parking-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=parking_user
+      - DB_PASSWORD=parking_password
+      - DB_DATABASE=parking_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - parking-network
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=parking_user
+      - POSTGRES_PASSWORD=parking_password
+      - POSTGRES_DB=parking_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - parking-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - parking-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  parking-network:
+    driver: bridge 

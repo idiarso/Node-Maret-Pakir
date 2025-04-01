@@ -60,11 +60,11 @@ const ParkingSessionsPage: FC = () => {
     try {
       const data = await parkingSessionService.getAll();
       // Add mock image URLs if they don't exist
-      const enhancedData = data.map(session => ({
+      const enhancedData = data && Array.isArray(data) ? data.map(session => ({
         ...session,
         vehicleImageUrl: session.vehicleImageUrl || `https://source.unsplash.com/random/300x200?car&sig=${session.id}`,
         barcodeImageUrl: session.barcodeImageUrl || `https://barcodeapi.org/api/code128/${session.licensePlate.replace(/\s/g, '')}`
-      }));
+      })) : [];
       setSessions(enhancedData);
     } catch (err) {
       console.error('Error fetching parking sessions:', err);

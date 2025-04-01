@@ -1,25 +1,29 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
 
 // Define the enum for vehicle types
 export enum VehicleType {
     CAR = "CAR",
     MOTORCYCLE = "MOTORCYCLE",
     TRUCK = "TRUCK",
-    VAN = "VAN"
+    VAN = "VAN",
+    BUS = "BUS"
 }
 
 @Entity("parking_rates")
+@Index(['vehicle_type', 'effective_from', 'effective_to'])
+@Index(['is_weekend_rate', 'is_holiday_rate'])
 export class ParkingRate {
     @PrimaryGeneratedColumn()
     id!: number;
 
     @Column({
         type: 'enum',
-        enum: VehicleType
+        enum: VehicleType,
+        nullable: false
     })
-    vehicle_type!: string;
+    vehicle_type!: VehicleType;
 
-    @Column("decimal", { precision: 10, scale: 2 })
+    @Column("decimal", { precision: 10, scale: 2, nullable: false })
     base_rate!: number;
 
     @Column("decimal", { precision: 10, scale: 2, nullable: true, default: 0 })
@@ -34,19 +38,19 @@ export class ParkingRate {
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     monthly_rate?: number;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, default: 15 })
     grace_period?: number;
 
-    @Column({ nullable: true })
+    @Column({ default: false })
     is_weekend_rate?: boolean;
 
-    @Column({ nullable: true })
+    @Column({ default: false })
     is_holiday_rate?: boolean;
 
-    @Column({ type: 'date' })
+    @Column({ type: 'timestamp', nullable: false })
     effective_from!: Date;
 
-    @Column({ type: 'date', nullable: true })
+    @Column({ type: 'timestamp', nullable: true })
     effective_to?: Date;
 
     @CreateDateColumn({ type: 'timestamp with time zone' })

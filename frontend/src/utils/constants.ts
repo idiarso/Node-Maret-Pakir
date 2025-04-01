@@ -11,8 +11,36 @@ export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 // Vehicle Types
-export const VEHICLE_TYPES = ['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN'] as const;
-export type VehicleType = typeof VEHICLE_TYPES[number];
+export enum VehicleType {
+  MOTORCYCLE = 'MOTORCYCLE',
+  CAR = 'CAR',
+  TRUCK = 'TRUCK',
+  VAN = 'VAN',
+  BUS = 'BUS'
+}
+
+const vehicleTypeTranslations = {
+  [VehicleType.CAR]: {
+    'en': 'Car',
+    'id': 'Mobil'
+  },
+  [VehicleType.MOTORCYCLE]: {
+    'en': 'Motorcycle',
+    'id': 'Motor'
+  },
+  [VehicleType.TRUCK]: {
+    'en': 'Truck',
+    'id': 'Truk'
+  },
+  [VehicleType.VAN]: {
+    'en': 'Van',
+    'id': 'Van'
+  },
+  [VehicleType.BUS]: {
+    'en': 'Bus',
+    'id': 'Bus'
+  }
+};
 
 // Payment Status
 export const PAYMENT_STATUS = ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'] as const;
@@ -62,7 +90,7 @@ export default {
   AUTH_HEADER,
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  VEHICLE_TYPES,
+  VEHICLE_TYPES: VehicleType,
   PAYMENT_STATUS,
   USER_ROLES,
   ROUTES,

@@ -25,7 +25,12 @@ import {
   CardContent,
   Avatar,
   Tabs,
-  Tab
+  Tab,
+  Select,
+  FormControl,
+  InputLabel,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { 
   Add as AddIcon,
@@ -35,11 +40,13 @@ import {
   DirectionsCar as CarIcon,
   TwoWheeler as MotorcycleIcon,
   LocalShipping as TruckIcon,
-  AirportShuttle as VanIcon
+  AirportShuttle as VanIcon,
+  DirectionsBus as BusIcon,
+  TimeToLeave as OtherIcon
 } from '@mui/icons-material';
 import api from '../services/api';
 import { ApiResponse } from '../types';
-import { API_BASE_URL, VEHICLE_TYPES, VehicleType } from '../utils/constants';
+import { API_BASE_URL, VehicleType } from '../utils/constants';
 
 interface Vehicle {
   id: number;
@@ -53,16 +60,21 @@ interface Vehicle {
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
+  ownerPhone?: string;
+  ownerEmail?: string;
+  notes?: string;
 }
 
 interface VehicleFormData {
-  licensePlate: string;
+  plateNumber: string;
   type: VehicleType;
   make: string;
   model: string;
   color: string;
-  userId?: number;
   ownerName: string;
+  ownerPhone: string;
+  ownerEmail: string;
+  notes: string;
   active: boolean;
 }
 
@@ -74,13 +86,17 @@ const VehiclesPage: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [selectedTab, setSelectedTab] = useState<string | VehicleType>('ALL');
+  const [selectedType, setSelectedType] = useState<VehicleType | 'ALL'>('ALL');
   const [formData, setFormData] = useState<VehicleFormData>({
-    licensePlate: '',
-    type: 'CAR',
+    plateNumber: '',
+    type: VehicleType.CAR,
     make: '',
     model: '',
     color: '',
     ownerName: '',
+    ownerPhone: '',
+    ownerEmail: '',
+    notes: '',
     active: true
   });
 
@@ -157,6 +173,11 @@ const VehiclesPage: React.FC = () => {
   };
 
   const filterVehicles = (vehiclesList: Vehicle[], filter: string | VehicleType) => {
+    if (!Array.isArray(vehiclesList)) {
+      setFilteredVehicles([]);
+      return;
+    }
+    
     if (filter === 'ALL') {
       setFilteredVehicles(vehiclesList);
     } else {
@@ -176,24 +197,29 @@ const VehiclesPage: React.FC = () => {
     if (vehicle) {
       setEditVehicle(vehicle);
       setFormData({
-        licensePlate: vehicle.licensePlate,
+        plateNumber: vehicle.licensePlate,
         type: vehicle.type,
         make: vehicle.make,
         model: vehicle.model,
         color: vehicle.color,
-        userId: vehicle.userId,
         ownerName: vehicle.ownerName,
+        ownerPhone: vehicle.ownerPhone || '',
+        ownerEmail: vehicle.ownerEmail || '',
+        notes: vehicle.notes || '',
         active: vehicle.active
       });
     } else {
       setEditVehicle(null);
       setFormData({
-        licensePlate: '',
-        type: 'CAR',
+        plateNumber: '',
+        type: VehicleType.CAR,
         make: '',
         model: '',
         color: '',
         ownerName: '',
+        ownerPhone: '',
+        ownerEmail: '',
+        notes: '',
         active: true
       });
     }
@@ -247,16 +273,17 @@ const VehiclesPage: React.FC = () => {
 
   const getVehicleIcon = (type: VehicleType) => {
     switch (type) {
-      case 'CAR':
+      case VehicleType.CAR:
         return <CarIcon />;
-      case 'MOTORCYCLE':
+      case VehicleType.MOTORCYCLE:
         return <MotorcycleIcon />;
-      case 'TRUCK':
+      case VehicleType.TRUCK:
         return <TruckIcon />;
-      case 'VAN':
-        return <VanIcon />;
+      case VehicleType.BUS:
+        return <BusIcon />;
+      case VehicleType.OTHER:
       default:
-        return <CarIcon />;
+        return <OtherIcon />;
     }
   };
 
@@ -331,7 +358,7 @@ const VehiclesPage: React.FC = () => {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab value="ALL" label="All Vehicles" />
-          {VEHICLE_TYPES.map((type) => (
+          {Object.values(VehicleType).map((type) => (
             <Tab key={type} value={type} label={type} icon={getVehicleIcon(type)} iconPosition="start" />
           ))}
         </Tabs>
@@ -483,10 +510,10 @@ const VehiclesPage: React.FC = () => {
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
-                name="licensePlate"
+                name="plateNumber"
                 label="License Plate"
                 fullWidth
-                value={formData.licensePlate}
+                value={formData.plateNumber}
                 onChange={handleInputChange}
                 required
               />
@@ -501,7 +528,7 @@ const VehiclesPage: React.FC = () => {
                 onChange={handleInputChange}
                 required
               >
-                {VEHICLE_TYPES.map((type) => (
+                {Object.values(VehicleType).map((type) => (
                   <MenuItem key={type} value={type}>
                     {type}
                   </MenuItem>

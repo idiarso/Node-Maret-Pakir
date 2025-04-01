@@ -1,12 +1,14 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
 import { api } from '../utils/api';
+import { LoginCredentials } from '../hooks/useAuth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  isAuthenticated: boolean;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
 }
@@ -27,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      const response = await api.get<User>('/auth/me');
+      const response = await api.get<User>('/api/auth/me');
       setUser(response.data);
       setError(null);
     } catch (err) {
@@ -40,13 +42,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await api.post<{ token: string; user: User }>('/auth/login', {
-        email,
+      const response = await api.post<{ token: string; user: User }>('/api/auth/login', {
+        username,
         password,
       });
 
@@ -76,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     loading,
     error,
+    isAuthenticated: !!user,
     login,
     logout,
     checkAuth,

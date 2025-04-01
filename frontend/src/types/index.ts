@@ -173,20 +173,20 @@ export interface Ticket {
 
 export interface ParkingRate {
   id: number;
-  vehicleType: string;
-  baseRate: number;
-  hourlyRate: number;
-  maxDailyRate: number;
-  isActive: boolean;
-  specialRates?: {
-    id: number;
-    name: string;
-    startTime: string;
-    endTime: string;
-    rate: number;
-  }[];
-  createdAt: Date;
-  updatedAt: Date;
+  vehicle_type: VehicleType;
+  base_rate: number;
+  hourly_rate: number;
+  daily_rate: number;
+  weekly_rate?: number;
+  monthly_rate?: number;
+  grace_period?: number;
+  is_weekend_rate: boolean;
+  is_holiday_rate: boolean;
+  effective_from: string;
+  effective_to?: string | null;
+  status: 'active' | 'inactive';
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface ParkingFee {

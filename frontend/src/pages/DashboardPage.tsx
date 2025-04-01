@@ -13,6 +13,8 @@ import {
   DialogTitle,
   Snackbar,
   Alert,
+  Paper,
+  CircularProgress
 } from '@mui/material';
 import {
   LocalParking as ParkingIcon,
@@ -20,70 +22,86 @@ import {
   TrendingUp as TrendingUpIcon,
   AccessTime as AccessTimeIcon,
   Refresh as RefreshIcon,
+  ErrorOutline as ErrorIcon,
+  WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
-import axios from 'axios';
+import {
+  dashboardService,
+  DashboardData,
+  DashboardResponse,
+  checkServerConnection,
+  ApiError,
+  resetServerConnectionStatus
+} from '../services/api'; // Tambahkan resetServerConnectionStatus
 import { useLanguage } from '../contexts/LanguageContext';
-
-interface DashboardData {
-  activeTickets: number;
-  totalTickets: number;
-  availableSpots: number;
-  totalCapacity: number;
-  occupancyRate: number;
-  todayRevenue: number;
-  weeklyRevenue: number;
-  monthlyRevenue: number;
-  averageDuration: string;
-  peakHours: string[];
-  totalVehicles: number;
-  vehicleTypes: {
-    car: number;
-    motorcycle: number;
-    truck: number;
-  };
-  deviceStatus: {
-    online: number;
-    offline: number;
-    maintenance: number;
-  };
-  recentTransactions: Array<{
-    id: number;
-    licensePlate: string;
-    amount: number;
-    vehicleType: string;
-    timestamp: string;
-    duration: string;
-  }>;
-}
-
-interface DashboardResponse {
-  success: boolean;
-  message: string;
-  data: DashboardData;
-}
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const DashboardPage: React.FC = () => {
   const { translate } = useLanguage();
+  const { user, checkAuth } = useAuth();
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isServerConnected, setIsServerConnected] = useState<boolean>(true);
   const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error';
+    severity: 'success' | 'error' | 'warning' | 'info';
   }>({
     open: false,
     message: '',
     severity: 'success',
   });
 
+  const checkConnection = async () => {
+    try {
+      const isConnected = await checkServerConnection();
+      setIsServerConnected(isConnected);
+      return isConnected;
+    } catch (error) {
+      setIsServerConnected(false);
+      return false;
+    }
+  };
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get<DashboardData>('http://localhost:3000/api/dashboard');
-      setDashboardData(response.data);
-    } catch (error) {
+      setError(null);
+      
+      // Reset server connection status when user manually tries to connect
+      resetServerConnectionStatus();
+      
+      // First check if server is available
+      const isConnected = await checkConnection();
+      if (!isConnected) {
+        setError('Server tidak tersedia. Silahkan cek koneksi jaringan atau status server.');
+        setLoading(false);
+        return;
+      }
+      
+      // Check authentication before fetching data
+      await checkAuth();
+      
+      const data = await dashboardService.getData();
+      setDashboardData(data);
+    } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
+      if (error.isConnectionError) {
+        setError('Tidak dapat terhubung ke server. Silahkan periksa koneksi Anda.');
+        setIsServerConnected(false);
+      } else if (error.response?.status === 401 || error.message?.includes('Unauthorized')) {
+        setError('Anda perlu login untuk melihat dashboard');
+        // Redirect ke halaman login jika user belum login
+        if (!user) {
+          navigate('/login');
+        }
+      } else {
+        setError(`Error mengambil data: ${error.response?.data?.message || error.message || 'Server error'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -91,24 +109,53 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    
+    // Set up polling to check server connection every 30 seconds
+    const intervalId = setInterval(() => {
+      if (!isServerConnected) {
+        checkConnection().then(isConnected => {
+          if (isConnected) {
+            fetchDashboardData();
+          }
+        });
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [isServerConnected]);
 
   const handleResetData = async () => {
     try {
-      const response = await axios.post<DashboardResponse>('http://localhost:3000/api/dashboard/reset');
-      if (response.data.success) {
-        setDashboardData(response.data.data);
+      // Reset connection status before checking
+      resetServerConnectionStatus();
+      
+      const isConnected = await checkConnection();
+      if (!isConnected) {
+        setSnackbar({
+          open: true,
+          message: 'Server tidak tersedia. Silahkan cek koneksi jaringan atau status server.',
+          severity: 'error',
+        });
+        setConfirmOpen(false);
+        return;
+      }
+      
+      const response = await dashboardService.resetData();
+      if (response.success) {
+        setDashboardData(response.data);
         setSnackbar({
           open: true,
           message: translate('dataResetSuccess'),
           severity: 'success',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resetting dashboard data:', error);
       setSnackbar({
         open: true,
-        message: 'Error resetting data',
+        message: error.isConnectionError 
+          ? 'Tidak dapat terhubung ke server. Silahkan periksa koneksi Anda.'
+          : error.response?.data?.message || error.message || 'Error resetting data',
         severity: 'error',
       });
     } finally {
@@ -146,10 +193,54 @@ const DashboardPage: React.FC = () => {
     </Card>
   );
 
+  // Error component for better visualization
+  const ErrorDisplay = () => (
+    <Paper 
+      elevation={3} 
+      sx={{ 
+        p: 3, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center',
+        bgcolor: 'error.light',
+        color: 'error.contrastText'
+      }}
+    >
+      {!isServerConnected ? (
+        <WifiOffIcon sx={{ fontSize: 60, mb: 2 }} />
+      ) : (
+        <ErrorIcon sx={{ fontSize: 60, mb: 2 }} />
+      )}
+      <Typography variant="h5" gutterBottom align="center">
+        {!isServerConnected ? 'Koneksi Server Terputus' : 'Error'}
+      </Typography>
+      <Typography align="center" sx={{ mb: 3 }}>
+        {error}
+      </Typography>
+      <Button 
+        variant="contained" 
+        color="primary" 
+        onClick={fetchDashboardData}
+        startIcon={<RefreshIcon />}
+      >
+        Coba Lagi
+      </Button>
+    </Paper>
+  );
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <Typography>Loading...</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px', flexDirection: 'column', p: 3 }}>
+        <CircularProgress size={60} sx={{ mb: 2 }} />
+        <Typography>Loading Dashboard...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3, width: '100%' }}>
+        <ErrorDisplay />
       </Box>
     );
   }
@@ -170,6 +261,7 @@ const DashboardPage: React.FC = () => {
           color="warning" 
           startIcon={<RefreshIcon />}
           onClick={() => setConfirmOpen(true)}
+          disabled={!isServerConnected}
         >
           {translate('resetData')}
         </Button>

@@ -206,67 +206,75 @@ const UsersPage: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users?.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{user.full_name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.role}
-                        color={getRoleColor(user.role)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.status}
-                        color={user.status === 'active' ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {user.last_login
-                        ? new Date(user.last_login).toLocaleString()
-                        : 'Never'}
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDialog(user)}
-                        color="primary"
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => toggleStatusMutation.mutate(user.id)}
-                        color={user.status === 'active' ? 'error' : 'success'}
-                      >
-                        {user.status === 'active' ? (
-                          <BlockIcon />
-                        ) : (
-                          <CheckCircleIcon />
-                        )}
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              'Are you sure you want to delete this user?'
-                            )
-                          ) {
-                            deleteMutation.mutate(user.id);
-                          }
-                        }}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                {Array.isArray(users) && users.length > 0 ? (
+                  users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>{user.full_name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.role}
+                          color={getRoleColor(user.role)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.status}
+                          color={user.status === 'active' ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {user.last_login
+                          ? new Date(user.last_login).toLocaleString()
+                          : 'Never'}
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenDialog(user)}
+                          color="primary"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleStatusMutation.mutate(user.id)}
+                          color={user.status === 'active' ? 'error' : 'success'}
+                        >
+                          {user.status === 'active' ? (
+                            <BlockIcon />
+                          ) : (
+                            <CheckCircleIcon />
+                          )}
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                'Are you sure you want to delete this user?'
+                              )
+                            ) {
+                              deleteMutation.mutate(user.id);
+                            }
+                          }}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      {isLoading ? 'Loading users...' : 'No users found'}
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>

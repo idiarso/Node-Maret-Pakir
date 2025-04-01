@@ -1,105 +1,97 @@
 import { Router } from 'express';
 import { ParkingRateController } from '../controllers/parkingRate.controller';
-import AppDataSource from '../config/ormconfig';
-import { ParkingRate, VehicleType } from '../entities/ParkingRate';
+import { authMiddleware, validateRequest } from '../middleware';
+import { z } from 'zod';
+import { VehicleType } from '../entities/ParkingRate';
 
 const router = Router();
-const parkingRateController = new ParkingRateController();
+const controller = new ParkingRateController();
 
-// Debug endpoint to create a test parking rate
-router.get('/debug-create', async (req, res) => {
-    try {
-        const parkingRateRepository = AppDataSource.getRepository(ParkingRate);
-        const newRate = parkingRateRepository.create({
-            vehicle_type: 'MOTORCYCLE', // Updated to use the correct enum value
-            base_rate: 2500,
-            hourly_rate: 1000,
-            daily_rate: 10000,
-            effective_from: new Date('2025-01-01')
-        });
+// Validation schemas
+const createRateSchema = {
+  body: z.object({
+    vehicle_type: z.nativeEnum(VehicleType),
+    base_rate: z.number().positive(),
+    hourly_rate: z.number().min(0).optional(),
+    daily_rate: z.number().positive().optional(),
+    weekly_rate: z.number().positive().optional(),
+    monthly_rate: z.number().positive().optional(),
+    grace_period: z.number().int().min(0).optional(),
+    is_weekend_rate: z.boolean().optional(),
+    is_holiday_rate: z.boolean().optional(),
+    effective_from: z.string().datetime(),
+    effective_to: z.string().datetime().optional()
+  })
+};
 
-        const result = await parkingRateRepository.save(newRate);
-        return res.json(result);
-    } catch (error) {
-        console.error('Debug create error:', error);
-        return res.status(500).json({ error: String(error) });
-    }
-});
+const updateRateSchema = {
+  params: z.object({
+    id: z.string().transform(Number)
+  }),
+  body: z.object({
+    vehicle_type: z.nativeEnum(VehicleType).optional(),
+    base_rate: z.number().positive().optional(),
+    hourly_rate: z.number().min(0).optional(),
+    daily_rate: z.number().positive().optional(),
+    weekly_rate: z.number().positive().optional(),
+    monthly_rate: z.number().positive().optional(),
+    grace_period: z.number().int().min(0).optional(),
+    is_weekend_rate: z.boolean().optional(),
+    is_holiday_rate: z.boolean().optional(),
+    effective_from: z.string().datetime().optional(),
+    effective_to: z.string().datetime().optional()
+  })
+};
 
-// Debug endpoint to create sample parking rates for all vehicle types
-router.get('/create-samples', async (req, res) => {
-    try {
-        const parkingRateRepository = AppDataSource.getRepository(ParkingRate);
-        
-        const rates = [
-            {
-                vehicle_type: VehicleType.CAR,
-                base_rate: 5000,
-                hourly_rate: 2000,
-                daily_rate: 20000,
-                effective_from: new Date('2025-01-01')
-            },
-            {
-                vehicle_type: VehicleType.MOTORCYCLE,
-                base_rate: 2500,
-                hourly_rate: 1000,
-                daily_rate: 10000,
-                effective_from: new Date('2025-01-01')
-            },
-            {
-                vehicle_type: VehicleType.TRUCK,
-                base_rate: 10000,
-                hourly_rate: 5000,
-                daily_rate: 50000,
-                effective_from: new Date('2025-01-01')
-            },
-            {
-                vehicle_type: VehicleType.VAN,
-                base_rate: 7500,
-                hourly_rate: 3000,
-                daily_rate: 30000,
-                effective_from: new Date('2025-01-01')
-            }
-        ];
-        
-        // Insert or update rates
-        const results = [];
-        for (const rate of rates) {
-            // Check if rate already exists for this vehicle type
-            const existing = await parkingRateRepository.findOne({
-                where: { vehicle_type: rate.vehicle_type }
-            });
-            
-            if (existing) {
-                // Update existing
-                Object.assign(existing, rate);
-                results.push(await parkingRateRepository.save(existing));
-            } else {
-                // Create new
-                results.push(await parkingRateRepository.save(parkingRateRepository.create(rate)));
-            }
-        }
-        
-        return res.json(results);
-    } catch (error) {
-        console.error('Error creating sample rates:', error);
-        return res.status(500).json({ error: String(error) });
-    }
-});
+const getRateByIdSchema = {
+  params: z.object({
+    id: z.string().transform(Number)
+  })
+};
 
-// Get all parking rates
-router.get('/', parkingRateController.getAllParkingRates);
+const deleteRateSchema = {
+  params: z.object({
+    id: z.string().transform(Number)
+  })
+};
 
-// Get a specific parking rate by ID
-router.get('/:id', parkingRateController.getParkingRateById);
+const getActiveRatesSchema = {
+  params: z.object({
+    vehicleType: z.nativeEnum(VehicleType)
+  })
+};
 
-// Create a new parking rate
-router.post('/', parkingRateController.createParkingRate);
+// Routes
+router.get('/', authMiddleware, controller.getAllRates);
 
-// Update an existing parking rate
-router.put('/:id', parkingRateController.updateParkingRate);
+router.get('/:id', 
+  authMiddleware, 
+  validateRequest(getRateByIdSchema),
+  controller.getRateById
+);
 
-// Delete a parking rate
-router.delete('/:id', parkingRateController.deleteParkingRate);
+router.post('/', 
+  authMiddleware, 
+  validateRequest(createRateSchema),
+  controller.createRate
+);
+
+router.put('/:id', 
+  authMiddleware, 
+  validateRequest(updateRateSchema),
+  controller.updateRate
+);
+
+router.delete('/:id', 
+  authMiddleware, 
+  validateRequest(deleteRateSchema),
+  controller.deleteRate
+);
+
+router.get('/active/:vehicleType',
+  authMiddleware,
+  validateRequest(getActiveRatesSchema),
+  controller.getActiveRatesByVehicleType
+);
 
 export default router; 

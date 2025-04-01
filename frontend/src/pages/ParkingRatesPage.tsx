@@ -25,7 +25,8 @@ import {
   Switch,
   FormControlLabel,
   Snackbar,
-  Alert
+  Alert,
+  SelectChangeEvent
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -35,43 +36,47 @@ import { parkingRateService } from '../services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ParkingRate } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import PageWrapper from '../components/PageWrapper';
+import { VehicleType } from '../utils/constants';
 
 const vehicleTypeTranslations = {
-  'Car': {
+  [VehicleType.CAR]: {
     'en': 'Car',
     'id': 'Mobil'
   },
-  'Motorcycle': {
+  [VehicleType.MOTORCYCLE]: {
     'en': 'Motorcycle',
     'id': 'Motor'
   },
-  'Truck': {
+  [VehicleType.TRUCK]: {
     'en': 'Truck',
     'id': 'Truk'
   },
-  'Bus': {
+  [VehicleType.VAN]: {
+    'en': 'Van',
+    'id': 'Van'
+  },
+  [VehicleType.BUS]: {
     'en': 'Bus',
     'id': 'Bus'
-  },
-  'Other': {
-    'en': 'Other',
-    'id': 'Lainnya'
   }
 };
 
-const vehicleTypes = ['Car', 'Motorcycle', 'Truck', 'Bus', 'Other'];
+const vehicleTypes = Object.values(VehicleType);
 
-const ParkingRatesPage: FC = () => {
+const ParkingRatesPageContent: FC = () => {
   const { translate, currentLanguage } = useLanguage();
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedRate, setSelectedRate] = useState<ParkingRate | null>(null);
   const [formData, setFormData] = useState<Partial<ParkingRate>>({
-    vehicleType: '',
-    baseRate: 0,
-    hourlyRate: 0,
-    maxDailyRate: 0,
-    isActive: true
+    vehicle_type: VehicleType.CAR,
+    base_rate: 0,
+    status: 'active'
   });
+  const [formErrors, setFormErrors] = useState<{
+    vehicle_type?: string;
+    base_rate?: string;
+  }>({});
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -127,11 +132,25 @@ const ParkingRatesPage: FC = () => {
         severity: 'success',
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error updating parking rate:', error);
+      
+      // Get a readable error message
+      let errorMessage = translate('errorUpdatingParkingRate');
+      if (error.response) {
+        // Server responded with an error
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else {
+          errorMessage = `${translate('errorUpdatingParkingRate')}: ${error.response.status}`;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setSnackbar({
         open: true,
-        message: translate('errorUpdatingParkingRate'),
+        message: errorMessage,
         severity: 'error',
       });
     }
@@ -160,15 +179,15 @@ const ParkingRatesPage: FC = () => {
   const handleOpenDialog = (rate?: ParkingRate) => {
     if (rate) {
       setSelectedRate(rate);
-      setFormData(rate);
+      setFormData({
+        ...rate
+      });
     } else {
       setSelectedRate(null);
       setFormData({
-        vehicleType: '',
-        baseRate: 0,
-        hourlyRate: 0,
-        maxDailyRate: 0,
-        isActive: true
+        vehicle_type: VehicleType.CAR,
+        base_rate: 0,
+        status: 'active'
       });
     }
     setOpenDialog(true);
@@ -179,26 +198,99 @@ const ParkingRatesPage: FC = () => {
     setSelectedRate(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const { name, value, checked } = e.target as HTMLInputElement;
-    if (name === 'isActive') {
+  // Handle Select change
+  const handleSelectChange = (e: SelectChangeEvent<VehicleType>) => {
+    const { name, value } = e.target;
+    if (name === 'vehicle_type') {
       setFormData({
         ...formData,
-        [name]: checked
+        vehicle_type: value as VehicleType
       });
-    } else {
-      setFormData({
-        ...formData,
-        [name as string]: value
-      });
+      // Clear vehicle type error if exists
+      if (formErrors.vehicle_type) {
+        setFormErrors({
+          ...formErrors,
+          vehicle_type: undefined
+        });
+      }
     }
   };
 
+  // Handle input change for text fields
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (name === 'status') {
+      setFormData({
+        ...formData,
+        status: checked ? 'active' : 'inactive'
+      });
+    } else if (type === 'number') {
+      // Convert string values to numbers for numeric fields
+      const numericValue = value === '' ? 0 : Number(value);
+      if (!isNaN(numericValue)) {
+        setFormData({
+          ...formData,
+          [name]: numericValue
+        });
+        
+        // Clear error for this field if it exists
+        if (formErrors[name as keyof typeof formErrors]) {
+          setFormErrors({
+            ...formErrors,
+            [name]: undefined
+          });
+        }
+      }
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: {
+      vehicle_type?: string;
+      base_rate?: string;
+    } = {};
+    
+    // Check required fields
+    if (!formData.vehicle_type) {
+      errors.vehicle_type = translate('fieldRequired');
+    }
+    
+    // Validate numeric fields
+    if (!formData.base_rate || formData.base_rate <= 0) {
+      errors.base_rate = translate('mustBePositiveNumber');
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = () => {
+    if (!validateForm()) {
+      setSnackbar({
+        open: true,
+        message: translate('pleaseFixFormErrors'),
+        severity: 'error',
+      });
+      return;
+    }
+
+    // Transform the data to match backend expectations
+    const dataToSubmit: Partial<ParkingRate> = {
+      vehicle_type: formData.vehicle_type,
+      base_rate: Number(formData.base_rate),
+      status: formData.status || 'active'
+    };
+
+    console.log('Submitting data:', dataToSubmit);
+
     if (selectedRate) {
-      updateRateMutation.mutate({ id: selectedRate.id, data: formData });
+      updateRateMutation.mutate({ 
+        id: selectedRate.id, 
+        data: dataToSubmit 
+      });
     } else {
-      createRateMutation.mutate(formData);
+      createRateMutation.mutate(dataToSubmit);
     }
   };
 
@@ -217,7 +309,7 @@ const ParkingRatesPage: FC = () => {
            typeTranslation['en'] || 
            type;
   };
-
+  
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -253,12 +345,12 @@ const ParkingRatesPage: FC = () => {
         </Paper>
       )}
 
-      <Paper sx={{ p: 3, mt: 2 }}>
+      <Paper sx={{ p: 3 }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
           </Box>
-        ) : rates.length === 0 ? (
+        ) : !Array.isArray(rates) || rates.length === 0 ? (
           <Typography>{translate('noRatesFound')}</Typography>
         ) : (
           <TableContainer>
@@ -266,24 +358,20 @@ const ParkingRatesPage: FC = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>{translate('vehicleType')}</TableCell>
-                  <TableCell>{translate('baseRate')}</TableCell>
-                  <TableCell>{translate('hourlyRate')}</TableCell>
-                  <TableCell>{translate('maxDailyRate')}</TableCell>
+                  <TableCell>{translate('rate')}</TableCell>
                   <TableCell>{translate('status')}</TableCell>
                   <TableCell>{translate('actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {Array.isArray(rates) ? rates.map((rate) => (
-                  <TableRow key={rate.id}>
-                    <TableCell>{getVehicleTypeTranslation(rate.vehicleType)}</TableCell>
-                    <TableCell>Rp {rate.baseRate.toLocaleString('id-ID')}</TableCell>
-                    <TableCell>Rp {rate.hourlyRate.toLocaleString('id-ID')}/{translate('hour')}</TableCell>
-                    <TableCell>Rp {rate.maxDailyRate.toLocaleString('id-ID')}/{translate('day')}</TableCell>
+                {rates.map((rate) => (
+                  <TableRow key={`parking-rate-${rate.id}`}>
+                    <TableCell>{getVehicleTypeTranslation(rate.vehicle_type)}</TableCell>
+                    <TableCell>Rp {rate.base_rate ? rate.base_rate.toLocaleString() : '0'}</TableCell>
                     <TableCell>
                       <Chip 
-                        label={rate.isActive ? translate('active') : translate('inactive')} 
-                        color={rate.isActive ? 'success' : 'default'}
+                        label={rate.status === 'active' ? translate('active') : translate('inactive')} 
+                        color={rate.status === 'active' ? 'success' : 'default'}
                         size="small"
                       />
                     </TableCell>
@@ -304,13 +392,7 @@ const ParkingRatesPage: FC = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                )) : (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      {translate('errorLoadingRates')}
-                    </TableCell>
-                  </TableRow>
-                )}
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -323,66 +405,52 @@ const ParkingRatesPage: FC = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Box component="form" sx={{ mt: 1 }}>
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth margin="normal" error={!!formErrors.vehicle_type}>
               <InputLabel id="vehicle-type-label">{translate('vehicleType')}</InputLabel>
               <Select
                 labelId="vehicle-type-label"
-                name="vehicleType"
-                value={formData.vehicleType || ''}
+                name="vehicle_type"
+                value={formData.vehicle_type || VehicleType.CAR}
                 label={translate('vehicleType')}
-                onChange={(event) => {
-                  const name = "vehicleType";
-                  const value = event.target.value;
-                  setFormData({
-                    ...formData,
-                    [name]: value
-                  });
-                }}
+                onChange={handleSelectChange}
               >
-                {vehicleTypes.map((type) => (
+                {Object.values(VehicleType).map((type) => (
                   <MenuItem key={type} value={type}>
                     {getVehicleTypeTranslation(type)}
                   </MenuItem>
                 ))}
               </Select>
+              {formErrors.vehicle_type && (
+                <Typography variant="caption" color="error">
+                  {formErrors.vehicle_type}
+                </Typography>
+              )}
             </FormControl>
 
             <TextField
               margin="normal"
               fullWidth
-              label={translate('baseRate') + ' (Rp)'}
-              name="baseRate"
+              label={translate('rate') + ' (Rp)'}
+              name="base_rate"
               type="number"
-              value={formData.baseRate || ''}
+              inputProps={{ min: 0, step: "1000" }}
+              value={formData.base_rate === 0 ? '0' : formData.base_rate || ''}
               onChange={handleInputChange}
-            />
-
-            <TextField
-              margin="normal"
-              fullWidth
-              label={translate('hourlyRate') + ' (Rp)'}
-              name="hourlyRate"
-              type="number"
-              value={formData.hourlyRate || ''}
-              onChange={handleInputChange}
-            />
-
-            <TextField
-              margin="normal"
-              fullWidth
-              label={translate('maxDailyRate') + ' (Rp)'}
-              name="maxDailyRate"
-              type="number"
-              value={formData.maxDailyRate || ''}
-              onChange={handleInputChange}
+              error={!!formErrors.base_rate}
+              helperText={formErrors.base_rate}
             />
 
             <FormControlLabel 
               control={
                 <Switch 
-                  checked={formData.isActive}
-                  onChange={handleInputChange}
-                  name="isActive"
+                  checked={formData.status === 'active'}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      status: e.target.checked ? 'active' : 'inactive'
+                    });
+                  }}
+                  name="status"
                   color="primary"
                 />
               }
@@ -412,6 +480,15 @@ const ParkingRatesPage: FC = () => {
         </Alert>
       </Snackbar>
     </Box>
+  );
+};
+
+// Wrap the component with PageWrapper for error boundary
+const ParkingRatesPage: FC = () => {
+  return (
+    <PageWrapper title="Parking Rates">
+      <ParkingRatesPageContent />
+    </PageWrapper>
   );
 };
 
