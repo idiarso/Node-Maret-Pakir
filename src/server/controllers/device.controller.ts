@@ -1,17 +1,23 @@
 import { Request, Response } from "express";
-import { AppDataSource } from "../config/ormconfig";
+import AppDataSource from "../config/ormconfig";
 import { Device, DeviceType, DeviceStatus } from "../entities/Device";
 import { DeviceHealthCheck } from "../entities/DeviceHealthCheck";
 import { DeviceLog, LogType } from "../entities/DeviceLog";
-
-const deviceRepository = AppDataSource.getRepository(Device);
-const healthCheckRepository = AppDataSource.getRepository(DeviceHealthCheck);
-const deviceLogRepository = AppDataSource.getRepository(DeviceLog);
+import { DeepPartial } from "typeorm";
 
 export class DeviceController {
+    private static getRepositories() {
+        return {
+            deviceRepository: AppDataSource.getRepository(Device),
+            healthCheckRepository: AppDataSource.getRepository(DeviceHealthCheck),
+            deviceLogRepository: AppDataSource.getRepository(DeviceLog)
+        };
+    }
+
     // Get all devices
     static async getAllDevices(req: Request, res: Response) {
         try {
+            const { deviceRepository } = DeviceController.getRepositories();
             const devices = await deviceRepository.find({
                 relations: ["healthChecks", "logs"]
             });
@@ -24,6 +30,7 @@ export class DeviceController {
     // Get device by ID
     static async getDeviceById(req: Request, res: Response) {
         try {
+            const { deviceRepository } = DeviceController.getRepositories();
             const id = parseInt(req.params.id);
             const device = await deviceRepository.findOne({
                 where: { id },
@@ -43,6 +50,7 @@ export class DeviceController {
     // Create new device
     static async createDevice(req: Request, res: Response) {
         try {
+            const { deviceRepository } = DeviceController.getRepositories();
             const { name, type, location } = req.body;
             
             if (!name || !type) {
@@ -70,6 +78,7 @@ export class DeviceController {
     // Update device
     static async updateDevice(req: Request, res: Response) {
         try {
+            const { deviceRepository } = DeviceController.getRepositories();
             const id = parseInt(req.params.id);
             const { name, type, location, status } = req.body;
 
@@ -94,6 +103,7 @@ export class DeviceController {
     // Delete device
     static async deleteDevice(req: Request, res: Response) {
         try {
+            const { deviceRepository } = DeviceController.getRepositories();
             const id = parseInt(req.params.id);
             const device = await deviceRepository.findOne({ where: { id } });
             
@@ -111,6 +121,7 @@ export class DeviceController {
     // Perform health check
     static async performHealthCheck(req: Request, res: Response) {
         try {
+            const { deviceRepository, healthCheckRepository, deviceLogRepository } = DeviceController.getRepositories();
             const id = parseInt(req.params.id);
             const device = await deviceRepository.findOne({ where: { id } });
             
@@ -121,7 +132,7 @@ export class DeviceController {
             // Simulate health check (in real implementation, this would check actual device status)
             const isHealthy = Math.random() > 0.1; // 90% chance of being healthy
             const status = isHealthy ? DeviceStatus.ACTIVE : DeviceStatus.ERROR;
-            const errorMessage = isHealthy ? null : "Device reported error during health check";
+            const errorMessage = isHealthy ? undefined : "Device reported error during health check";
 
             // Update device status
             device.status = status;
@@ -132,7 +143,7 @@ export class DeviceController {
                 device,
                 status,
                 error_message: errorMessage
-            });
+            } as DeepPartial<DeviceHealthCheck>);
             await healthCheckRepository.save(healthCheck);
 
             // Create log entry
@@ -156,6 +167,7 @@ export class DeviceController {
     // Get device logs
     static async getDeviceLogs(req: Request, res: Response) {
         try {
+            const { deviceRepository, deviceLogRepository } = DeviceController.getRepositories();
             const id = parseInt(req.params.id);
             const device = await deviceRepository.findOne({ where: { id } });
             
@@ -177,6 +189,7 @@ export class DeviceController {
     // Get device health checks
     static async getDeviceHealthChecks(req: Request, res: Response) {
         try {
+            const { deviceRepository, healthCheckRepository } = DeviceController.getRepositories();
             const id = parseInt(req.params.id);
             const device = await deviceRepository.findOne({ where: { id } });
             

@@ -11,7 +11,8 @@ export class DeviceHealthCheck {
 
     @Column({
         type: "enum",
-        enum: DeviceStatus
+        enum: DeviceStatus,
+        enumName: "device_status"
     })
     status!: DeviceStatus;
 

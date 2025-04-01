@@ -1,15 +1,14 @@
-import { VehicleType, PaymentStatus, UserRole } from '../utils/constants';
+import { VehicleType, PaymentStatus, UserRole, DeviceStatus, DeviceType } from '../utils/constants';
 
 // User types
 export interface User {
   id: number;
+  username: string;
+  fullName: string;
   email: string;
-  name: string;
-  role: UserRole;
+  role: string;
   lastLogin?: Date;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  active?: boolean;
 }
 
 export interface UserInput {
@@ -81,6 +80,13 @@ export interface PaymentInput {
   method: 'cash' | 'card' | 'ewallet';
 }
 
+export interface PaymentFormData {
+  parkingFeeId: number;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  notes?: string;
+}
+
 // Report types
 export interface ReportFilter {
   startDate: string;
@@ -120,8 +126,6 @@ export interface ApiError {
 }
 
 export type PaymentMethod = 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'MOBILE_PAYMENT';
-export type DeviceType = 'PRINTER' | 'SCANNER' | 'GATE' | 'ARDUINO' | 'LOOP_DETECTOR';
-export type DeviceStatus = 'ACTIVE' | 'INACTIVE' | 'ERROR';
 export type GateStatus = 'OPEN' | 'CLOSED' | 'ERROR';
 export type NotificationType = 'SYSTEM' | 'ERROR' | 'WARNING' | 'INFO';
 export type NotificationStatus = 'UNREAD' | 'READ' | 'ARCHIVED';
@@ -140,11 +144,16 @@ export interface ParkingArea {
 
 export interface Membership {
   id: number;
-  vehicleId: number;
-  type: string;
+  customerName: string;
+  customerId: number;
+  membershipType: string;
+  vehiclePlate: string;
+  vehicleType: string;
   startDate: Date;
   endDate: Date;
   status: string;
+  discountRate: number;
+  membershipNumber: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -164,17 +173,18 @@ export interface Ticket {
 
 export interface ParkingRate {
   id: number;
-  vehicleType: VehicleType;
+  vehicleType: string;
   baseRate: number;
   hourlyRate: number;
-  dailyRate?: number;
-  weeklyRate?: number;
-  monthlyRate?: number;
-  gracePeriod: number;
-  isWeekendRate: boolean;
-  isHolidayRate: boolean;
-  effectiveFrom: Date;
-  effectiveTo?: Date;
+  maxDailyRate: number;
+  isActive: boolean;
+  specialRates?: {
+    id: number;
+    name: string;
+    startTime: string;
+    endTime: string;
+    rate: number;
+  }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -205,16 +215,17 @@ export interface ShiftSummary {
   updatedAt: Date;
 }
 
+// Device and Gate types
 export interface Device {
   id: number;
   name: string;
-  type: DeviceType;
+  type: string;
   location?: string;
+  connectionInfo?: string;
   port?: string;
   ipAddress?: string;
-  status: DeviceStatus;
+  status: string;
   lastPing?: Date;
-  configuration?: any;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -234,7 +245,7 @@ export interface Gate {
   name: string;
   location?: string;
   deviceId?: number;
-  status: GateStatus;
+  status: string;
   lastStatusChange?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -342,14 +353,61 @@ export interface UserSession {
   createdAt: Date;
 }
 
+// Operator Shift types
 export interface OperatorShift {
   id: number;
   operatorId: number;
+  operatorName: string;
   startTime: Date;
   endTime?: Date;
-  gateId?: number;
-  status: string;
+  assignedGateId?: number;
+  assignedGateName?: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  totalTransactions?: number;
+  totalRevenue?: number;
   createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ShiftInput {
+  operatorId: number;
+  assignedGateId?: number;
+  startTime?: Date;
+  notes?: string;
+}
+
+// Settings types
+export interface SystemSettings {
+  id: number;
+  companyName: string;
+  companyLogo?: string;
+  address?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  taxId?: string;
+  currency: string;
+  dateFormat: string;
+  timeFormat: string;
+  updatedAt: Date;
+}
+
+export interface LanguageSettings {
+  id: number;
+  defaultLanguage: string;
+  availableLanguages: string[];
+  translations?: Record<string, Record<string, string>>;
+  updatedAt: Date;
+}
+
+export interface BackupSettings {
+  id: number;
+  autoBackup: boolean;
+  backupFrequency: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  backupTime: string;
+  backupLocation: string;
+  retentionPeriodDays: number;
+  lastBackupAt?: Date;
+  nextBackupAt?: Date;
   updatedAt: Date;
 }
 

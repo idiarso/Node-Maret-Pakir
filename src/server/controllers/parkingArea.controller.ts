@@ -1,13 +1,12 @@
 import { Request, Response } from "express";
-import { AppDataSource } from "../config/ormconfig";
+import AppDataSource from "../config/ormconfig";
 import { ParkingArea } from "../entities/ParkingArea";
-
-const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
 
 export class ParkingAreaController {
     // Get all parking areas
     static async getAllParkingAreas(req: Request, res: Response) {
         try {
+            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const parkingAreas = await parkingAreaRepository.find();
             res.json(parkingAreas);
         } catch (error) {
@@ -18,6 +17,7 @@ export class ParkingAreaController {
     // Get parking area by ID
     static async getParkingAreaById(req: Request, res: Response) {
         try {
+            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
             const parkingArea = await parkingAreaRepository.findOne({ where: { id } });
             
@@ -34,6 +34,7 @@ export class ParkingAreaController {
     // Create new parking area
     static async createParkingArea(req: Request, res: Response) {
         try {
+            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const { name, capacity } = req.body;
             
             if (!name || !capacity) {
@@ -57,6 +58,7 @@ export class ParkingAreaController {
     // Update parking area
     static async updateParkingArea(req: Request, res: Response) {
         try {
+            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
             const { name, capacity, status } = req.body;
 
@@ -80,6 +82,7 @@ export class ParkingAreaController {
     // Delete parking area
     static async deleteParkingArea(req: Request, res: Response) {
         try {
+            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
             const parkingArea = await parkingAreaRepository.findOne({ where: { id } });
             
@@ -97,6 +100,7 @@ export class ParkingAreaController {
     // Update parking area occupancy
     static async updateOccupancy(req: Request, res: Response) {
         try {
+            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
             const { occupied } = req.body;
 

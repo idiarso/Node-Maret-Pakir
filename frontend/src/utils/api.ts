@@ -1,8 +1,8 @@
 import axios from 'axios';
-import type { AxiosRequestConfig } from 'axios';
 import { ErrorResponse } from '../types';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// Change the URL to match the actual backend endpoint structure
+const baseURL = 'http://localhost:3000';
 
 export const api = axios.create({
   baseURL,
@@ -13,7 +13,7 @@ export const api = axios.create({
 
 // Request interceptor
 api.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config) => {
     const token = localStorage.getItem('token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;

@@ -1,29 +1,29 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from "typeorm";
 import { ParkingSession } from "./ParkingSession";
 
-@Entity("parking_areas")
+@Entity()
 export class ParkingArea {
     @PrimaryGeneratedColumn()
-    id: number;
+    id!: number;
 
     @Column()
-    name: string;
+    name!: string;
 
     @Column()
-    capacity: number;
+    capacity!: number;
 
     @Column({ default: 0 })
-    occupied: number;
+    occupied!: number;
 
-    @Column({ default: "ACTIVE" })
-    status: string;
+    @Column({ default: 'active' })
+    status!: string;
 
     @OneToMany(() => ParkingSession, session => session.parkingArea)
-    parkingSessions: ParkingSession[];
+    parkingSessions!: ParkingSession[];
 
     @CreateDateColumn()
-    created_at: Date;
+    created_at!: Date;
 
     @UpdateDateColumn()
-    updated_at: Date;
+    updated_at!: Date;
 } 

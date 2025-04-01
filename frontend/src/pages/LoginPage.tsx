@@ -19,7 +19,7 @@ import {
   Person as PersonIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -36,14 +36,10 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const success = await login(username, password);
-      if (success) {
-        navigate('/dashboard');
-      } else {
-        setError('Invalid username or password');
-      }
+      await login(username, password);
+      navigate('/dashboard');
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      setError('Invalid username or password');
     } finally {
       setIsLoading(false);
     }

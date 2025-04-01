@@ -35,7 +35,7 @@ import {
   Help as HelpIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
-import { NotificationList } from '../Notification/NotificationList';
+import { NotificationList } from '../notification/NotificationList';
 
 const drawerWidth = 240;
 

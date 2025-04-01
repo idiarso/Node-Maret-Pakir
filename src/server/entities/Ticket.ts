@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, BaseEntity } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, BaseEntity } from 'typeorm';
 import { User } from './User';
 import { VehicleType } from './VehicleType';
+import { ParkingSession } from './ParkingSession';
 import { TicketStatus } from '../../shared/types';
 
 @Entity('tickets')
@@ -36,6 +37,9 @@ export class Ticket extends BaseEntity {
     @ManyToOne(() => User)
     @JoinColumn({ name: 'created_by' })
     creator!: User;
+
+    @OneToMany(() => ParkingSession, session => session.ticket)
+    parkingSessions!: ParkingSession[];
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date = new Date();

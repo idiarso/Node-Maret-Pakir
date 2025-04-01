@@ -1,5 +1,5 @@
 // API Constants
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 export const API_TIMEOUT = 30000;
 
 // Authentication
@@ -11,26 +11,46 @@ export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 // Vehicle Types
-export const VEHICLE_TYPES = ['car', 'motorcycle', 'truck'] as const;
+export const VEHICLE_TYPES = ['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN'] as const;
 export type VehicleType = typeof VEHICLE_TYPES[number];
 
 // Payment Status
-export const PAYMENT_STATUS = ['pending', 'paid', 'failed'] as const;
+export const PAYMENT_STATUS = ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'] as const;
 export type PaymentStatus = typeof PAYMENT_STATUS[number];
 
 // User Roles
-export const USER_ROLES = ['admin', 'operator', 'cashier'] as const;
+export const USER_ROLES = ['ADMIN', 'OPERATOR', 'USER'] as const;
 export type UserRole = typeof USER_ROLES[number];
+
+// Device Status
+export const DEVICE_STATUS = ['ONLINE', 'OFFLINE', 'MAINTENANCE', 'ERROR'] as const;
+export type DeviceStatus = typeof DEVICE_STATUS[number];
+
+// Device Types
+export const DEVICE_TYPES = ['GATE_CONTROLLER', 'PAYMENT_TERMINAL', 'CAMERA', 'SENSOR', 'DISPLAY'] as const;
+export type DeviceType = typeof DEVICE_TYPES[number];
 
 // Routes
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   DASHBOARD: '/dashboard',
-  ENTRY: '/entry',
-  EXIT: '/exit',
+  PARKING_SESSIONS: '/parking-sessions',
+  TICKETS: '/tickets',
+  VEHICLES: '/vehicles',
+  MEMBERSHIPS: '/memberships',
+  PAYMENTS: '/payments',
+  PARKING_AREAS: '/parking-areas',
+  PARKING_RATES: '/parking-rates',
+  USERS: '/users',
+  DEVICES: '/devices',
+  GATES: '/gates',
   REPORTS: '/reports',
+  SHIFTS: '/shifts',
   SETTINGS: '/settings',
+  SETTINGS_LANGUAGE: '/settings/language',
+  SETTINGS_BACKUP: '/settings/backup',
+  SETTINGS_SYSTEM: '/settings/system',
 } as const;
 
 export type RoutePath = typeof ROUTES[keyof typeof ROUTES];
