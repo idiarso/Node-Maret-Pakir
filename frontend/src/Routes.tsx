@@ -17,6 +17,8 @@ const ExitGatePage = React.lazy(() => import('./pages/ExitGatePage'));
 // @ts-ignore
 const ParkingSessionsPage = React.lazy(() => import('./pages/ParkingSessionsPage'));
 // @ts-ignore
+const UserManualPage = React.lazy(() => import('./pages/UserManualPage'));
+// @ts-ignore
 const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'));
 // @ts-ignore
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
@@ -51,6 +53,7 @@ const Routes = () => {
             <Route path="parking-sessions" element={<ParkingSessionsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="user-manual" element={<UserManualPage />} />
           </Route>
           
           <Route path="*" element={<NotFoundPage />} />

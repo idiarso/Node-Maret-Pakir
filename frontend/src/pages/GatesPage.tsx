@@ -63,10 +63,17 @@ const GatesPage: React.FC = () => {
     queryKey: ['gates'],
     queryFn: async () => {
       try {
+        logger.debug('GatesPage: Fetching gates from API...', 'GatesPage');
+        console.log('GatesPage: Fetching gates API endpoint:', '/api/gates');
+        
         const response = await gateService.getAll();
+        logger.debug('GatesPage: Received gates data', 'GatesPage');
+        console.log('GatesPage: Gates response data:', response);
+        
         return response || [];
       } catch (error) {
         logger.error('Failed to load gates', error, 'GatesPage');
+        console.error('GatesPage: Error fetching gates:', error);
         setSnackbar({
           open: true,
           message: 'Failed to load gates. Please try again.',

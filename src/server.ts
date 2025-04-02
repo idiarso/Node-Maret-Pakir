@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createUserRouter } from './routes/user.routes';
 import { createVehicleRouter } from './routes/vehicle.routes';
 import { createPaymentRouter } from './routes/payment.routes';
+import { createSettingsRouter } from './routes/settings.routes';
 import { WebSocketServer } from 'ws';
 import { HardwareManager } from './services/hardware.manager';
 import { TicketController } from './controllers/ticket.controller';
@@ -47,6 +48,7 @@ async function startServer() {
     app.use('/api/users', createUserRouter(AppDataSource));
     app.use('/api/vehicles', createVehicleRouter(AppDataSource));
     app.use('/api/payments', createPaymentRouter(AppDataSource));
+    app.use('/api/settings', createSettingsRouter(AppDataSource));
     app.post('/api/tickets', authMiddleware([UserRole.OPERATOR]), authenticatedHandler(ticketController.generateTicket));
     app.get('/api/tickets/:barcode', authMiddleware([UserRole.OPERATOR]), authenticatedHandler(ticketController.validateTicket));
 

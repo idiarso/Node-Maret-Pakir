@@ -1,9 +1,7 @@
 import axios from 'axios';
-import { Payment, PaymentFormData, Ticket, Device, ParkingSession, ParkingRate, Membership, OperatorShift, SystemSettings, LanguageSettings, BackupSettings } from '../types';
+import { Payment, PaymentFormData, Ticket, Device, ParkingSession, ParkingRate, Membership, OperatorShift, SystemSettings, LanguageSettings, BackupSettings, Gate } from '../types';
 import logger from '../utils/logger';
-
-// Use consistent API_BASE_URL
-const API_BASE_URL = 'http://localhost:3000';
+import { API_BASE_URL } from '../config';
 
 // Dashboard data interface
 export interface DashboardData {
@@ -151,16 +149,26 @@ api.interceptors.response.use(
 // Function to check server connection
 export const checkServerConnection = async (): Promise<boolean> => {
   try {
+    console.log('Checking server connection to:', API_BASE_URL + '/health');
     logger.debug('Checking server connection', 'API');
     await api.get('/api/health');
     isServerConnected = true;
     lastConnectionCheck = Date.now();
     logger.info('Server connection successful', 'API');
+    console.log('✅ Server connection successful');
     return true;
   } catch (error) {
     isServerConnected = false;
     lastConnectionCheck = Date.now();
     logger.warn('Server connection failed', 'API', { error });
+    console.error('❌ Server connection failed:', error);
+    
+    // Tampilkan informasi tambahan untuk debugging
+    console.log('👉 Silakan periksa:');
+    console.log('1. Apakah server backend berjalan di localhost:3000?');
+    console.log('2. Apakah ada error di konsol server?');
+    console.log('3. Apakah ada masalah CORS?');
+    
     return false;
   }
 };
@@ -314,11 +322,22 @@ export const mapGateStatus = (statusValue: string): string => {
   return 'INACTIVE';
 };
 
+// Interfaces for different forms
+export interface GateFormData {
+  name: string;
+  gate_number: string;
+  location: string;
+  type: 'ENTRY' | 'EXIT';
+  description: string;
+}
+
 // Gate API functions
 export const gateService = {
   getAll: async (): Promise<Gate[]> => {
     try {
-      const response = await api.get<Gate[]>('/gates');
+      const response = await api.get<Gate[]>('/api/gates');
+      console.log('Fetching gates from:', '/api/gates');
+      console.log('Gates response:', response.data);
       return response.data;
     } catch (error) {
       logger.error('Error fetching gates:', error);
@@ -328,7 +347,7 @@ export const gateService = {
 
   getById: async (id: number): Promise<Gate> => {
     try {
-      const response = await api.get<Gate>(`/gates/${id}`);
+      const response = await api.get<Gate>(`/api/gates/${id}`);
       return response.data;
     } catch (error) {
       logger.error(`Error fetching gate ${id}:`, error);
@@ -338,7 +357,7 @@ export const gateService = {
 
   create: async (data: GateFormData): Promise<Gate> => {
     try {
-      const response = await api.post<Gate>('/gates', data);
+      const response = await api.post<Gate>('/api/gates', data);
       return response.data;
     } catch (error) {
       logger.error('Error creating gate:', error);
@@ -348,7 +367,7 @@ export const gateService = {
 
   update: async (id: number, data: GateFormData): Promise<Gate> => {
     try {
-      const response = await api.put<Gate>(`/gates/${id}`, data);
+      const response = await api.put<Gate>(`/api/gates/${id}`, data);
       return response.data;
     } catch (error) {
       logger.error(`Error updating gate ${id}:`, error);
@@ -358,7 +377,7 @@ export const gateService = {
 
   delete: async (id: number): Promise<void> => {
     try {
-      await api.delete(`/gates/${id}`);
+      await api.delete(`/api/gates/${id}`);
     } catch (error) {
       logger.error(`Error deleting gate ${id}:`, error);
       throw error;
@@ -367,7 +386,7 @@ export const gateService = {
 
   changeStatus: async (id: number, status: string): Promise<Gate> => {
     try {
-      const response = await api.put<Gate>(`/gates/${id}/status`, { status });
+      const response = await api.put<Gate>(`/api/gates/${id}/status`, { status });
       return response.data;
     } catch (error) {
       logger.error(`Error changing gate ${id} status:`, error);
@@ -606,8 +625,59 @@ export const settingsService = {
   
   // Language settings
   getLanguageSettings: async (): Promise<LanguageSettings> => {
-    const response = await api.get<LanguageSettings>('/api/settings/language');
-    return response.data as LanguageSettings;
+    try {
+      console.log('Fetching language settings from API:', `${API_BASE_URL}/settings/language`);
+      
+      // Make sure we're using the correct API endpoint
+      const response = await api.get<any>('/settings/language');
+      
+      // Log the actual response data for debugging
+      console.log('Language settings API response type:', typeof response.data);
+      
+      // Check if response is HTML (error page)
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        console.error('API returned HTML instead of JSON. Server might be returning an error page.');
+        // Return default values
+        return {
+          default_language: 'en',
+          available_languages: ['en', 'id'],
+          translations: {}
+        };
+      }
+      
+      // Check if response has the expected structure
+      if (!response.data) {
+        console.error('Language settings API returned empty data');
+        return {
+          default_language: 'en',
+          available_languages: ['en', 'id'],
+          translations: {}
+        };
+      }
+      
+      // Map response to our expected format if needed
+      const { defaultLanguage, availableLanguages, translations } = response.data;
+      if (defaultLanguage && availableLanguages) {
+        console.log('Mapping server response to expected format...');
+        // Server returns camelCase, our frontend expects snake_case
+        return {
+          default_language: defaultLanguage,
+          available_languages: availableLanguages,
+          translations: translations
+        };
+      }
+      
+      // If the response already matches our expected format
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching language settings:', error);
+      // Return sensible defaults for error case
+      return {
+        default_language: 'id',
+        available_languages: ['en', 'id'],
+        translations: {}
+      };
+    }
   },
   updateLanguageSettings: async (data: Partial<LanguageSettings>): Promise<LanguageSettings> => {
     const response = await api.put<LanguageSettings>('/api/settings/language', data);

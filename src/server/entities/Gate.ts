@@ -21,25 +21,25 @@ export class Gate {
     @Column()
     name!: string;
 
-    @Column({ length: 20, nullable: true })
-    gate_number?: string;
+    @Column({ name: 'gate_number' })
+    gate_number!: string;
+
+    @Column({ nullable: true })
+    location?: string;
 
     @Column({
         type: "enum",
         enum: GateType,
         default: GateType.ENTRY
     })
-    type!: GateType;
+    type!: string;
 
     @Column({
         type: "enum",
         enum: GateStatus,
         default: GateStatus.INACTIVE
     })
-    status!: GateStatus;
-
-    @Column({ nullable: true })
-    location?: string;
+    status!: string;
 
     @Column({ nullable: true })
     description?: string;
@@ -64,10 +64,10 @@ export class Gate {
     @Column({ default: true })
     is_active!: boolean;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'created_at' })
     created_at!: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ name: 'updated_at' })
     updated_at!: Date;
 
     @OneToMany(() => GateLog, log => log.gate)
