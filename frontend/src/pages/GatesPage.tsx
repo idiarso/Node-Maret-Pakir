@@ -155,7 +155,7 @@ const GatesPage: React.FC = () => {
         location: formData.location.trim() || null,
         gate_number: formData.name.trim(),  // Gunakan nama sebagai gate_number jika tidak ada field khusus
         type: 'ENTRY',                      // Dari gates_type_enum di DB
-        status: 'INACTIVE',                 // Dari gates_status_enum di DB - default INACTIVE
+        status: formData.status || 'INACTIVE', // Gunakan status dari form jika tersedia
         is_active: true,                    // Boolean field di DB
         description: `${formData.name.trim()} - ${formData.location.trim() || 'No location'}` // Text field di DB
       };
@@ -163,27 +163,59 @@ const GatesPage: React.FC = () => {
       console.log('Saving gate with database-aligned data:', formattedData);
       
       if (editGate) {
-        // Update existing gate
-        await gateService.update(editGate.id, formattedData);
-        setError(null);
-        alert('Gate updated successfully');
+        try {
+          // Update existing gate
+          await gateService.update(editGate.id, formattedData);
+          setError(null);
+        } catch (updateError) {
+          console.error('Failed to update gate on server:', updateError);
+          
+          // Optimistic update di UI meskipun server error
+          const optimisticUpdate = gates.map(gate => 
+            gate.id === editGate.id ? {
+              ...gate,
+              name: formData.name,
+              location: formData.location,
+              status: formData.status,
+              deviceId: formData.deviceId
+            } : gate
+          );
+          
+          setGates(optimisticUpdate);
+          setError('Server error: Changes saved locally only');
+        }
+        alert('Gate updated in UI (may not be saved to server)');
       } else {
         // Create new gate dengan field sesuai DB
         try {
           const result = await gateService.create(formattedData);
           console.log('Create gate result:', result);
           setError(null);
-          alert('Gate created successfully');
         } catch (createError: any) {
           console.error('Detail create error:', createError);
           if (createError.response && createError.response.data) {
             console.error('Server error response:', createError.response.data);
           }
-          throw createError; // Re-throw to be caught by outer try-catch
+          
+          // Buat mockup data untuk UI saat backend error
+          const mockGate: Gate = {
+            id: Math.floor(Math.random() * -1000), // ID negatif untuk local-only
+            name: formData.name,
+            location: formData.location,
+            deviceId: formData.deviceId,
+            status: formData.status,
+            lastStatusChange: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          // Update UI dengan mockup data meskipun API error
+          setGates([...gates, mockGate]);
+          setError('Server error: Gate saved locally only');
         }
+        alert('Gate added to UI (may not be saved to server)');
       }
       handleCloseDialog();
-      fetchGates();
     } catch (err: any) {
       console.error('Error saving gate:', err);
       
