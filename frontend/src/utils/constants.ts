@@ -12,23 +12,23 @@ export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 // Vehicle Types
 export enum VehicleType {
-  MOTOR = 'MOTOR',
-  MOBIL = 'MOBIL',
-  TRUK = 'TRUK',
-  BUS = 'BUS',
-  VAN = 'VAN'
+  CAR = 'CAR',
+  MOTORCYCLE = 'MOTORCYCLE',
+  TRUCK = 'TRUCK',
+  VAN = 'VAN',
+  BUS = 'BUS'
 }
 
 const vehicleTypeTranslations = {
-  [VehicleType.MOBIL]: {
+  [VehicleType.CAR]: {
     'en': 'Car',
     'id': 'Mobil'
   },
-  [VehicleType.MOTOR]: {
+  [VehicleType.MOTORCYCLE]: {
     'en': 'Motorcycle',
     'id': 'Motor'
   },
-  [VehicleType.TRUK]: {
+  [VehicleType.TRUCK]: {
     'en': 'Truck',
     'id': 'Truk'
   },
@@ -79,6 +79,8 @@ export const ROUTES = {
   SETTINGS_LANGUAGE: '/settings/language',
   SETTINGS_BACKUP: '/settings/backup',
   SETTINGS_SYSTEM: '/settings/system',
+  ENTRY_GATE: '/entry-gate',
+  EXIT_GATE: '/exit-gate',
 } as const;
 
 export type RoutePath = typeof ROUTES[keyof typeof ROUTES];

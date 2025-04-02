@@ -2,11 +2,11 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 // Define the enum for vehicle types
 export enum VehicleType {
-    MOTOR = "MOTOR",
-    MOBIL = "MOBIL",
-    TRUK = "TRUK",
-    BUS = "BUS",
-    VAN = "VAN"
+    CAR = "CAR",
+    MOTORCYCLE = "MOTORCYCLE",
+    TRUCK = "TRUCK",
+    VAN = "VAN",
+    BUS = "BUS"
 }
 
 @Entity("parking_rates")
