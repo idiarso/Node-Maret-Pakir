@@ -10,26 +10,27 @@ export enum GateStatus {
     ACTIVE = "ACTIVE",
     INACTIVE = "INACTIVE",
     MAINTENANCE = "MAINTENANCE",
-    ERROR = "ERROR"
+    ERROR = "ERROR",
+    OPEN = "OPEN",
+    CLOSED = "CLOSED"
 }
 
 @Entity("gates")
-@Index(['gate_number', 'type'])
-@Index(['status'])
 export class Gate {
     @PrimaryGeneratedColumn()
     id!: number;
 
-    @Column({ length: 50, unique: true })
+    @Column({ length: 50 })
     name!: string;
 
-    @Column({ length: 20, unique: true })
+    @Column({ length: 20, nullable: true })
     gate_number!: string;
 
     @Column({
         type: "enum",
         enum: GateType,
-        nullable: false
+        nullable: false,
+        default: GateType.ENTRY
     })
     type!: GateType;
 

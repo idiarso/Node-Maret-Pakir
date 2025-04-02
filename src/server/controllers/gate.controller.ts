@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import AppDataSource from '../config/ormconfig';
-import { Gate } from '../entities/Gate';
+import { Gate, GateType, GateStatus } from '../entities/Gate';
 import { Logger } from '../../shared/services/Logger';
 
 const logger = Logger.getInstance();
@@ -38,21 +38,31 @@ export class GateController {
 
     static async createGate(req: Request, res: Response) {
         try {
-            const { name, type, location, status } = req.body;
+            logger.info('Creating gate with data:', req.body);
+            const { name, type, location, status, gate_number, description, is_active } = req.body;
             
-            if (!name || !type || !location) {
-                return res.status(400).json({ message: 'Required fields missing' });
+            // Validasi dasar
+            if (!name) {
+                return res.status(400).json({ message: 'Gate name is required' });
             }
             
             const gateRepository = AppDataSource.getRepository(Gate);
-            const newGate = gateRepository.create({
-                name,
-                type,
-                location,
-                status: status || 'ACTIVE'
-            });
             
+            // Buat gate baru dengan data yang diberikan
+            const newGate = new Gate();
+            newGate.name = name;
+            newGate.gate_number = gate_number || name.substring(0, 20); // Gunakan name sebagai default
+            newGate.type = type || GateType.ENTRY;
+            newGate.location = location;
+            newGate.status = status || GateStatus.INACTIVE;
+            newGate.description = description;
+            newGate.is_active = is_active === undefined ? true : is_active;
+            
+            logger.info('Gate object created:', newGate);
+            
+            // Simpan gate baru
             const savedGate = await gateRepository.save(newGate);
+            logger.info('Gate saved successfully:', savedGate);
             
             return res.status(201).json(savedGate);
         } catch (error) {
@@ -64,7 +74,7 @@ export class GateController {
     static async updateGate(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            const { name, type, location, status } = req.body;
+            const { name, type, location, status, gate_number, description, is_active } = req.body;
             
             const gateRepository = AppDataSource.getRepository(Gate);
             const gate = await gateRepository.findOne({ where: { id: Number(id) } });
@@ -73,11 +83,14 @@ export class GateController {
                 return res.status(404).json({ message: 'Gate not found' });
             }
             
-            // Update fields if they are provided
+            // Update properties if provided
             if (name !== undefined) gate.name = name;
+            if (gate_number !== undefined) gate.gate_number = gate_number;
             if (type !== undefined) gate.type = type;
             if (location !== undefined) gate.location = location;
             if (status !== undefined) gate.status = status;
+            if (description !== undefined) gate.description = description;
+            if (is_active !== undefined) gate.is_active = is_active;
             
             const updatedGate = await gateRepository.save(gate);
             
