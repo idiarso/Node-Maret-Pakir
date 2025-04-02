@@ -34,7 +34,7 @@ import userService, { User, CreateUserDto, UpdateUserDto } from '../services/use
 import PageHeader from '../components/PageHeader';
 import Breadcrumbs from '../components/Breadcrumbs';
 
-const ROLES = ['admin', 'operator', 'cashier'] as const;
+const ROLES = ['ADMIN', 'OPERATOR', 'USER'] as const;
 
 const UsersPage: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
@@ -47,7 +47,7 @@ const UsersPage: React.FC = () => {
     email: '',
     full_name: '',
     password: '',
-    role: 'operator' as const,
+    role: 'OPERATOR' as const,
   };
 
   const [formData, setFormData] = useState<CreateUserDto>(initialFormData);
@@ -151,11 +151,11 @@ const UsersPage: React.FC = () => {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'admin':
+      case 'ADMIN':
         return 'error';
-      case 'operator':
+      case 'OPERATOR':
         return 'primary';
-      case 'cashier':
+      case 'USER':
         return 'success';
       default:
         return 'default';
@@ -221,8 +221,8 @@ const UsersPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={user.status}
-                          color={user.status === 'active' ? 'success' : 'default'}
+                          label={user.active ? 'Active' : 'Inactive'}
+                          color={user.active ? 'success' : 'default'}
                           size="small"
                         />
                       </TableCell>
@@ -242,9 +242,9 @@ const UsersPage: React.FC = () => {
                         <IconButton
                           size="small"
                           onClick={() => toggleStatusMutation.mutate(user.id)}
-                          color={user.status === 'active' ? 'error' : 'success'}
+                          color={user.active ? 'error' : 'success'}
                         >
-                          {user.status === 'active' ? (
+                          {user.active ? (
                             <BlockIcon />
                           ) : (
                             <CheckCircleIcon />
