@@ -20,7 +20,10 @@ const defaultLanguageContext: LanguageContextType = {
 
 const LanguageContext = createContext<LanguageContextType>(defaultLanguageContext);
 
-export const useLanguage = () => useContext(LanguageContext);
+// Export as a named function declaration instead of an arrow function
+export function useLanguage() {
+  return useContext(LanguageContext);
+}
 
 interface LanguageProviderProps {
   children: ReactNode;

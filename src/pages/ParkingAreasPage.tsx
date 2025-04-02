@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Grid,
@@ -12,7 +12,8 @@ import {
   DialogActions,
   TextField,
   CircularProgress,
-  Box
+  Box,
+  Alert
 } from '@mui/material';
 import { parkingAreaService, ParkingArea } from '../services/parkingAreaService';
 
@@ -33,9 +34,26 @@ export default function ParkingAreasPage() {
     capacity: 0
   });
 
-  const { data: parkingAreas = [], isLoading, error } = useQuery<ParkingArea[]>({
+  // Check if token exists
+  const token = localStorage.getItem('token');
+  const [isAuthenticated, setIsAuthenticated] = useState(!!token);
+
+  useEffect(() => {
+    // Update authentication state when token changes
+    setIsAuthenticated(!!localStorage.getItem('token'));
+  }, []);
+
+  const { data: parkingAreas = [], isLoading, error, isError } = useQuery<ParkingArea[]>({
     queryKey: ['parkingAreas'],
-    queryFn: parkingAreaService.getAll
+    queryFn: async () => {
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
+      }
+      const result = await parkingAreaService.getAll();
+      return result;
+    },
+    enabled: isAuthenticated,
+    retry: false
   });
 
   const createMutation = useMutation({
@@ -116,18 +134,31 @@ export default function ParkingAreasPage() {
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <Box p={3}>
+        <Alert severity="error">
+          You are not authenticated. Please log in to view parking areas.
+        </Alert>
+      </Box>
+    );
+  }
+
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+      <Box p={3} display="flex" justifyContent="center" alignItems="center" minHeight="200px">
         <CircularProgress />
       </Box>
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <Box p={3}>
-        <Typography color="error">Error loading parking areas. Please try again later.</Typography>
+        <Alert severity="error">
+          Error loading parking areas. Please try again later.
+          {error instanceof Error ? ` (${error.message})` : ''}
+        </Alert>
       </Box>
     );
   }
@@ -147,7 +178,7 @@ export default function ParkingAreasPage() {
             <Typography>No parking areas found. Click "Add Parking Area" to create one.</Typography>
           </Box>
         ) : (
-          parkingAreas.map((parkingArea) => (
+          parkingAreas.map((parkingArea: ParkingArea) => (
             <Card key={parkingArea.id} sx={{ width: '100%' }}>
               <CardContent>
                 <Typography variant="h6">{parkingArea.name}</Typography>

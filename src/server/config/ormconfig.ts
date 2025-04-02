@@ -130,12 +130,13 @@ export async function initializeDatabase() {
             CREATE TABLE IF NOT EXISTS parking_areas (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
+                location VARCHAR(255) NOT NULL,
                 capacity INTEGER NOT NULL CHECK (capacity >= 0),
-                occupancy INTEGER NOT NULL DEFAULT 0 CHECK (occupancy >= 0),
+                occupied INTEGER NOT NULL DEFAULT 0 CHECK (occupied >= 0),
                 status VARCHAR(50) NOT NULL DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                CONSTRAINT check_valid_occupancy CHECK (occupancy <= capacity)
+                CONSTRAINT check_valid_occupancy CHECK (occupied <= capacity)
             );
 
             -- Insert default admin user if it doesn't exist

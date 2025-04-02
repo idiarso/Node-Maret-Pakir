@@ -274,7 +274,25 @@ export const parkingRateService = {
   },
   create: async (rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      const response = await api.post<ParkingRate>('/api/parking-rates', rate);
+      // The backend expects snake_case (base_rate)
+      // Make sure numeric fields are properly parsed as numbers
+      const formattedRate = {
+        ...rate,
+        base_rate: rate.base_rate ? Number(rate.base_rate) : undefined,
+        vehicle_type: rate.vehicle_type,
+        status: rate.status || 'active'
+      };
+      
+      // Make sure we're not sending undefined values
+      Object.keys(formattedRate).forEach(key => {
+        if (formattedRate[key as keyof typeof formattedRate] === undefined) {
+          delete formattedRate[key as keyof typeof formattedRate];
+        }
+      });
+      
+      console.log('Sending to backend for create:', formattedRate);
+      
+      const response = await api.post<ParkingRate>('/api/parking-rates', formattedRate);
       return response.data as ParkingRate;
     } catch (error: any) {
       console.error('Error creating parking rate:', error);
@@ -295,13 +313,23 @@ export const parkingRateService = {
   },
   update: async (id: number, rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      // Ensure numeric fields are properly parsed as numbers
+      // The backend expects snake_case (base_rate)
+      // Make sure numeric fields are properly parsed as numbers
       const formattedRate = {
         ...rate,
-        baseRate: rate.baseRate ? Number(rate.baseRate) : 0,
-        hourlyRate: rate.hourlyRate ? Number(rate.hourlyRate) : 0,
-        maxDailyRate: rate.maxDailyRate ? Number(rate.maxDailyRate) : 0
+        base_rate: rate.base_rate ? Number(rate.base_rate) : undefined,
+        vehicle_type: rate.vehicle_type,
+        status: rate.status
       };
+      
+      // Make sure we're not sending undefined values
+      Object.keys(formattedRate).forEach(key => {
+        if (formattedRate[key as keyof typeof formattedRate] === undefined) {
+          delete formattedRate[key as keyof typeof formattedRate];
+        }
+      });
+      
+      console.log('Sending to backend:', formattedRate);
       
       const response = await api.put<ParkingRate>(`/api/parking-rates/${id}`, formattedRate);
       return response.data as ParkingRate;

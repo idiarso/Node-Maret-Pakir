@@ -56,6 +56,7 @@ export class ParkingAreaController {
 
             const parkingArea = parkingAreaRepository.create({
                 name,
+                location,
                 capacity: capacityNum,
                 occupied: 0,
                 status: normalizedStatus
