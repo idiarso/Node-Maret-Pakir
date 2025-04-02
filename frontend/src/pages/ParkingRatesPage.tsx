@@ -40,15 +40,15 @@ import PageWrapper from '../components/PageWrapper';
 import { VehicleType } from '../utils/constants';
 
 const vehicleTypeTranslations = {
-  [VehicleType.CAR]: {
+  [VehicleType.MOBIL]: {
     'en': 'Car',
     'id': 'Mobil'
   },
-  [VehicleType.MOTORCYCLE]: {
+  [VehicleType.MOTOR]: {
     'en': 'Motorcycle',
     'id': 'Motor'
   },
-  [VehicleType.TRUCK]: {
+  [VehicleType.TRUK]: {
     'en': 'Truck',
     'id': 'Truk'
   },
@@ -69,7 +69,7 @@ const ParkingRatesPageContent: FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedRate, setSelectedRate] = useState<ParkingRate | null>(null);
   const [formData, setFormData] = useState<Partial<ParkingRate>>({
-    vehicle_type: VehicleType.CAR,
+    vehicle_type: VehicleType.MOBIL,
     base_rate: 0,
     status: 'active'
   });
@@ -185,7 +185,7 @@ const ParkingRatesPageContent: FC = () => {
     } else {
       setSelectedRate(null);
       setFormData({
-        vehicle_type: VehicleType.CAR,
+        vehicle_type: VehicleType.MOBIL,
         base_rate: 0,
         status: 'active'
       });
@@ -276,17 +276,18 @@ const ParkingRatesPageContent: FC = () => {
     }
 
     // Transform the data to match backend expectations
+    const now = new Date();
     const dataToSubmit: Partial<ParkingRate> = {
       vehicle_type: formData.vehicle_type,
       base_rate: Number(formData.base_rate),
-      status: formData.status || 'active',
       // Add required fields
-      effective_from: new Date(),
+      effective_from: now.toISOString(), // ISO string format
       hourly_rate: 0,
       daily_rate: Number(formData.base_rate) * 8, // Default daily rate (8x base rate)
       is_weekend_rate: false,
       is_holiday_rate: false,
-      grace_period: 15
+      grace_period: 15,
+      effective_to: null
     };
 
     console.log('Submitting data:', dataToSubmit);
@@ -417,7 +418,7 @@ const ParkingRatesPageContent: FC = () => {
               <Select
                 labelId="vehicle-type-label"
                 name="vehicle_type"
-                value={formData.vehicle_type || VehicleType.CAR}
+                value={formData.vehicle_type || VehicleType.MOBIL}
                 label={translate('vehicleType')}
                 onChange={handleSelectChange}
               >

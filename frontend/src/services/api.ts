@@ -274,21 +274,21 @@ export const parkingRateService = {
   },
   create: async (rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      // The backend expects snake_case (base_rate)
-      // Make sure numeric fields are properly parsed as numbers
-      const formattedRate = {
-        ...rate,
-        base_rate: rate.base_rate ? Number(rate.base_rate) : undefined,
-        vehicle_type: rate.vehicle_type,
-        status: rate.status || 'active'
-      };
+      // Format data to match backend expectations
+      const now = new Date();
       
-      // Make sure we're not sending undefined values
-      Object.keys(formattedRate).forEach(key => {
-        if (formattedRate[key as keyof typeof formattedRate] === undefined) {
-          delete formattedRate[key as keyof typeof formattedRate];
-        }
-      });
+      // Hanya kirim field yang ada di model database
+      const formattedRate = {
+        vehicle_type: rate.vehicle_type,
+        base_rate: Number(rate.base_rate || 0),
+        hourly_rate: Number(rate.hourly_rate || 0),
+        daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
+        grace_period: rate.grace_period !== undefined ? Number(rate.grace_period) : 15,
+        is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
+        is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false,
+        effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
+        effective_to: null
+      };
       
       console.log('Sending to backend for create:', formattedRate);
       
@@ -316,24 +316,17 @@ export const parkingRateService = {
       // Format data to match backend expectations
       const now = new Date();
       
+      // Hanya kirim field yang ada di model database
       const formattedRate = {
-        ...rate,
-        // Required numeric fields
+        vehicle_type: rate.vehicle_type,
         base_rate: Number(rate.base_rate || 0),
         hourly_rate: Number(rate.hourly_rate || 0),
         daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
         grace_period: rate.grace_period !== undefined ? Number(rate.grace_period) : 15,
-        
-        // Required enum/string fields
-        vehicle_type: rate.vehicle_type,
-        status: rate.status || 'active',
-        
-        // Required date fields - format as ISO string for consistent date handling
-        effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
-        
-        // Required boolean fields
         is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
-        is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false
+        is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false,
+        effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
+        effective_to: null // Tidak ada tanggal kadaluarsa
       };
       
       // Log the formatted data for debugging

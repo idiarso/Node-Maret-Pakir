@@ -12,23 +12,23 @@ export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 // Vehicle Types
 export enum VehicleType {
-  MOTORCYCLE = 'MOTORCYCLE',
-  CAR = 'CAR',
-  TRUCK = 'TRUCK',
-  VAN = 'VAN',
-  BUS = 'BUS'
+  MOTOR = 'MOTOR',
+  MOBIL = 'MOBIL',
+  TRUK = 'TRUK',
+  BUS = 'BUS',
+  VAN = 'VAN'
 }
 
 const vehicleTypeTranslations = {
-  [VehicleType.CAR]: {
+  [VehicleType.MOBIL]: {
     'en': 'Car',
     'id': 'Mobil'
   },
-  [VehicleType.MOTORCYCLE]: {
+  [VehicleType.MOTOR]: {
     'en': 'Motorcycle',
     'id': 'Motor'
   },
-  [VehicleType.TRUCK]: {
+  [VehicleType.TRUK]: {
     'en': 'Truck',
     'id': 'Truk'
   },
