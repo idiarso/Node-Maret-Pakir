@@ -367,6 +367,7 @@ export const gateService = {
         const optimisticGate: Gate = {
           ...gate,
           id, // Preserve negative ID
+          name: gate.name || 'Local Gate', // Ensure name property is present
           status: mapGateStatus(gate.status),
           updated_at: timestamp,
           _optimistic: true,
@@ -405,6 +406,7 @@ export const gateService = {
         const optimisticGate: Gate = {
           ...gate,
           id, // Keep the negative ID
+          name: gate.name || 'Local Gate', // Ensure name property is present
           status: mapGateStatus(gate.status),
           updated_at: timestamp,
           _optimistic: true,
