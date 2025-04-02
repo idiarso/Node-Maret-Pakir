@@ -245,13 +245,33 @@ export const gateService = {
     const response = await api.get<Gate>(`/api/gates/${id}`);
     return response.data as Gate;
   },
-  create: async (gate: Partial<Gate>): Promise<Gate> => {
-    const response = await api.post<Gate>('/api/gates', gate);
-    return response.data as Gate;
+  create: async (gate: Partial<any>): Promise<Gate> => {
+    console.log('API: Creating gate with data:', gate);
+    try {
+      const response = await api.post<Gate>('/api/gates', gate);
+      console.log('API: Create gate response:', response);
+      return response.data as Gate;
+    } catch (error: any) {
+      console.error('API: Error creating gate:', error);
+      if (error.response) {
+        console.error('API: Error response data:', error.response.data);
+      }
+      throw error;
+    }
   },
-  update: async (id: number, gate: Partial<Gate>): Promise<Gate> => {
-    const response = await api.put<Gate>(`/api/gates/${id}`, gate);
-    return response.data as Gate;
+  update: async (id: number, gate: Partial<any>): Promise<Gate> => {
+    console.log('API: Updating gate with data:', gate);
+    try {
+      const response = await api.put<Gate>(`/api/gates/${id}`, gate);
+      console.log('API: Update gate response:', response);
+      return response.data as Gate;
+    } catch (error: any) {
+      console.error('API: Error updating gate:', error);
+      if (error.response) {
+        console.error('API: Error response data:', error.response.data);
+      }
+      throw error;
+    }
   },
   delete: async (id: number): Promise<void> => {
     await api.delete(`/api/gates/${id}`);

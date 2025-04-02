@@ -142,10 +142,12 @@ const GatesPage: React.FC = () => {
 
   const handleSaveGate = async () => {
     try {
-      // Prepare data - ensure deviceId is a number
+      // Prepare data - ensure deviceId is a number and follow expected API format
       const formattedData = {
-        ...formData,
-        deviceId: parseInt(formData.deviceId.toString()) || 0
+        name: formData.name,
+        location: formData.location,
+        device_id: parseInt(formData.deviceId.toString()) || 0, // Ensure backend format uses snake_case
+        status: formData.status
       };
       
       console.log('Saving gate with formatted data:', formattedData);
@@ -166,11 +168,26 @@ const GatesPage: React.FC = () => {
     } catch (err: any) {
       console.error('Error saving gate:', err);
       
+      // Log detailed error information
+      if (err.response) {
+        console.error('Error response:', err.response);
+        console.error('Error response data:', err.response.data);
+      }
+      
       let errorMessage = 'Failed to save gate.';
       
       // Handle different types of errors
-      if (err.response && err.response.data && err.response.data.message) {
-        errorMessage = `Error: ${err.response.data.message}`;
+      if (err.response && err.response.data) {
+        // More structured error handling
+        if (err.response.data.message) {
+          errorMessage = `Error: ${err.response.data.message}`;
+        } else if (err.response.data.error) {
+          errorMessage = `Error: ${err.response.data.error}`;
+        } else if (typeof err.response.data === 'string') {
+          errorMessage = `Error: ${err.response.data}`;
+        } else {
+          errorMessage = `Error ${err.response.status}: ${err.response.statusText}`;
+        }
       } else if (err.message) {
         errorMessage = `Error: ${err.message}`;
       }
