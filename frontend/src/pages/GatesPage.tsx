@@ -23,7 +23,11 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  CardActions
+  CardActions,
+  Snackbar,
+  Alert,
+  Badge,
+  Tooltip
 } from '@mui/material';
 import { 
   Add as AddIcon,
@@ -31,7 +35,8 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   LockOpen as OpenIcon,
-  Lock as CloseIcon
+  Lock as CloseIcon,
+  Warning as WarningIcon
 } from '@mui/icons-material';
 import { gateService } from '../services/api';
 import { Gate } from '../types';
@@ -54,6 +59,15 @@ const GatesPage: React.FC = () => {
     location: '',
     deviceId: 0,
     status: GATE_STATUS.CLOSED
+  });
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'info' | 'warning' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info'
   });
 
   const fetchGates = async () => {
@@ -134,127 +148,86 @@ const GatesPage: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: value
-    });
+    }));
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      status: e.target.value
+    }));
   };
 
   const handleSaveGate = async () => {
     try {
-      // Validasi input terlebih dahulu
-      if (!formData.name.trim()) {
-        setError('Gate name is required');
-        alert('Gate name is required');
-        return;
-      }
-
-      // Sesuaikan dengan struktur tabel gates di database
-      const formattedData = {
-        name: formData.name.trim(),
-        location: formData.location.trim() || null,
-        gate_number: formData.name.trim(),  // Gunakan nama sebagai gate_number jika tidak ada field khusus
-        type: 'ENTRY',                      // Dari gates_type_enum di DB
-        status: formData.status || 'INACTIVE', // Gunakan status dari form jika tersedia
-        is_active: true,                    // Boolean field di DB
-        description: `${formData.name.trim()} - ${formData.location.trim() || 'No location'}` // Text field di DB
-      };
-
-      console.log('Saving gate with database-aligned data:', formattedData);
-      
       if (editGate) {
-        try {
-          // Update existing gate
-          await gateService.update(editGate.id, formattedData);
-          setError(null);
-        } catch (updateError) {
-          console.error('Failed to update gate on server:', updateError);
-          
-          // Optimistic update di UI meskipun server error
-          const optimisticUpdate = gates.map(gate => 
-            gate.id === editGate.id ? {
-              ...gate,
-              name: formData.name,
-              location: formData.location,
-              status: formData.status,
-              deviceId: formData.deviceId
-            } : gate
+        // Update existing gate
+        const updatedGate = await gateService.update(editGate.id, formData);
+        
+        // Handle optimistic UI updates
+        if (updatedGate._optimistic) {
+          setGates(prevGates => 
+            prevGates.map(gate => 
+              gate.id === editGate.id ? updatedGate : gate
+            )
           );
           
-          setGates(optimisticUpdate);
-          setError('Server error: Changes saved locally only');
+          setSnackbar({
+            open: true,
+            message: `Gate "${updatedGate.name}" updated locally. Server error occurred.`,
+            severity: 'warning'
+          });
+        } else {
+          // Normal update with server success
+          setGates(prevGates => 
+            prevGates.map(gate => 
+              gate.id === editGate.id ? updatedGate : gate
+            )
+          );
+          
+          setSnackbar({
+            open: true,
+            message: `Gate "${updatedGate.name}" updated successfully`,
+            severity: 'success'
+          });
         }
-        alert('Gate updated in UI (may not be saved to server)');
       } else {
-        // Create new gate dengan field sesuai DB
-        try {
-          const result = await gateService.create(formattedData);
-          console.log('Create gate result:', result);
-          setError(null);
-        } catch (createError: any) {
-          console.error('Detail create error:', createError);
-          if (createError.response && createError.response.data) {
-            console.error('Server error response:', createError.response.data);
-          }
+        // Create new gate
+        const newGate = await gateService.create(formData);
+        
+        // Handle optimistic UI updates
+        if (newGate._optimistic) {
+          setGates(prevGates => [...prevGates, newGate]);
           
-          // Buat mockup data untuk UI saat backend error
-          const mockGate: Gate = {
-            id: Math.floor(Math.random() * -1000), // ID negatif untuk local-only
-            name: formData.name,
-            location: formData.location,
-            deviceId: formData.deviceId,
-            status: formData.status,
-            lastStatusChange: new Date(),
-            createdAt: new Date(),
-            updatedAt: new Date()
-          };
+          setSnackbar({
+            open: true,
+            message: `Gate "${newGate.name}" created locally. Server error occurred.`,
+            severity: 'warning'
+          });
+        } else {
+          // Normal creation with server success
+          setGates(prevGates => [...prevGates, newGate]);
           
-          // Update UI dengan mockup data meskipun API error
-          setGates([...gates, mockGate]);
-          setError('Server error: Gate saved locally only');
+          setSnackbar({
+            open: true,
+            message: `Gate "${newGate.name}" created successfully`,
+            severity: 'success'
+          });
         }
-        alert('Gate added to UI (may not be saved to server)');
       }
-      handleCloseDialog();
-    } catch (err: any) {
+      
+      setOpenDialog(false);
+    } catch (err) {
       console.error('Error saving gate:', err);
       
-      // Log detailed error information
-      if (err.response) {
-        console.error('Error response:', err.response);
-        console.error('Error response data:', err.response.data);
-        
-        // Additional error inspection
-        if (err.response.data && typeof err.response.data === 'object') {
-          console.log('Missing fields check:', Object.keys(err.response.data));
-          
-          // If backend returns validation errors with field details
-          if (err.response.data.errors) {
-            console.log('Validation errors:', err.response.data.errors);
-          }
-        }
-      }
-      
-      let errorMessage = 'Failed to save gate.';
-      
-      // Handle different types of errors
-      if (err.response && err.response.data) {
-        // More structured error handling
-        if (err.response.data.message) {
-          errorMessage = `Error: ${err.response.data.message}`;
-        } else if (err.response.data.error) {
-          errorMessage = `Error: ${err.response.data.error}`;
-        } else if (typeof err.response.data === 'string') {
-          errorMessage = `Error: ${err.response.data}`;
-        } else {
-          errorMessage = `Error ${err.response.status}: ${err.response.statusText}`;
-        }
-      } else if (err.message) {
-        errorMessage = `Error: ${err.message}`;
-      }
-      
-      setError(errorMessage);
-      alert(errorMessage);
+      setSnackbar({
+        open: true,
+        message: 'Error saving gate. Please try again.',
+        severity: 'error'
+      });
     }
   };
 
@@ -262,21 +235,69 @@ const GatesPage: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this gate?')) {
       try {
         await gateService.delete(id);
-        fetchGates();
+        
+        // Always update UI regardless of server response
+        setGates(gates.filter(gate => gate.id !== id));
+        
+        setSnackbar({
+          open: true,
+          message: 'Gate deleted successfully',
+          severity: 'success'
+        });
       } catch (err) {
         console.error('Error deleting gate:', err);
-        // In a real app, you'd want to show an error message to the user
+        
+        // Still remove from UI even on error for better UX
+        setGates(gates.filter(gate => gate.id !== id));
+        
+        setSnackbar({
+          open: true,
+          message: 'Gate deleted from view. Server error occurred.',
+          severity: 'warning'
+        });
       }
     }
   };
 
   const handleChangeGateStatus = async (id: number, status: string) => {
     try {
-      await gateService.changeStatus(id, status);
-      fetchGates();
+      const updatedGate = await gateService.changeStatus(id, status);
+      
+      // Handle optimistic UI updates
+      if (updatedGate._optimistic) {
+        setGates(prevGates => 
+          prevGates.map(gate => 
+            gate.id === id ? updatedGate : gate
+          )
+        );
+        
+        setSnackbar({
+          open: true,
+          message: `Gate status changed locally. Server error occurred.`,
+          severity: 'warning'
+        });
+      } else {
+        // Normal update with server success
+        setGates(prevGates => 
+          prevGates.map(gate => 
+            gate.id === id ? updatedGate : gate
+          )
+        );
+        
+        setSnackbar({
+          open: true,
+          message: `Gate status changed successfully`,
+          severity: 'success'
+        });
+      }
     } catch (err) {
       console.error('Error changing gate status:', err);
-      // In a real app, you'd want to show an error message to the user
+      
+      setSnackbar({
+        open: true,
+        message: 'Error changing gate status. Please try again.',
+        severity: 'error'
+      });
     }
   };
 
@@ -291,6 +312,28 @@ const GatesPage: React.FC = () => {
       default:
         return 'default';
     }
+  };
+  
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const isOptimistic = (gate: Gate) => {
+    return gate._optimistic === true;
+  };
+
+  const renderGateName = (gate: Gate) => {
+    if (isOptimistic(gate)) {
+      return (
+        <Tooltip title={gate._error || 'This data is only stored locally'}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {gate.name}
+            <WarningIcon color="warning" fontSize="small" sx={{ ml: 1 }} />
+          </Box>
+        </Tooltip>
+      );
+    }
+    return gate.name;
   };
 
   if (loading) {
@@ -335,14 +378,14 @@ const GatesPage: React.FC = () => {
           <Typography color="error">{error}</Typography>
         </Box>
       )}
-
+      
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {gates.map((gate) => (
           <Grid item xs={12} md={4} key={gate.id}>
-            <Card>
+            <Card sx={isOptimistic(gate) ? { border: '1px dashed orange' } : {}}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  {gate.name}
+                  {renderGateName(gate)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Location: {gate.location || 'N/A'}
@@ -360,6 +403,11 @@ const GatesPage: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   Last Status Change: {gate.lastStatusChange ? new Date(gate.lastStatusChange).toLocaleString() : 'N/A'}
                 </Typography>
+                {isOptimistic(gate) && (
+                  <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                    {gate._error || 'This data is only stored locally'}
+                  </Typography>
+                )}
               </CardContent>
               <CardActions>
                 {gate.status !== GATE_STATUS.OPEN && (
@@ -420,9 +468,9 @@ const GatesPage: React.FC = () => {
           </TableHead>
           <TableBody>
             {gates.map((gate) => (
-              <TableRow key={gate.id}>
+              <TableRow key={gate.id} sx={isOptimistic(gate) ? { backgroundColor: 'rgba(255, 152, 0, 0.1)' } : {}}>
                 <TableCell>{gate.id}</TableCell>
-                <TableCell>{gate.name}</TableCell>
+                <TableCell>{renderGateName(gate)}</TableCell>
                 <TableCell>{gate.location}</TableCell>
                 <TableCell>{gate.deviceId || 'N/A'}</TableCell>
                 <TableCell>
@@ -457,66 +505,73 @@ const GatesPage: React.FC = () => {
       </TableContainer>
 
       {/* Add/Edit Gate Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
         <DialogTitle>{editGate ? 'Edit Gate' : 'Add New Gate'}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Enter the details for the gate.
-          </DialogContentText>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                name="name"
-                label="Gate Name"
-                fullWidth
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                name="location"
-                label="Location"
-                fullWidth
-                value={formData.location}
-                onChange={handleInputChange}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                name="deviceId"
-                label="Device ID"
-                type="number"
-                fullWidth
-                value={formData.deviceId || ''}
-                onChange={handleInputChange}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                name="status"
-                label="Status"
-                select
-                fullWidth
-                value={formData.status}
-                onChange={handleInputChange}
-                required
-              >
-                {Object.values(GATE_STATUS).map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {status}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
+          <TextField
+            autoFocus
+            margin="dense"
+            name="name"
+            label="Gate Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={formData.name}
+            onChange={handleInputChange}
+            required
+          />
+          <TextField
+            margin="dense"
+            name="location"
+            label="Location"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={formData.location}
+            onChange={handleInputChange}
+          />
+          <TextField
+            margin="dense"
+            name="deviceId"
+            label="Device ID"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={formData.deviceId}
+            onChange={handleInputChange}
+          />
+          <TextField
+            select
+            margin="dense"
+            name="status"
+            label="Status"
+            fullWidth
+            variant="outlined"
+            value={formData.status}
+            onChange={handleStatusChange}
+          >
+            <MenuItem value={GATE_STATUS.OPEN}>Open</MenuItem>
+            <MenuItem value={GATE_STATUS.CLOSED}>Closed</MenuItem>
+            <MenuItem value={GATE_STATUS.ERROR}>Error</MenuItem>
+          </TextField>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
           <Button onClick={handleSaveGate} variant="contained">Save</Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Snackbar notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
