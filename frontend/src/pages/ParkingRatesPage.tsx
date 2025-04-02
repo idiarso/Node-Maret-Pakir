@@ -99,6 +99,20 @@ const ParkingRatesPageContent: FC = () => {
     queryFn: parkingRateService.getAll
   });
 
+  // Fix out-of-range values for vehicle_type that might be using the old enum
+  const fixedRates = rates.map(rate => {
+    // Check if the vehicle_type is using old enum values in a type-safe way
+    const currentType = String(rate.vehicle_type);
+    if (currentType === 'CAR') {
+      return { ...rate, vehicle_type: VehicleType.MOBIL };
+    } else if (currentType === 'MOTORCYCLE') {
+      return { ...rate, vehicle_type: VehicleType.MOTOR };
+    } else if (currentType === 'TRUCK') {
+      return { ...rate, vehicle_type: VehicleType.TRUK };
+    }
+    return rate;
+  });
+
   const createRateMutation = useMutation({
     mutationFn: (data: Partial<ParkingRate>) => parkingRateService.create(data),
     onSuccess: () => {
@@ -277,6 +291,10 @@ const ParkingRatesPageContent: FC = () => {
 
     // Transform the data to match backend expectations
     const now = new Date();
+    // Tanggal 50 tahun di masa depan
+    const farFuture = new Date();
+    farFuture.setFullYear(farFuture.getFullYear() + 50);
+    
     const dataToSubmit: Partial<ParkingRate> = {
       vehicle_type: formData.vehicle_type,
       base_rate: Number(formData.base_rate),
@@ -287,7 +305,7 @@ const ParkingRatesPageContent: FC = () => {
       is_weekend_rate: false,
       is_holiday_rate: false,
       grace_period: 15,
-      effective_to: null
+      effective_to: farFuture.toISOString() // Tanggal jauh di masa depan
     };
 
     console.log('Submitting data:', dataToSubmit);
@@ -358,7 +376,7 @@ const ParkingRatesPageContent: FC = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
           </Box>
-        ) : !Array.isArray(rates) || rates.length === 0 ? (
+        ) : !Array.isArray(fixedRates) || fixedRates.length === 0 ? (
           <Typography>{translate('noRatesFound')}</Typography>
         ) : (
           <TableContainer>
@@ -372,7 +390,7 @@ const ParkingRatesPageContent: FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rates.map((rate) => (
+                {fixedRates.map((rate) => (
                   <TableRow key={`parking-rate-${rate.id}`}>
                     <TableCell>{getVehicleTypeTranslation(rate.vehicle_type)}</TableCell>
                     <TableCell>Rp {rate.base_rate ? rate.base_rate.toLocaleString() : '0'}</TableCell>

@@ -276,6 +276,9 @@ export const parkingRateService = {
     try {
       // Format data to match backend expectations
       const now = new Date();
+      // Tanggal jauh di masa depan (50 tahun dari sekarang) untuk effective_to
+      const farFuture = new Date();
+      farFuture.setFullYear(farFuture.getFullYear() + 50);
       
       // Hanya kirim field yang ada di model database
       const formattedRate = {
@@ -287,7 +290,7 @@ export const parkingRateService = {
         is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
         is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false,
         effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
-        effective_to: null
+        effective_to: rate.effective_to || farFuture.toISOString() // Tanggal jauh di masa depan
       };
       
       console.log('Sending to backend for create:', formattedRate);
@@ -315,6 +318,17 @@ export const parkingRateService = {
     try {
       // Format data to match backend expectations
       const now = new Date();
+      // Tanggal jauh di masa depan (50 tahun dari sekarang) untuk effective_to
+      const farFuture = new Date();
+      farFuture.setFullYear(farFuture.getFullYear() + 50);
+      
+      // Log inputs before formatting
+      console.log('Input rate data:', {
+        ...rate,
+        vehicle_type_type: typeof rate.vehicle_type,
+        effective_to_type: typeof rate.effective_to,
+        effective_to_value: rate.effective_to
+      });
       
       // Hanya kirim field yang ada di model database
       const formattedRate = {
@@ -326,11 +340,18 @@ export const parkingRateService = {
         is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
         is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false,
         effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
-        effective_to: null // Tidak ada tanggal kadaluarsa
+        effective_to: rate.effective_to || farFuture.toISOString() // Tanggal jauh di masa depan bukan null
       };
       
       // Log the formatted data for debugging
       console.log('Sending to backend:', formattedRate);
+      console.log('Types check:', {
+        vehicle_type: typeof formattedRate.vehicle_type,
+        base_rate: typeof formattedRate.base_rate,
+        effective_from: typeof formattedRate.effective_from,
+        effective_to: typeof formattedRate.effective_to,
+        is_weekend_rate: typeof formattedRate.is_weekend_rate
+      });
       
       const response = await api.put<ParkingRate>(`/api/parking-rates/${id}`, formattedRate);
       return response.data as ParkingRate;
@@ -342,22 +363,31 @@ export const parkingRateService = {
         const errorData = error.response.data;
         console.error('Error response data:', errorData);
         
-        // Check for validation errors array
+        // Print all error information for debugging
         if (errorData.errors && Array.isArray(errorData.errors)) {
-          const errorMessages = errorData.errors.map((err: any) => 
-            err.message || err.property || JSON.stringify(err)
-          ).join(', ');
+          console.error('Validation errors:', JSON.stringify(errorData.errors));
+          const errorMessages = errorData.errors.map((err: any) => {
+            console.error('Individual error:', err);
+            return err.message || err.property || JSON.stringify(err);
+          }).join(', ');
           throw new Error(`Validation failed: ${errorMessages}`);
         }
         else if (errorData.message) {
+          console.error('Error message:', errorData.message);
           throw new Error(
             Array.isArray(errorData.message) 
               ? errorData.message.join(', ') 
               : errorData.message
           );
         } else if (errorData.error) {
+          console.error('Error object:', errorData.error);
           throw new Error(errorData.error);
         }
+      }
+      
+      // If we don't have a more specific error message, use a generic one
+      if (error.message) {
+        throw new Error(error.message);
       }
       throw new Error("Validation failed");
     }
