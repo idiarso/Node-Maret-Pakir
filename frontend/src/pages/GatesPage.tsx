@@ -149,20 +149,15 @@ const GatesPage: React.FC = () => {
         return;
       }
 
-      // Prepare data - ensure all required fields are included in proper format
+      // Simplify data to minimal required fields with proper naming conventions
+      // Trial with very basic structure to identify required fields
       const formattedData = {
         name: formData.name.trim(),
-        location: formData.location.trim(),
-        device_id: parseInt(formData.deviceId.toString()) || 0, // Ensure backend format uses snake_case
-        status: formData.status,
-        // Tambahkan field lain yang mungkin diperlukan oleh backend
-        type: 'NORMAL',
-        is_active: true,
-        description: `${formData.name} - ${formData.location}`.trim(),
-        created_by: 1, // Default userID jika tidak ada
-        updated_by: 1  // Default userID jika tidak ada
+        location: formData.location.trim() || 'Default Location',
+        device_id: Number(formData.deviceId) || 1,
+        status: formData.status
       };
-      
+
       console.log('Saving gate with formatted data:', formattedData);
       
       if (editGate) {
@@ -171,8 +166,25 @@ const GatesPage: React.FC = () => {
         setError(null);
         alert('Gate updated successfully');
       } else {
-        // Create new gate
-        await gateService.create(formattedData);
+        // Create new gate with raw form data as fallback if structured approach fails
+        try {
+          // First attempt - with formatted data
+          await gateService.create(formattedData);
+        } catch (firstError) {
+          console.error('First attempt failed:', firstError);
+          
+          // Second attempt - try with camelCase keys
+          const camelCaseData = {
+            name: formData.name.trim(),
+            location: formData.location.trim() || 'Default Location',
+            deviceId: Number(formData.deviceId) || 1,
+            status: formData.status
+          };
+          
+          console.log('Retrying with camelCase data:', camelCaseData);
+          await gateService.create(camelCaseData);
+        }
+        
         setError(null);
         alert('Gate created successfully');
       }
