@@ -279,7 +279,14 @@ const ParkingRatesPageContent: FC = () => {
     const dataToSubmit: Partial<ParkingRate> = {
       vehicle_type: formData.vehicle_type,
       base_rate: Number(formData.base_rate),
-      status: formData.status || 'active'
+      status: formData.status || 'active',
+      // Add required fields
+      effective_from: new Date(),
+      hourly_rate: 0,
+      daily_rate: Number(formData.base_rate) * 8, // Default daily rate (8x base rate)
+      is_weekend_rate: false,
+      is_holiday_rate: false,
+      grace_period: 15
     };
 
     console.log('Submitting data:', dataToSubmit);

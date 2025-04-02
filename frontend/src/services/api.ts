@@ -313,41 +313,53 @@ export const parkingRateService = {
   },
   update: async (id: number, rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      // The backend expects snake_case (base_rate)
-      // Make sure numeric fields are properly parsed as numbers
+      // Format data to match backend expectations
+      const now = new Date();
+      
       const formattedRate = {
         ...rate,
-        base_rate: rate.base_rate ? Number(rate.base_rate) : undefined,
+        // Required numeric fields
+        base_rate: Number(rate.base_rate || 0),
+        hourly_rate: Number(rate.hourly_rate || 0),
+        daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
+        grace_period: rate.grace_period !== undefined ? Number(rate.grace_period) : 15,
+        
+        // Required enum/string fields
         vehicle_type: rate.vehicle_type,
-        status: rate.status
+        status: rate.status || 'active',
+        
+        // Required date fields
+        effective_from: rate.effective_from || now,
+        
+        // Required boolean fields
+        is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
+        is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false
       };
       
-      // Make sure we're not sending undefined values
-      Object.keys(formattedRate).forEach(key => {
-        if (formattedRate[key as keyof typeof formattedRate] === undefined) {
-          delete formattedRate[key as keyof typeof formattedRate];
-        }
-      });
-      
+      // Log the formatted data for debugging
       console.log('Sending to backend:', formattedRate);
       
       const response = await api.put<ParkingRate>(`/api/parking-rates/${id}`, formattedRate);
       return response.data as ParkingRate;
     } catch (error: any) {
       console.error('Error updating parking rate:', error);
-      // Format the error message for better handling in the component
+      
+      // Get detailed error message from response if available
       if (error.response && error.response.data) {
-        if (error.response.data.message) {
+        const errorData = error.response.data;
+        console.error('Error response data:', errorData);
+        
+        if (errorData.message) {
           throw new Error(
-            Array.isArray(error.response.data.message) 
-              ? error.response.data.message.join(', ') 
-              : error.response.data.message
+            Array.isArray(errorData.message) 
+              ? errorData.message.join(', ') 
+              : errorData.message
           );
-        } else if (error.response.data.error) {
-          throw new Error(error.response.data.error);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
         }
       }
-      throw error;
+      throw new Error("Validation failed");
     }
   },
   delete: async (id: number): Promise<void> => {
