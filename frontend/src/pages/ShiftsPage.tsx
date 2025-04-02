@@ -1,4 +1,4 @@
-import { useState, FC } from 'react';
+import React, { FC, useState } from 'react';
 import { 
   Typography, 
   Box, 
@@ -32,43 +32,38 @@ import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
 import { shiftService, gateService } from '../services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { OperatorShift, Gate } from '../types';
+// Temporarily using any type instead of OperatorShift
+// import { OperatorShift } from '../types';
 import { format } from 'date-fns';
 
 const ShiftsPage: FC = () => {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [selectedShift, setSelectedShift] = useState<OperatorShift | null>(null);
-  const [formData, setFormData] = useState<Partial<OperatorShift>>({
-    operatorId: 0,
-    operatorName: '',
-    assignedGateId: 0,
-    startTime: new Date(),
-    status: 'ACTIVE'
-  });
+  const [selectedShift, setSelectedShift] = useState<any>(null);
   
-  const queryClient = useQueryClient();
-  
+  // Simplify form data
+  const [operatorId, setOperatorId] = useState<number>(1);
+
   const { 
     data: shifts = [], 
-    isLoading: isLoadingShifts, 
-    error: shiftsError, 
-    refetch: refetchShifts 
-  } = useQuery({
+    isLoading: isLoadingShifts,
+    isError: shiftsError,
+    refetch: refetchShifts
+  } = useQuery<any[]>({
     queryKey: ['shifts'],
     queryFn: shiftService.getAll
   });
 
   const { 
-    data: gates = [], 
-    isLoading: isLoadingGates
+    data: gates = []
   } = useQuery({
     queryKey: ['gates'],
     queryFn: gateService.getAll
   });
 
   const createShiftMutation = useMutation({
-    mutationFn: (data: Partial<OperatorShift>) => shiftService.create(data),
+    mutationFn: (data: Partial<any>) => shiftService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
       handleCloseDialog();
@@ -76,7 +71,7 @@ const ShiftsPage: FC = () => {
   });
 
   const updateShiftMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: Partial<OperatorShift> }) => 
+    mutationFn: ({ id, data }: { id: number, data: Partial<any> }) => 
       shiftService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
@@ -98,19 +93,13 @@ const ShiftsPage: FC = () => {
     }
   });
 
-  const handleOpenDialog = (shift?: OperatorShift) => {
+  const handleOpenDialog = (shift?: any) => {
     if (shift) {
       setSelectedShift(shift);
-      setFormData(shift);
+      setOperatorId(shift.operator_id);
     } else {
       setSelectedShift(null);
-      setFormData({
-        operatorId: 1, // Default operator ID
-        operatorName: '',
-        assignedGateId: gates.length > 0 ? gates[0].id : undefined,
-        startTime: new Date(),
-        status: 'ACTIVE'
-      });
+      setOperatorId(1);
     }
     setOpenDialog(true);
   };
@@ -120,19 +109,27 @@ const ShiftsPage: FC = () => {
     setSelectedShift(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const { name, value } = e.target as HTMLInputElement;
-    setFormData({
-      ...formData,
-      [name as string]: value
-    });
-  };
-
   const handleSubmit = () => {
-    if (selectedShift) {
-      updateShiftMutation.mutate({ id: selectedShift.id, data: formData });
-    } else {
-      createShiftMutation.mutate(formData);
+    try {
+      if (selectedShift) {
+        // Untuk update shift
+        updateShiftMutation.mutate({ 
+          id: selectedShift.id, 
+          data: {
+            operator_id: operatorId
+          } 
+        });
+      } else {
+        // Untuk create new shift
+        const newShiftData = {
+          operator_id: operatorId
+        };
+        
+        console.log('Creating new shift with data:', newShiftData);
+        createShiftMutation.mutate(newShiftData);
+      }
+    } catch (error) {
+      console.error('Error submitting shift:', error);
     }
   };
 
@@ -179,10 +176,10 @@ const ShiftsPage: FC = () => {
     return `${hours}h ${minutes}m`;
   };
 
-  const filteredShifts = shifts.filter(shift => 
-    shift.operatorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (shift.assignedGateName && shift.assignedGateName.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredShifts = shifts.filter((shift: any) => {
+    const opName = `Operator ${shift.operator_id}`;
+    return opName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <Box>
@@ -250,7 +247,6 @@ const ShiftsPage: FC = () => {
                 <TableRow>
                   <TableCell>ID</TableCell>
                   <TableCell>Operator</TableCell>
-                  <TableCell>Assigned Gate</TableCell>
                   <TableCell>Start Time</TableCell>
                   <TableCell>End Time</TableCell>
                   <TableCell>Duration</TableCell>
@@ -261,23 +257,19 @@ const ShiftsPage: FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredShifts.map((shift) => (
+                {filteredShifts.map((shift: any) => (
                   <TableRow key={shift.id}>
                     <TableCell>{shift.id}</TableCell>
-                    <TableCell>{shift.operatorName}</TableCell>
-                    <TableCell>{shift.assignedGateName || '-'}</TableCell>
-                    <TableCell>{formatDateTime(shift.startTime)}</TableCell>
-                    <TableCell>{shift.endTime ? formatDateTime(shift.endTime) : '-'}</TableCell>
-                    <TableCell>{formatDuration(shift.startTime, shift.endTime)}</TableCell>
-                    <TableCell>{shift.totalTransactions || 0}</TableCell>
-                    <TableCell>
-                      {shift.totalRevenue ? `Rp ${shift.totalRevenue.toLocaleString('id-ID')}` : 'Rp 0'}
-                    </TableCell>
+                    <TableCell>{`Operator ${shift.operator_id}`}</TableCell>
+                    <TableCell>{formatDateTime(shift.shift_start)}</TableCell>
+                    <TableCell>{shift.shift_end ? formatDateTime(shift.shift_end) : '-'}</TableCell>
+                    <TableCell>{formatDuration(shift.shift_start, shift.shift_end)}</TableCell>
+                    <TableCell>{shift.total_transactions}</TableCell>
+                    <TableCell>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Number(shift.total_amount))}</TableCell>
                     <TableCell>
                       <Chip 
                         label={shift.status} 
-                        color={getStatusColor(shift.status) as any}
-                        size="small"
+                        color={getStatusColor(shift.status)}
                       />
                     </TableCell>
                     <TableCell>
@@ -318,75 +310,26 @@ const ShiftsPage: FC = () => {
         )}
       </Paper>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {selectedShift ? 'Edit Shift' : 'Start New Shift'}
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box component="form" sx={{ mt: 1 }}>
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>{selectedShift ? 'Edit Shift' : 'Start New Shift'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
             <TextField
-              margin="normal"
+              autoFocus
+              margin="dense"
+              label="Operator ID"
+              type="number"
               fullWidth
-              label="Operator Name"
-              name="operatorName"
-              value={formData.operatorName || ''}
-              onChange={handleInputChange}
+              value={operatorId}
+              onChange={(e) => setOperatorId(Number(e.target.value))}
+              inputProps={{ min: 1 }}
+              required
             />
-
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="gate-label">Assigned Gate</InputLabel>
-              <Select
-                labelId="gate-label"
-                name="assignedGateId"
-                value={formData.assignedGateId || ''}
-                label="Assigned Gate"
-                onChange={handleInputChange}
-              >
-                <MenuItem value={0}>None</MenuItem>
-                {gates.map((gate) => (
-                  <MenuItem key={gate.id} value={gate.id}>
-                    {gate.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              margin="normal"
-              fullWidth
-              label="Start Time"
-              name="startTime"
-              type="datetime-local"
-              value={formData.startTime ? new Date(formData.startTime).toISOString().slice(0, 16) : ''}
-              onChange={handleInputChange}
-              InputLabelProps={{ shrink: true }}
-            />
-
-            {selectedShift && (
-              <FormControl fullWidth margin="normal">
-                <InputLabel id="status-label">Status</InputLabel>
-                <Select
-                  labelId="status-label"
-                  name="status"
-                  value={formData.status || ''}
-                  label="Status"
-                  onChange={handleInputChange}
-                >
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="COMPLETED">Completed</MenuItem>
-                  <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                </Select>
-              </FormControl>
-            )}
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained"
-            disabled={createShiftMutation.isPending || updateShiftMutation.isPending}
-          >
+          <Button onClick={handleSubmit} color="primary" variant="contained">
             {selectedShift ? 'Update' : 'Start Shift'}
           </Button>
         </DialogActions>

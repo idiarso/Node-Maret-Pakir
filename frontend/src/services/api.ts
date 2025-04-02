@@ -777,8 +777,33 @@ export const membershipService = {
 // Shifts API
 export const shiftService = {
   getAll: async (): Promise<OperatorShift[]> => {
-    const response = await api.get<OperatorShift[]>('/api/shifts');
-    return response.data as OperatorShift[];
+    try {
+      // Use the actual backend API
+      const response = await api.get<{data: any[], total: number}>('/api/shifts');
+      const shifts = response.data.data || [];
+      
+      // Transform data to match the frontend model
+      return shifts.map(shift => {
+        const operatorShift: OperatorShift = {
+          id: shift.id,
+          operator_id: shift.operator_id,
+          operatorName: `Operator ${shift.operator_id}`,
+          shift_start: new Date(shift.shift_start),
+          shift_end: shift.shift_end ? new Date(shift.shift_end) : undefined,
+          total_transactions: shift.total_transactions || 0,
+          total_amount: shift.total_amount || 0,
+          cash_amount: shift.cash_amount || 0,
+          non_cash_amount: shift.non_cash_amount || 0,
+          status: shift.shift_end ? 'COMPLETED' : 'ACTIVE',
+          created_at: new Date(shift.created_at),
+          updated_at: new Date(shift.updated_at)
+        };
+        return operatorShift;
+      });
+    } catch (error) {
+      logger.error('Error fetching shifts', error, 'ShiftService');
+      return [];
+    }
   },
   getById: async (id: number): Promise<OperatorShift> => {
     const response = await api.get<OperatorShift>(`/api/shifts/${id}`);

@@ -17,6 +17,7 @@ import { SystemSetting } from "../entities/SystemSetting";
 import { AuditLog } from "../entities/AuditLog";
 import { PaymentTransaction } from "../entities/PaymentTransaction";
 import { ParkingRate } from "../entities/ParkingRate";
+import { Shift } from "../entities/Shift";
 import { Client as pgClient } from 'pg';
 import { Logger } from '../../shared/services/Logger';
 
@@ -48,7 +49,8 @@ const AppDataSource = new DataSource({
         SystemSetting,
         AuditLog,
         PaymentTransaction,
-        ParkingRate
+        ParkingRate,
+        Shift
     ],
     migrations: ['src/server/migrations/**/*.ts'],
     subscribers: ['src/server/subscribers/**/*.ts'],

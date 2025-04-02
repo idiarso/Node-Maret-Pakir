@@ -13,6 +13,7 @@ import gateRoutes from './routes/gate.routes';
 import reportsRoutes from './routes/reports';
 import usersRoutes from './routes/users';
 import paymentsRoutes from './routes/payments';
+import shiftRoutes from './routes/shift.routes';
 import { Logger } from '../shared/services/Logger';
 import { errorHandler } from './middleware';
 import helmet from 'helmet';
@@ -56,6 +57,7 @@ app.use('/api/gates', gateRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/payments', paymentsRoutes);
+app.use('/api/shifts', shiftRoutes);
 
 // Dashboard data dengan nilai yang lebih realistis
 let dashboardData = {

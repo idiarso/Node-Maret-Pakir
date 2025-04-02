@@ -353,24 +353,25 @@ export interface UserSession {
 // Operator Shift types
 export interface OperatorShift {
   id: number;
-  operatorId: number;
+  operator_id: number;
   operatorName: string;
-  startTime: Date;
-  endTime?: Date;
+  shift_start: Date;
+  shift_end?: Date;
+  total_transactions: number;
+  total_amount: number;
+  cash_amount: number;
+  non_cash_amount: number;
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  created_at: Date;
+  updated_at: Date;
   assignedGateId?: number;
   assignedGateName?: string;
-  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
-  totalTransactions?: number;
-  totalRevenue?: number;
-  createdAt: Date;
-  updatedAt: Date;
+  startTime?: Date;
+  endTime?: Date;
 }
 
 export interface ShiftInput {
-  operatorId: number;
-  assignedGateId?: number;
-  startTime?: Date;
-  notes?: string;
+  operator_id: number;
 }
 
 // Settings types
