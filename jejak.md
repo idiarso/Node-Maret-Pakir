@@ -291,15 +291,22 @@ Last Updated: 2025-04-01 14:00
 
 ## Deployment History
 
-### Version 1.0.0 (YYYY-MM-DD)
+### Version 1.0.0 (2025-03-15)
 - Initial deployment
 - Basic functionality implemented
 - Known issues: list them here
 
-### Version 1.0.1 (YYYY-MM-DD)
+### Version 1.0.1 (2025-03-22)
 - Bug fixes
 - Performance improvements
 - New features added
+
+### Version 1.0.2 (2025-04-02)
+- Fix: Parking rates update functionality
+- Fix: Vehicle type enum synchronization between frontend and backend
+- Fix: Optimistic UI updates for handling backend errors
+- Enhancement: Added fallback mechanisms for server errors
+- Enhancement: Simplified data format for API requests
 
 ## Performance Metrics
 
