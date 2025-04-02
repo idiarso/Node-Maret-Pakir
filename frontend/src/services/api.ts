@@ -850,15 +850,61 @@ export const settingsService = {
   
   // Backup settings
   getBackupSettings: async (): Promise<BackupSettings> => {
-    const response = await api.get<BackupSettings>('/api/settings/backup');
+    const response = await api.get<BackupSettings>('/api/backup/settings');
     return response.data as BackupSettings;
   },
   updateBackupSettings: async (data: BackupSettings): Promise<BackupSettings> => {
-    const response = await api.put<BackupSettings>('/api/settings/backup', data);
+    const response = await api.put<BackupSettings>('/api/backup/settings', data);
     return response.data as BackupSettings;
   },
   triggerBackup: async (): Promise<{success: boolean; message: string}> => {
-    const response = await api.post<{success: boolean; message: string}>('/api/settings/backup/trigger');
+    const response = await api.post<{success: boolean; message: string}>('/api/backup/trigger');
+    return response.data;
+  },
+  // Tambahan untuk backup dengan nama kustom
+  triggerBackupWithName: async (customName: string, format: 'json' | 'sql' = 'json'): Promise<{success: boolean; message: string; details?: any}> => {
+    const response = await api.post<{success: boolean; message: string; details?: any}>('/api/backup/trigger', { 
+      customName,
+      format 
+    });
+    return response.data;
+  },
+  // Mendapatkan daftar backup
+  listBackups: async (): Promise<any[]> => {
+    const response = await api.get<any[]>('/api/backup/list');
+    return response.data;
+  },
+  // Menghapus backup
+  deleteBackup: async (filename: string): Promise<{success: boolean; message: string}> => {
+    const response = await api.delete<{success: boolean; message: string}>(`/api/backup/delete/${filename}`);
+    return response.data;
+  },
+  // Memulihkan backup
+  restoreBackup: async (filename: string): Promise<{success: boolean; message: string}> => {
+    const response = await api.post<{success: boolean; message: string}>(`/api/backup/restore/${filename}`);
+    return response.data;
+  },
+  // Download backup dengan custom name
+  downloadBackup: (filename: string, customName?: string): void => {
+    let downloadUrl = `/api/backup/download/${filename}`;
+    if (customName && customName.trim() !== '') {
+      downloadUrl += `?downloadName=${encodeURIComponent(customName.trim())}`;
+    }
+    
+    // Gunakan window.open untuk download
+    window.open(downloadUrl, '_blank');
+  },
+  // Upload file backup
+  uploadBackup: async (file: File, useOriginalName: boolean = true): Promise<{success: boolean; message: string; details?: any}> => {
+    const formData = new FormData();
+    formData.append('backupFile', file);
+    formData.append('useOriginalName', useOriginalName ? 'true' : 'false');
+    
+    const response = await api.post<{success: boolean; message: string; details?: any}>('/api/backup/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 };
