@@ -48,8 +48,8 @@ const GATE_STATUS = {
   INACTIVE: 'INACTIVE',
   MAINTENANCE: 'MAINTENANCE',
   ERROR: 'ERROR',
-  OPEN: 'OPEN',
-  CLOSED: 'CLOSED'
+  OPEN: 'ACTIVE',
+  CLOSED: 'INACTIVE'
 };
 
 const GatesPage: React.FC = () => {
@@ -331,13 +331,11 @@ const GatesPage: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case GATE_STATUS.ACTIVE:
+      case GATE_STATUS.OPEN: // Handle both for backward compatibility
         return 'success';
-      case GATE_STATUS.OPEN:
-        return 'success';
-      case GATE_STATUS.CLOSED:
-        return 'warning';
       case GATE_STATUS.INACTIVE:
-        return 'default';
+      case GATE_STATUS.CLOSED: // Handle both for backward compatibility
+        return 'warning';
       case GATE_STATUS.MAINTENANCE:
         return 'info';
       case GATE_STATUS.ERROR:
@@ -443,20 +441,20 @@ const GatesPage: React.FC = () => {
                 )}
               </CardContent>
               <CardActions>
-                {gate.status !== GATE_STATUS.OPEN && (
+                {gate.status !== GATE_STATUS.ACTIVE && (
                   <Button 
                     size="small" 
                     startIcon={<OpenIcon />}
-                    onClick={() => handleChangeGateStatus(gate.id, GATE_STATUS.OPEN)}
+                    onClick={() => handleChangeGateStatus(gate.id, GATE_STATUS.ACTIVE)}
                   >
                     Open
                   </Button>
                 )}
-                {gate.status !== GATE_STATUS.CLOSED && (
+                {gate.status !== GATE_STATUS.INACTIVE && (
                   <Button 
                     size="small" 
                     startIcon={<CloseIcon />}
-                    onClick={() => handleChangeGateStatus(gate.id, GATE_STATUS.CLOSED)}
+                    onClick={() => handleChangeGateStatus(gate.id, GATE_STATUS.INACTIVE)}
                   >
                     Close
                   </Button>
@@ -583,8 +581,9 @@ const GatesPage: React.FC = () => {
             value={formData.status}
             onChange={handleStatusChange}
           >
-            <MenuItem value={GATE_STATUS.OPEN}>Open</MenuItem>
-            <MenuItem value={GATE_STATUS.CLOSED}>Closed</MenuItem>
+            <MenuItem value={GATE_STATUS.ACTIVE}>Active (Open)</MenuItem>
+            <MenuItem value={GATE_STATUS.INACTIVE}>Inactive (Closed)</MenuItem>
+            <MenuItem value={GATE_STATUS.MAINTENANCE}>Maintenance</MenuItem>
             <MenuItem value={GATE_STATUS.ERROR}>Error</MenuItem>
           </TextField>
         </DialogContent>

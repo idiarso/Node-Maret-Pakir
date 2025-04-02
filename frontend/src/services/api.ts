@@ -261,11 +261,19 @@ export const parkingSessionService = {
 // Helper for mapping frontend status values to database enum values
 const mapGateStatus = (statusValue: string): string => {
   // Define the valid Gate statuses according to the database enum
-  const validGateStatuses = ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'ERROR', 'OPEN', 'CLOSED'];
+  const validGateStatuses = ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'ERROR'];
   
   // Check if the provided status is valid
   if (validGateStatuses.includes(statusValue)) {
     return statusValue;
+  }
+  
+  // Map OPEN to ACTIVE and CLOSED to INACTIVE for backward compatibility
+  if (statusValue === 'OPEN') {
+    return 'ACTIVE';
+  }
+  if (statusValue === 'CLOSED') {
+    return 'INACTIVE';
   }
   
   // Default fallback 
@@ -302,11 +310,21 @@ export const gateService = {
   create: async (gate: Partial<any>): Promise<Gate> => {
     logger.info('Creating gate', 'GateService', gate);
     try {
-      // Ensure status is a valid enum value
+      // Ensure status is a valid enum value and add required fields
       const formattedData = {
         ...gate,
+        // Add required type field if missing (ENTRY is default in backend)
+        type: gate.type || 'ENTRY',
+        // Map deviceId to device_id if present
+        ...(gate.deviceId && { device_id: gate.deviceId }),
+        // Format gate_number if not provided
+        gate_number: gate.gate_number || gate.name?.substring(0, 20) || 'Gate',
+        // Ensure status is a valid enum value
         status: mapGateStatus(gate.status)
       };
+      
+      // Remove frontend-only fields that might cause issues with the backend
+      delete formattedData.deviceId;
       
       logger.debug('Sending formatted gate data', 'GateService', formattedData);
       const response = await api.post<Gate>('/api/gates', formattedData);

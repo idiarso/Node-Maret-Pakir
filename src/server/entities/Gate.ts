@@ -10,9 +10,7 @@ export enum GateStatus {
     ACTIVE = "ACTIVE",
     INACTIVE = "INACTIVE",
     MAINTENANCE = "MAINTENANCE",
-    ERROR = "ERROR",
-    OPEN = "OPEN",
-    CLOSED = "CLOSED"
+    ERROR = "ERROR"
 }
 
 @Entity("gates")
