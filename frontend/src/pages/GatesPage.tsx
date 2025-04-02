@@ -142,18 +142,41 @@ const GatesPage: React.FC = () => {
 
   const handleSaveGate = async () => {
     try {
+      // Prepare data - ensure deviceId is a number
+      const formattedData = {
+        ...formData,
+        deviceId: parseInt(formData.deviceId.toString()) || 0
+      };
+      
+      console.log('Saving gate with formatted data:', formattedData);
+      
       if (editGate) {
         // Update existing gate
-        await gateService.update(editGate.id, formData);
+        await gateService.update(editGate.id, formattedData);
+        setError(null);
+        alert('Gate updated successfully');
       } else {
         // Create new gate
-        await gateService.create(formData);
+        await gateService.create(formattedData);
+        setError(null);
+        alert('Gate created successfully');
       }
       handleCloseDialog();
       fetchGates();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving gate:', err);
-      // In a real app, you'd want to show an error message to the user
+      
+      let errorMessage = 'Failed to save gate.';
+      
+      // Handle different types of errors
+      if (err.response && err.response.data && err.response.data.message) {
+        errorMessage = `Error: ${err.response.data.message}`;
+      } else if (err.message) {
+        errorMessage = `Error: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      alert(errorMessage);
     }
   };
 
