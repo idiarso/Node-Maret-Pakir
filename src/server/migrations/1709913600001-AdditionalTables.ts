@@ -8,7 +8,7 @@ export class AdditionalTables1709913600001 implements MigrationInterface {
         await queryRunner.query(`
             CREATE TYPE device_type AS ENUM ('CAMERA', 'PRINTER', 'SCANNER', 'GATE');
             CREATE TYPE device_status AS ENUM ('ACTIVE', 'INACTIVE', 'MAINTENANCE', 'ERROR');
-            CREATE TYPE gate_status AS ENUM ('OPEN', 'CLOSED', 'ERROR');
+            CREATE TYPE gate_status AS ENUM ('ACTIVE', 'INACTIVE', 'MAINTENANCE', 'ERROR', 'OPEN', 'CLOSED');
             CREATE TYPE notification_type AS ENUM ('SYSTEM', 'SECURITY', 'MAINTENANCE', 'PAYMENT');
             CREATE TYPE notification_status AS ENUM ('UNREAD', 'READ', 'ARCHIVED');
             CREATE TYPE log_type AS ENUM ('INFO', 'WARNING', 'ERROR', 'DEBUG');

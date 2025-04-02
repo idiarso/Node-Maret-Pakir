@@ -235,6 +235,20 @@ export const parkingSessionService = {
   }
 };
 
+// Helper for mapping frontend status values to database enum values
+const mapGateStatus = (statusValue: string): string => {
+  // Define the valid Gate statuses according to the database enum
+  const validGateStatuses = ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'ERROR', 'OPEN', 'CLOSED'];
+  
+  // Check if the provided status is valid
+  if (validGateStatuses.includes(statusValue)) {
+    return statusValue;
+  }
+  
+  // Default fallback 
+  return 'INACTIVE';
+};
+
 // Gates API
 export const gateService = {
   getAll: async (): Promise<Gate[]> => {
@@ -261,7 +275,14 @@ export const gateService = {
   create: async (gate: Partial<any>): Promise<Gate> => {
     console.log('API: Creating gate with data:', gate);
     try {
-      const response = await api.post<Gate>('/api/gates', gate);
+      // Ensure status is a valid enum value
+      const formattedData = {
+        ...gate,
+        status: mapGateStatus(gate.status)
+      };
+      
+      console.log('API: Sending formatted gate data:', formattedData);
+      const response = await api.post<Gate>('/api/gates', formattedData);
       console.log('API: Create gate response:', response);
       return response.data as Gate;
     } catch (error: any) {
@@ -277,7 +298,6 @@ export const gateService = {
           id: -Math.floor(Math.random() * 1000), // Negative ID indicates local-only data
           name: gate.name || 'New Gate',
           location: gate.location,
-          type: gate.type || 'ENTRY',
           status: gate.status || 'INACTIVE',
           gate_number: gate.gate_number,
           description: gate.description,
@@ -298,7 +318,14 @@ export const gateService = {
   update: async (id: number, gate: Partial<any>): Promise<Gate> => {
     console.log('API: Updating gate with data:', gate);
     try {
-      const response = await api.put<Gate>(`/api/gates/${id}`, gate);
+      // Ensure status is a valid enum value
+      const formattedData = {
+        ...gate,
+        status: mapGateStatus(gate.status)
+      };
+      
+      console.log('API: Sending formatted gate data:', formattedData);
+      const response = await api.put<Gate>(`/api/gates/${id}`, formattedData);
       console.log('API: Update gate response:', response);
       return response.data as Gate;
     } catch (error: any) {
@@ -359,7 +386,11 @@ export const gateService = {
   
   changeStatus: async (id: number, status: string): Promise<Gate> => {
     try {
-      const response = await api.post<Gate>(`/api/gates/${id}/status`, { status });
+      // Map to valid enum status
+      const mappedStatus = mapGateStatus(status);
+      
+      console.log(`API: Changing gate ${id} status to ${mappedStatus}`);
+      const response = await api.post<Gate>(`/api/gates/${id}/status`, { status: mappedStatus });
       return response.data as Gate;
     } catch (error: any) {
       console.error(`API: Error changing status for gate with id ${id}:`, error);

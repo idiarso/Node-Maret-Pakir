@@ -43,9 +43,12 @@ import { Gate } from '../types';
 
 // Gate status constants
 const GATE_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  MAINTENANCE: 'MAINTENANCE',
+  ERROR: 'ERROR',
   OPEN: 'OPEN',
-  CLOSED: 'CLOSED',
-  ERROR: 'ERROR'
+  CLOSED: 'CLOSED'
 };
 
 const GatesPage: React.FC = () => {
@@ -303,10 +306,16 @@ const GatesPage: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case GATE_STATUS.ACTIVE:
+        return 'success';
       case GATE_STATUS.OPEN:
         return 'success';
       case GATE_STATUS.CLOSED:
         return 'warning';
+      case GATE_STATUS.INACTIVE:
+        return 'default';
+      case GATE_STATUS.MAINTENANCE:
+        return 'info';
       case GATE_STATUS.ERROR:
         return 'error';
       default:
