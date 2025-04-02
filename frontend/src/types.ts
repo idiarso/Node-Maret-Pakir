@@ -150,4 +150,11 @@ export interface BackupSettings {
   backup_location: string;
   keep_backups: number;
   last_backup?: Date | string;
+  cloud_service_url?: string;
+  cloud_service_key?: string;
+  recent_backups?: Array<{
+    date: Date | string;
+    size: string;
+    type: string;
+  }>;
 }

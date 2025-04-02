@@ -20,6 +20,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { CacheService } from './services/cache.service';
+import backupRoutes from './routes/backup.routes';
 
 const app = express();
 const logger = Logger.getInstance();
@@ -58,6 +59,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/shifts', shiftRoutes);
+app.use('/api/backup', backupRoutes);
 
 // Dashboard data dengan nilai yang lebih realistis
 let dashboardData = {

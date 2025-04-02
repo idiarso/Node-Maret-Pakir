@@ -1,0 +1,1482 @@
+{
+  "migrations": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "timestamp",
+        "data_type": "bigint",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": [
+      {
+        "id": 1,
+        "timestamp": "1709913600000",
+        "name": "InitialSchema1709913600000"
+      },
+      {
+        "id": 2,
+        "timestamp": "1709913600001",
+        "name": "AdditionalTables1709913600001"
+      },
+      {
+        "id": 29,
+        "timestamp": "1712078400000",
+        "name": "CreateParkingRatesTable1712078400000"
+      },
+      {
+        "id": 30,
+        "timestamp": "1712078400001",
+        "name": "AddLocationToParkingArea1712078400001"
+      },
+      {
+        "id": 31,
+        "timestamp": "1743529518394",
+        "name": "InitialMigration1743529518394"
+      }
+    ]
+  },
+  "shift_summaries": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "operator_id",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "shift_start",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "shift_end",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "total_transactions",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "total_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "cash_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "non_cash_amount",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": [
+      {
+        "id": 3,
+        "operator_id": 1,
+        "shift_start": "2025-04-02T06:36:22.762Z",
+        "shift_end": null,
+        "total_transactions": 0,
+        "total_amount": "0.00",
+        "cash_amount": "0.00",
+        "non_cash_amount": "0.00",
+        "created_at": "2025-04-02T06:36:22.765Z",
+        "updated_at": "2025-04-02T06:36:22.765Z"
+      }
+    ]
+  },
+  "operator_shifts": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "operator_id",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "start_time",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "end_time",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "gate_id",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "parking_areas": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "capacity",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "occupied",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "location",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": [
+      {
+        "id": 3,
+        "name": "Main Parking",
+        "capacity": 100,
+        "occupied": 0,
+        "status": "active",
+        "created_at": "2025-04-01T19:39:05.391Z",
+        "updated_at": "2025-04-01T19:39:05.391Z",
+        "location": "Building A"
+      },
+      {
+        "id": 5,
+        "name": "Area 1",
+        "capacity": 1000,
+        "occupied": 0,
+        "status": "active",
+        "created_at": "2025-04-02T03:23:13.945Z",
+        "updated_at": "2025-04-02T03:23:13.945Z",
+        "location": "Area 1"
+      },
+      {
+        "id": 6,
+        "name": "Area 2",
+        "capacity": 500,
+        "occupied": 0,
+        "status": "active",
+        "created_at": "2025-04-02T03:27:57.606Z",
+        "updated_at": "2025-04-02T03:27:57.606Z",
+        "location": "Area 2"
+      }
+    ]
+  },
+  "notifications": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "title",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "parking_statistics": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "date",
+        "data_type": "date",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "total_vehicles",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "total_revenue",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "average_duration",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "peak_hours",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "vehicle_types",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "holidays": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "date",
+        "data_type": "date",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "user_activity_logs": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "action",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "details",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "backup_logs": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "file_path",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "size",
+        "data_type": "bigint",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "user_sessions": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "token",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ip_address",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "user_agent",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "last_activity",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "parking_fees": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ticket_id",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "base_rate",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "duration",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "hourly_charges",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "additional_charges",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "total_amount",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "calculated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "vehicle_types": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "price",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "isActive",
+        "data_type": "boolean",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "memberships": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "vehicleId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "start_date",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "end_date",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "vehicles": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "registration_date",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "plate_number",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "owner_name",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "owner_contact",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "parking_sessions": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "entry_time",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "exit_time",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ticketId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "vehicleId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "parkingAreaId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "tickets": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "vehicle_type_id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "entry_time",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "exit_time",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_by",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ticketNumber",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "plateNumber",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "payments": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ticket_id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "paid_by",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "paymentMethod",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "transactionId",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "system_logs": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "message",
+        "data_type": "text",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "device_logs": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "deviceId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "message",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "users": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "username",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "email",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "password_hash",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "full_name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "role",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "active",
+        "data_type": "boolean",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "last_login",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": [
+      {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@parking-system.com",
+        "password_hash": "$2b$10$5QH.JRwwfHnwwmNDhUyK8.LQd4MrgBf/IQfV3mV8VyFYYvHJ5UzrO",
+        "full_name": "System Administrator",
+        "role": "ADMIN",
+        "active": true,
+        "last_login": null,
+        "created_at": "2025-04-02T07:16:14.604Z",
+        "updated_at": "2025-04-02T07:16:14.604Z"
+      }
+    ]
+  },
+  "device_health_checks": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "checked_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "deviceId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "error_message",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "devices": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "last_maintenance",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "next_maintenance",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "location",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "gate_logs": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "gateId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "operatorId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "action",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "gates": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "gate_number",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "location",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "hardware_config",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "maintenance_schedule",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "error_log",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "type",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": [
+      {
+        "id": 3,
+        "status": "ACTIVE",
+        "created_at": "2025-04-02T06:02:54.697Z",
+        "updated_at": "2025-04-02T06:02:54.697Z",
+        "gate_number": "1",
+        "location": "1",
+        "description": null,
+        "hardware_config": {},
+        "maintenance_schedule": {},
+        "error_log": {},
+        "is_active": true,
+        "name": "1",
+        "type": "ENTRY"
+      }
+    ]
+  },
+  "system_settings": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "key",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "value",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "description",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "parking_rates": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "vehicle_type",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "base_rate",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "hourly_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "daily_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "weekly_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "monthly_rate",
+        "data_type": "numeric",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "grace_period",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "is_weekend_rate",
+        "data_type": "boolean",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "is_holiday_rate",
+        "data_type": "boolean",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "effective_from",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "effective_to",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": [
+      {
+        "id": 1,
+        "vehicle_type": "MOTORCYCLE",
+        "base_rate": "2500.00",
+        "hourly_rate": "1000.00",
+        "daily_rate": "10000.00",
+        "weekly_rate": null,
+        "monthly_rate": null,
+        "grace_period": 15,
+        "is_weekend_rate": false,
+        "is_holiday_rate": false,
+        "created_at": "2025-04-01T18:38:21.158Z",
+        "updated_at": "2025-04-01T18:38:21.158Z",
+        "effective_from": "2025-04-01T18:38:21.158Z",
+        "effective_to": null
+      },
+      {
+        "id": 2,
+        "vehicle_type": "CAR",
+        "base_rate": "5000.00",
+        "hourly_rate": "2000.00",
+        "daily_rate": "20000.00",
+        "weekly_rate": null,
+        "monthly_rate": null,
+        "grace_period": 15,
+        "is_weekend_rate": false,
+        "is_holiday_rate": false,
+        "created_at": "2025-04-01T18:38:21.158Z",
+        "updated_at": "2025-04-01T18:38:21.158Z",
+        "effective_from": "2025-04-01T18:38:21.158Z",
+        "effective_to": null
+      },
+      {
+        "id": 3,
+        "vehicle_type": "TRUCK",
+        "base_rate": "10000.00",
+        "hourly_rate": "5000.00",
+        "daily_rate": "50000.00",
+        "weekly_rate": null,
+        "monthly_rate": null,
+        "grace_period": 15,
+        "is_weekend_rate": false,
+        "is_holiday_rate": false,
+        "created_at": "2025-04-01T18:38:21.158Z",
+        "updated_at": "2025-04-01T18:38:21.158Z",
+        "effective_from": "2025-04-01T18:38:21.158Z",
+        "effective_to": null
+      },
+      {
+        "id": 4,
+        "vehicle_type": "BUS",
+        "base_rate": "10000.00",
+        "hourly_rate": "5000.00",
+        "daily_rate": "50000.00",
+        "weekly_rate": null,
+        "monthly_rate": null,
+        "grace_period": 15,
+        "is_weekend_rate": false,
+        "is_holiday_rate": false,
+        "created_at": "2025-04-01T18:38:21.158Z",
+        "updated_at": "2025-04-01T18:38:21.158Z",
+        "effective_from": "2025-04-01T18:38:21.158Z",
+        "effective_to": null
+      },
+      {
+        "id": 5,
+        "vehicle_type": "VAN",
+        "base_rate": "7000.00",
+        "hourly_rate": "3000.00",
+        "daily_rate": "35000.00",
+        "weekly_rate": null,
+        "monthly_rate": null,
+        "grace_period": 15,
+        "is_weekend_rate": false,
+        "is_holiday_rate": false,
+        "created_at": "2025-04-01T18:38:21.158Z",
+        "updated_at": "2025-04-01T18:38:21.158Z",
+        "effective_from": "2025-04-01T18:38:21.158Z",
+        "effective_to": null
+      }
+    ]
+  },
+  "payment_transaction": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "amount",
+        "data_type": "numeric",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "paymentMethod",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "paymentStatus",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "receiptNumber",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "notes",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "transactionTime",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "operatorId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "vehicleId",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      }
+    ],
+    "sampleData": []
+  },
+  "parking_area": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "capacity",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "occupied",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  },
+  "audit_logs": {
+    "structure": [
+      {
+        "column_name": "id",
+        "data_type": "integer",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "action",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "entityType",
+        "data_type": "USER-DEFINED",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "entityId",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "oldData",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "newData",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "description",
+        "data_type": "character varying",
+        "is_nullable": "NO"
+      },
+      {
+        "column_name": "ipAddress",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "userAgent",
+        "data_type": "character varying",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "integer",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": "NO"
+      }
+    ],
+    "sampleData": []
+  }
+}
