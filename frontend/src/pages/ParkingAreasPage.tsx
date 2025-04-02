@@ -37,10 +37,8 @@ import {
   LocalParking as ParkingIcon
 } from '@mui/icons-material';
 import { parkingAreaService, ParkingArea, ParkingAreaFormData } from '../services/api';
-import { useTranslation } from 'react-i18next';
 
 const ParkingAreasPage: React.FC = () => {
-  const { t: translate } = useTranslation();
   const [parkingAreas, setParkingAreas] = useState<ParkingArea[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
