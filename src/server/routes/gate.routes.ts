@@ -22,4 +22,13 @@ router.put('/:id', GateController.updateGate);
 // Delete gate
 router.delete('/:id', GateController.deleteGate);
 
+// Change gate status
+router.post('/:id/status', GateController.changeGateStatus);
+
+// Open gate
+router.post('/:id/open', GateController.openGate);
+
+// Close gate
+router.post('/:id/close', GateController.closeGate);
+
 export default router; 

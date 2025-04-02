@@ -38,6 +38,8 @@ import {
   ExpandLess,
   ExpandMore,
   WorkHistory as ShiftsIcon,
+  Login as EntryIcon,
+  Logout as ExitIcon,
 } from '@mui/icons-material';
 import { ROUTES } from '../utils/constants';
 import * as storage from '../utils/storage';
@@ -80,6 +82,14 @@ const Layout: React.FC<Props> = ({ children }) => {
       translationKey: 'main',
       items: [
         { label: 'Dashboard', translationKey: 'dashboard', icon: <DashboardIcon />, path: ROUTES.DASHBOARD },
+      ]
+    },
+    {
+      title: 'Gate Operations',
+      translationKey: 'gateOperations',
+      items: [
+        { label: 'Entry Gate', translationKey: 'entryGate', icon: <EntryIcon />, path: ROUTES.ENTRY_GATE },
+        { label: 'Exit Gate', translationKey: 'exitGate', icon: <ExitIcon />, path: ROUTES.EXIT_GATE },
       ]
     },
     {

@@ -4,6 +4,7 @@ import { ParkingSession } from '../entities/ParkingSession';
 import { Logger } from '../../shared/services/Logger';
 import { Vehicle } from '../entities/Vehicle';
 import { ParkingArea } from '../entities/ParkingArea';
+import { getRepository } from 'typeorm';
 
 const logger = Logger.getInstance();
 
@@ -13,7 +14,7 @@ export class ParkingSessionController {
         try {
             const parkingSessionRepository = AppDataSource.getRepository(ParkingSession);
             const parkingSessions = await parkingSessionRepository.find({
-                relations: ['vehicle', 'parkingArea'],
+                relations: ['vehicle', 'parkingArea', 'ticket'],
                 order: { entry_time: 'DESC' }
             });
             
@@ -185,6 +186,74 @@ export class ParkingSessionController {
         } catch (error) {
             logger.error('Error fetching active parking sessions:', error);
             return res.status(500).json({ message: 'Error fetching active parking sessions' });
+        }
+    }
+
+    static async handleVehicleEntry(req: Request, res: Response) {
+        try {
+            const { plate_number, type } = req.body;
+
+            if (!plate_number || !type) {
+                return res.status(400).json({ message: "Missing required fields" });
+            }
+
+            const vehicleRepository = getRepository(Vehicle);
+            const parkingSessionRepository = getRepository(ParkingSession);
+
+            // Find or create vehicle
+            let vehicle = await vehicleRepository.findOne({ where: { plate_number } });
+            if (!vehicle) {
+                vehicle = vehicleRepository.create({
+                    plate_number,
+                    type
+                });
+                await vehicleRepository.save(vehicle);
+            }
+
+            // Create new parking session
+            const parkingSession = parkingSessionRepository.create({
+                vehicle,
+                entry_time: new Date(),
+                status: "ACTIVE"
+            });
+
+            const savedSession = await parkingSessionRepository.save(parkingSession);
+            return res.status(201).json(savedSession);
+        } catch (error) {
+            console.error("Error in handleVehicleEntry:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    static async handleVehicleExit(req: Request, res: Response) {
+        try {
+            const { session_id } = req.body;
+
+            if (!session_id) {
+                return res.status(400).json({ message: "Missing required fields" });
+            }
+
+            const parkingSessionRepository = getRepository(ParkingSession);
+
+            // Find the active parking session
+            const parkingSession = await parkingSessionRepository.findOne({
+                where: { id: session_id, status: "ACTIVE" },
+                relations: ["vehicle"]
+            });
+
+            if (!parkingSession) {
+                return res.status(404).json({ message: "Active parking session not found" });
+            }
+
+            // Update session with exit details
+            parkingSession.exit_time = new Date();
+            parkingSession.status = "COMPLETED";
+
+            const updatedSession = await parkingSessionRepository.save(parkingSession);
+            return res.status(200).json(updatedSession);
+        } catch (error) {
+            console.error("Error in handleVehicleExit:", error);
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 } 

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import AppDataSource from '../config/ormconfig';
 import { Shift, ShiftStatus } from '../entities/Shift';
+import { User } from '../entities/User';
 import { Logger } from '../../shared/services/Logger';
 
 const logger = Logger.getInstance();
@@ -10,15 +11,26 @@ export class ShiftController {
     static async getAllShifts(req: Request, res: Response) {
         try {
             const shiftRepository = AppDataSource.getRepository(Shift);
+            const userRepository = AppDataSource.getRepository(User);
+            
             const shifts = await shiftRepository.find({
                 order: {
                     id: 'ASC'
                 }
             });
             
+            // Get operator names for each shift
+            const shiftsWithOperatorNames = await Promise.all(shifts.map(async (shift) => {
+                const operator = await userRepository.findOne({ where: { id: shift.operator_id } });
+                return {
+                    ...shift,
+                    operatorName: operator ? operator.fullName : `Operator ${shift.operator_id}`
+                };
+            }));
+            
             logger.info(`Found ${shifts.length} shifts`);
             return res.status(200).json({
-                data: shifts,
+                data: shiftsWithOperatorNames,
                 total: shifts.length,
                 page: 1,
                 limit: 50
@@ -35,14 +47,22 @@ export class ShiftController {
             logger.info(`Fetching shift with id: ${id}`);
             
             const shiftRepository = AppDataSource.getRepository(Shift);
+            const userRepository = AppDataSource.getRepository(User);
             const shift = await shiftRepository.findOne({ where: { id: Number(id) } });
             
             if (!shift) {
                 logger.warn(`Shift with id ${id} not found`);
                 return res.status(404).json({ message: 'Shift not found' });
             }
+
+            // Get operator name
+            const operator = await userRepository.findOne({ where: { id: shift.operator_id } });
+            const shiftWithOperatorName = {
+                ...shift,
+                operatorName: operator ? operator.fullName : `Operator ${shift.operator_id}`
+            };
             
-            return res.status(200).json(shift);
+            return res.status(200).json(shiftWithOperatorName);
         } catch (error) {
             logger.error(`Error fetching shift with id ${req.params.id}:`, error);
             return res.status(500).json({ message: 'Error fetching shift', error: String(error) });
@@ -63,6 +83,7 @@ export class ShiftController {
             }
             
             const shiftRepository = AppDataSource.getRepository(Shift);
+            const userRepository = AppDataSource.getRepository(User);
             
             // Create new shift object
             const newShift = shiftRepository.create({
@@ -79,8 +100,16 @@ export class ShiftController {
             // Save new shift
             try {
                 const savedShift = await shiftRepository.save(newShift);
+                
+                // Get operator name
+                const operator = await userRepository.findOne({ where: { id: savedShift.operator_id } });
+                const shiftWithOperatorName = {
+                    ...savedShift,
+                    operatorName: operator ? operator.fullName : `Operator ${savedShift.operator_id}`
+                };
+                
                 logger.info('Shift saved successfully with ID:', savedShift.id);
-                return res.status(201).json(savedShift);
+                return res.status(201).json(shiftWithOperatorName);
             } catch (saveError) {
                 logger.error('Error saving shift to database:', saveError);
                 return res.status(500).json({ 
@@ -104,6 +133,7 @@ export class ShiftController {
             logger.info(`Completing shift with id: ${id}`);
             
             const shiftRepository = AppDataSource.getRepository(Shift);
+            const userRepository = AppDataSource.getRepository(User);
             const shift = await shiftRepository.findOne({ where: { id: Number(id) } });
             
             if (!shift) {
@@ -118,8 +148,16 @@ export class ShiftController {
             
             try {
                 const savedShift = await shiftRepository.save(shift);
+                
+                // Get operator name
+                const operator = await userRepository.findOne({ where: { id: savedShift.operator_id } });
+                const shiftWithOperatorName = {
+                    ...savedShift,
+                    operatorName: operator ? operator.fullName : `Operator ${savedShift.operator_id}`
+                };
+                
                 logger.info(`Shift ${id} completed successfully`);
-                return res.status(200).json(savedShift);
+                return res.status(200).json(shiftWithOperatorName);
             } catch (saveError) {
                 logger.error(`Error completing shift ${id}:`, saveError);
                 return res.status(500).json({ 
@@ -143,6 +181,7 @@ export class ShiftController {
             logger.info(`Updating shift with id: ${id}`, req.body);
             
             const shiftRepository = AppDataSource.getRepository(Shift);
+            const userRepository = AppDataSource.getRepository(User);
             const shift = await shiftRepository.findOne({ where: { id: Number(id) } });
             
             if (!shift) {
@@ -162,8 +201,16 @@ export class ShiftController {
             
             try {
                 const savedShift = await shiftRepository.save(updatedShift);
+                
+                // Get operator name
+                const operator = await userRepository.findOne({ where: { id: savedShift.operator_id } });
+                const shiftWithOperatorName = {
+                    ...savedShift,
+                    operatorName: operator ? operator.fullName : `Operator ${savedShift.operator_id}`
+                };
+                
                 logger.info(`Shift ${id} updated successfully`);
-                return res.status(200).json(savedShift);
+                return res.status(200).json(shiftWithOperatorName);
             } catch (saveError) {
                 logger.error(`Error updating shift ${id}:`, saveError);
                 return res.status(500).json({ 

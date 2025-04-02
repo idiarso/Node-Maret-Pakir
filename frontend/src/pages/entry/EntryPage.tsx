@@ -16,18 +16,7 @@ import {
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { PhotoCamera as CameraIcon } from '@mui/icons-material';
-
-interface VehicleEntry {
-  plateNumber: string;
-  vehicleType: string;
-  entryTime: string;
-  photo: string;
-}
-
-interface EntryResponse {
-  success: boolean;
-  message: string;
-}
+import { parkingSessionService, ParkingSessionResponse } from '../../services/api';
 
 const EntryPage: React.FC = () => {
   const [plateNumber, setPlateNumber] = useState('');
@@ -37,22 +26,18 @@ const EntryPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const { mutate: submitEntry, isPending } = useMutation<EntryResponse, Error, VehicleEntry>({
-    mutationFn: async (entry: VehicleEntry) => {
-      // TODO: Replace with actual API call
-      const response = await fetch('/api/entry', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(entry),
+  const { mutate: submitEntry, isPending } = useMutation<
+    ParkingSessionResponse,
+    Error,
+    void,
+    unknown
+  >({
+    mutationFn: () => {
+      return parkingSessionService.createEntry({
+        plate_number: plateNumber,
+        type: vehicleType,
+        entry_operator_id: 1, // TODO: Get from authenticated user
       });
-
-      if (!response.ok) {
-        throw new Error('Gagal menyimpan data kendaraan');
-      }
-
-      return response.json();
     },
     onSuccess: () => {
       setPlateNumber('');
@@ -92,17 +77,12 @@ const EntryPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!plateNumber || !vehicleType || !photo) {
-      setError('Semua field harus diisi');
+    if (!plateNumber || !vehicleType) {
+      setError('Plate number and vehicle type are required');
       return;
     }
 
-    submitEntry({
-      plateNumber,
-      vehicleType,
-      entryTime: new Date().toISOString(),
-      photo,
-    });
+    submitEntry();
   };
 
   const handleVehicleTypeChange = (event: SelectChangeEvent) => {

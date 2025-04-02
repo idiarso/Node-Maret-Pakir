@@ -1,8 +1,9 @@
 import axios from 'axios';
-import { Payment, PaymentFormData, Ticket, Device, Gate, ApiResponse, ParkingSession, ParkingRate, Membership, OperatorShift, SystemSettings, LanguageSettings, BackupSettings } from '../types';
+import { Payment, PaymentFormData, Ticket, Device, ParkingSession, ParkingRate, Membership, OperatorShift, SystemSettings, LanguageSettings, BackupSettings } from '../types';
 import logger from '../utils/logger';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+// Use consistent API_BASE_URL
+const API_BASE_URL = 'http://localhost:3000';
 
 // Dashboard data interface
 export interface DashboardData {
@@ -241,25 +242,58 @@ export const deviceService = {
 // Parking Sessions API
 export const parkingSessionService = {
   getAll: async (): Promise<ParkingSession[]> => {
-    const response = await api.get<ParkingSession[]>('/api/parking-sessions');
-    return response.data;
+    console.log('Fetching all parking sessions...');
+    try {
+      // Use the correct API endpoint with /api prefix
+      const response = await api.get<ParkingSession[]>('/api/parking-sessions');
+      console.log('Successfully fetched parking sessions:', response.data);
+      
+      if (!response.data) {
+        console.error('Empty response data from parkingSessionService.getAll');
+        return [];
+      }
+      
+      if (!Array.isArray(response.data)) {
+        console.error('Invalid response format from parkingSessionService.getAll, expected array but got:', response.data);
+        return [];
+      }
+      
+      // Return the data
+      return response.data;
+    } catch (error) {
+      console.error('Error in parkingSessionService.getAll:', error);
+      // Instead of throwing, return empty array for better fault tolerance
+      return [];
+    }
   },
   getById: async (id: number): Promise<ParkingSession> => {
     const response = await api.get<ParkingSession>(`/api/parking-sessions/${id}`);
     return response.data;
   },
+  getSession: async (id: string): Promise<ParkingSessionResponse> => {
+    const response = await api.get<ParkingSessionResponse>(`/api/parking-sessions/${id}`);
+    return response.data;
+  },
+  createEntry: async (data: CreateParkingSessionRequest): Promise<ParkingSessionResponse> => {
+    const response = await api.post<ParkingSessionResponse>('/api/parking-sessions/entry', data);
+    return response.data;
+  },
+  processExit: async (data: ExitParkingSessionRequest): Promise<ParkingSessionResponse> => {
+    const response = await api.post<ParkingSessionResponse>('/api/parking-sessions/exit', data);
+    return response.data;
+  },
   update: async (id: number, data: Partial<ParkingSession>): Promise<ParkingSession> => {
-    const response = await api.put<ParkingSession>(`/api/parking-sessions/${id}`, data);
-    return response.data as ParkingSession;
+    const response = await api.patch<ParkingSession>(`/api/parking-sessions/${id}`, data);
+    return response.data;
   },
   complete: async (id: number): Promise<ParkingSession> => {
     const response = await api.post<ParkingSession>(`/api/parking-sessions/${id}/complete`);
-    return response.data as ParkingSession;
+    return response.data;
   }
 };
 
 // Helper for mapping frontend status values to database enum values
-const mapGateStatus = (statusValue: string): string => {
+export const mapGateStatus = (statusValue: string): string => {
   // Define the valid Gate statuses according to the database enum
   const validGateStatuses = ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'ERROR'];
   
@@ -280,334 +314,66 @@ const mapGateStatus = (statusValue: string): string => {
   return 'INACTIVE';
 };
 
-// Gates API
+// Gate API functions
 export const gateService = {
   getAll: async (): Promise<Gate[]> => {
     try {
-      logger.debug('Fetching all gates', 'GateService');
-      const response = await api.get<Gate[]>('/api/gates');
-      logger.info(`Retrieved ${response.data.length} gates`, 'GateService');
-      return response.data as Gate[];
-    } catch (error: any) {
-      logger.error('Error fetching gates', error, 'GateService');
-      // Return empty array on error
+      const response = await api.get<Gate[]>('/gates');
+      return response.data;
+    } catch (error) {
+      logger.error('Error fetching gates:', error);
       throw error;
     }
   },
-  
+
   getById: async (id: number): Promise<Gate> => {
     try {
-      logger.debug(`Fetching gate with id ${id}`, 'GateService');
-      const response = await api.get<Gate>(`/api/gates/${id}`);
-      logger.info(`Retrieved gate: ${response.data.name}`, 'GateService', { gate: response.data });
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error(`Error fetching gate with id ${id}`, error, 'GateService');
+      const response = await api.get<Gate>(`/gates/${id}`);
+      return response.data;
+    } catch (error) {
+      logger.error(`Error fetching gate ${id}:`, error);
       throw error;
     }
   },
-  
-  create: async (gate: Partial<any>): Promise<Gate> => {
-    logger.info('Creating gate', 'GateService', gate);
+
+  create: async (data: GateFormData): Promise<Gate> => {
     try {
-      // Ensure status is a valid enum value and add required fields
-      const formattedData = {
-        ...gate,
-        // Add required type field if missing (ENTRY is default in backend)
-        type: gate.type || 'ENTRY',
-        // Map deviceId to device_id if present
-        ...(gate.deviceId && { device_id: gate.deviceId }),
-        // Format gate_number if not provided
-        gate_number: gate.gate_number || gate.name?.substring(0, 20) || 'Gate',
-        // Ensure status is a valid enum value
-        status: mapGateStatus(gate.status)
-      };
-      
-      // Remove frontend-only fields that might cause issues with the backend
-      delete formattedData.deviceId;
-      
-      logger.debug('Sending formatted gate data', 'GateService', formattedData);
-      const response = await api.post<Gate>('/api/gates', formattedData);
-      logger.info('Gate created successfully', 'GateService', { 
-        id: response.data.id, 
-        name: response.data.name 
-      });
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error('Error creating gate', error, 'GateService', { requestData: gate });
-      
-      // Handle 500 Internal Server Error with optimistic response
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate creation, using optimistic response', 'GateService', {
-          serverError: error.response.data
-        });
-        
-        // Create an optimistic fallback response with a negative ID to indicate it's local only
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          id: -Math.floor(Math.random() * 1000), // Negative ID indicates local-only data
-          name: gate.name || 'New Gate',
-          location: gate.location,
-          status: gate.status || 'INACTIVE',
-          gate_number: gate.gate_number,
-          description: gate.description,
-          is_active: gate.is_active !== undefined ? gate.is_active : true,
-          created_at: timestamp,
-          updated_at: timestamp,
-          _optimistic: true, // Flag to indicate this is optimistic data
-          _error: 'This gate was not saved to the server due to a server error.'
-        };
-        
-        logger.info('Created optimistic gate', 'GateService', { 
-          id: optimisticGate.id,
-          name: optimisticGate.name,
-          isOptimistic: true
-        });
-        
-        return optimisticGate;
-      }
-      
+      const response = await api.post<Gate>('/gates', data);
+      return response.data;
+    } catch (error) {
+      logger.error('Error creating gate:', error);
       throw error;
     }
   },
-  
-  update: async (id: number, gate: Partial<any>): Promise<Gate> => {
-    logger.info(`Updating gate ${id}`, 'GateService', gate);
+
+  update: async (id: number, data: GateFormData): Promise<Gate> => {
     try {
-      // Check if we're dealing with a local-only gate (negative ID)
-      if (id < 0) {
-        logger.warn(`Attempted to update a local-only gate with ID ${id}`, 'GateService', {
-          gate
-        });
-        
-        // Create a new optimistic gate with updated data but keep negative ID
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...gate,
-          id, // Preserve negative ID
-          name: gate.name || 'Local Gate', // Ensure name property is present
-          status: mapGateStatus(gate.status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Updated local-only gate ${id}`, 'GateService', { 
-          id: optimisticGate.id,
-          name: optimisticGate.name
-        });
-        
-        return optimisticGate;
-      }
-      
-      // For real gates, proceed with normal update
-      const formattedData = {
-        ...gate,
-        status: mapGateStatus(gate.status)
-      };
-      
-      logger.debug('Sending formatted gate data', 'GateService', formattedData);
-      const response = await api.put<Gate>(`/api/gates/${id}`, formattedData);
-      logger.info(`Gate ${id} updated successfully`, 'GateService', { 
-        name: response.data.name 
-      });
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error(`Error updating gate ${id}`, error, 'GateService', { requestData: gate });
-      
-      // Check if this is for a local-only gate that 404'd
-      if (error.response && error.response.status === 404 && id < 0) {
-        logger.warn(`Server returned 404 for local-only gate ${id}`, 'GateService');
-        
-        // Create an optimistic update response for the local gate
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...gate,
-          id, // Keep the negative ID
-          name: gate.name || 'Local Gate', // Ensure name property is present
-          status: mapGateStatus(gate.status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Created optimistic update for local-only gate ${id}`, 'GateService');
-        return optimisticGate;
-      }
-      
-      // Handle 500 Internal Server Error with optimistic response
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate update, using optimistic response', 'GateService', {
-          id,
-          serverError: error.response.data
-        });
-        
-        // Try to get the current gate first if it's a real ID
-        let baseGate: any = {};
-        if (id > 0) {
-          try {
-            // Try to get the current gate data to use as a base
-            const currentResponse = await api.get<Gate>(`/api/gates/${id}`);
-            baseGate = currentResponse.data;
-          } catch (fetchError) {
-            logger.error('Could not fetch current gate data for optimistic update', fetchError, 'GateService', { id });
-          }
-        }
-        
-        // Create an optimistic fallback response
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...baseGate,
-          ...gate,
-          id: id > 0 ? id : -Math.floor(Math.random() * 1000), // Preserve ID or use negative for new
-          updated_at: timestamp,
-          _optimistic: true, // Flag to indicate this is optimistic data
-          _error: 'Changes were not saved to the server due to a server error.'
-        };
-        
-        logger.info('Created optimistic gate update', 'GateService', { 
-          id: optimisticGate.id,
-          name: optimisticGate.name,
-          isOptimistic: true
-        });
-        
-        return optimisticGate;
-      }
-      
+      const response = await api.put<Gate>(`/gates/${id}`, data);
+      return response.data;
+    } catch (error) {
+      logger.error(`Error updating gate ${id}:`, error);
       throw error;
     }
   },
-  
+
   delete: async (id: number): Promise<void> => {
     try {
-      // For local-only gates (negative IDs), just return success without server call
-      if (id < 0) {
-        logger.info(`Skipping server delete for local-only gate ${id}`, 'GateService');
-        return;
-      }
-      
-      logger.info(`Deleting gate ${id}`, 'GateService');
-      await api.delete(`/api/gates/${id}`);
-      logger.info(`Gate ${id} deleted successfully`, 'GateService');
-    } catch (error: any) {
-      logger.error(`Error deleting gate ${id}`, error, 'GateService');
-      
-      // Handle 404 errors for negative IDs gracefully
-      if (error.response && error.response.status === 404 && id < 0) {
-        logger.warn(`Server returned 404 for local-only gate ${id} deletion`, 'GateService');
-        return; // Return as if deletion succeeded
-      }
-      
-      // Check if it's a server error - in which case we'll silently succeed
-      // This is because we want to let users continue working even if the server is broken
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate deletion, continuing as if successful', 'GateService', {
-          id,
-          serverError: error.response.data
-        });
-        return; // Return as if deletion succeeded
-      }
-      
+      await api.delete(`/gates/${id}`);
+    } catch (error) {
+      logger.error(`Error deleting gate ${id}:`, error);
       throw error;
     }
   },
-  
+
   changeStatus: async (id: number, status: string): Promise<Gate> => {
     try {
-      // Check if we're dealing with a local-only gate (negative ID)
-      if (id < 0) {
-        logger.warn(`Attempted to change status of a local-only gate with ID ${id}`, 'GateService', {
-          id,
-          status
-        });
-        
-        // Create a new optimistic gate with updated status but keep negative ID
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          id, // Preserve negative ID
-          name: 'Local Gate', // Add required name property
-          status: mapGateStatus(status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Updated status of local-only gate ${id} to ${status}`, 'GateService');
-        return optimisticGate;
-      }
-      
-      // Map to valid enum status
-      const mappedStatus = mapGateStatus(status);
-      
-      logger.info(`Changing gate ${id} status to ${mappedStatus}`, 'GateService');
-      const response = await api.post<Gate>(`/api/gates/${id}/status`, { status: mappedStatus });
-      logger.info(`Gate ${id} status changed to ${mappedStatus}`, 'GateService');
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error(`Error changing status for gate ${id}`, error, 'GateService', { 
-        requestedStatus: status 
-      });
-      
-      // Check if this is for a local-only gate that 404'd
-      if (error.response && error.response.status === 404 && id < 0) {
-        logger.warn(`Server returned 404 for local-only gate ${id} status change`, 'GateService');
-        
-        // Create an optimistic status change for the local gate
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          id, // Keep the negative ID
-          name: 'Local Gate', // Add required name property
-          status: mapGateStatus(status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Created optimistic status change for local-only gate ${id}`, 'GateService');
-        return optimisticGate;
-      }
-      
-      // Handle 500 Internal Server Error with optimistic response
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate status change, using optimistic response', 'GateService', {
-          id,
-          status,
-          serverError: error.response.data
-        });
-        
-        // Try to get the current gate first
-        let baseGate: any = {};
-        try {
-          // Try to get the current gate data to use as a base
-          const currentResponse = await api.get<Gate>(`/api/gates/${id}`);
-          baseGate = currentResponse.data;
-        } catch (fetchError) {
-          logger.error('Could not fetch current gate data for optimistic status change', fetchError, 'GateService', { id });
-        }
-        
-        // Create an optimistic fallback response
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...baseGate,
-          id,
-          status,
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'Status change was not saved to the server due to a server error.'
-        };
-        
-        logger.info('Created optimistic gate status change', 'GateService', { 
-          id,
-          newStatus: status,
-          isOptimistic: true
-        });
-        
-        return optimisticGate;
-      }
-      
+      const response = await api.put<Gate>(`/gates/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      logger.error(`Error changing gate ${id} status:`, error);
       throw error;
     }
-  },
+  }
 };
 
 // Parking Rates API
@@ -788,8 +554,8 @@ export const shiftService = {
           id: shift.id,
           operator_id: shift.operator_id,
           operatorName: `Operator ${shift.operator_id}`,
-          shift_start: new Date(shift.shift_start),
-          shift_end: shift.shift_end ? new Date(shift.shift_end) : undefined,
+          start_time: new Date(shift.shift_start),
+          end_time: shift.shift_end ? new Date(shift.shift_end) : undefined,
           total_transactions: shift.total_transactions || 0,
           total_amount: shift.total_amount || 0,
           cash_amount: shift.cash_amount || 0,
@@ -1140,6 +906,64 @@ export const parkingAreaService = {
       }
       
       console.error('Error deleting parking area:', error);
+      throw error;
+    }
+  }
+};
+
+// Parking Session interfaces
+export interface Vehicle {
+  id: number;
+  plate_number: string;
+  type: string;
+}
+
+export interface ParkingSessionResponse {
+  id: number;
+  vehicle: Vehicle;
+  entry_time: string;
+  exit_time?: string;
+  status: string;
+}
+
+export interface CreateParkingSessionRequest {
+  plate_number: string;
+  type: string;
+}
+
+export interface ExitParkingSessionRequest {
+  session_id: number;
+}
+
+export interface DashboardStats {
+  totalVehicles: number;
+  activeVehicles: number;
+  totalRevenue: number;
+  totalUsers: number;
+}
+
+export interface RevenueData {
+  date: string;
+  amount: number;
+}
+
+export const adminDashboardService = {
+  getStats: async () => {
+    try {
+      const response = await axios.get<DashboardStats>('/api/admin/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw error;
+    }
+  },
+
+  getRevenue: async () => {
+    try {
+      const response = await axios.get<RevenueData[]>('/api/admin/dashboard/revenue');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching revenue data:', error);
       throw error;
     }
   }

@@ -10,185 +10,187 @@ export class GateController {
     static async getAllGates(req: Request, res: Response) {
         try {
             const gateRepository = AppDataSource.getRepository(Gate);
-            const gates = await gateRepository.find();
-            logger.info(`Found ${gates.length} gates`);
+            const gates = await gateRepository.find({
+                order: {
+                    id: 'ASC'
+                }
+            });
             
             return res.status(200).json(gates);
         } catch (error) {
             logger.error('Error fetching gates:', error);
-            return res.status(500).json({ message: 'Error fetching gates', error: String(error) });
+            return res.status(500).json({ message: 'Error fetching gates' });
         }
     }
 
     static async getGateById(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            logger.info(`Fetching gate with id: ${id}`);
-            
             const gateRepository = AppDataSource.getRepository(Gate);
             const gate = await gateRepository.findOne({ where: { id: Number(id) } });
             
             if (!gate) {
-                logger.warn(`Gate with id ${id} not found`);
                 return res.status(404).json({ message: 'Gate not found' });
             }
             
             return res.status(200).json(gate);
         } catch (error) {
             logger.error(`Error fetching gate with id ${req.params.id}:`, error);
-            return res.status(500).json({ message: 'Error fetching gate', error: String(error) });
+            return res.status(500).json({ message: 'Error fetching gate' });
         }
     }
 
     static async createGate(req: Request, res: Response) {
         try {
-            logger.info('Creating gate with data:', req.body);
+            const { name, type, location, description } = req.body;
             
-            // Dapatkan data dari request body
-            let { name, type, location, status, gate_number, description, is_active } = req.body;
-            
-            // Validasi dasar
-            if (!name) {
-                logger.warn('Gate name is required');
-                return res.status(400).json({ message: 'Gate name is required' });
+            if (!name || !type) {
+                return res.status(400).json({ message: 'Name and type are required' });
             }
             
             const gateRepository = AppDataSource.getRepository(Gate);
             
-            // Set default values jika tidak ada
-            if (!gate_number) gate_number = name.substring(0, 20); // Truncate jika terlalu panjang
-            if (!type) type = GateType.ENTRY;
-            if (!status) status = GateStatus.INACTIVE;
-            if (is_active === undefined) is_active = true;
-            
-            // Buat objek gate baru
-            const newGate = {
+            const newGate = gateRepository.create({
                 name,
-                gate_number,
                 type,
                 location,
-                status,
                 description,
-                is_active,
-                hardware_config: {},
-                maintenance_schedule: {},
-                error_log: {}
-            };
-            
-            logger.info('Gate object to be created:', newGate);
-            
-            // Simpan gate baru
-            try {
-                const savedGate = await gateRepository.save(newGate);
-                logger.info('Gate saved successfully with ID:', savedGate.id);
-                return res.status(201).json(savedGate);
-            } catch (saveError) {
-                logger.error('Error saving gate to database:', saveError);
-                logger.debug('Gate data that failed to save:', JSON.stringify(newGate));
-                return res.status(500).json({ 
-                    message: 'Error saving gate to database', 
-                    error: String(saveError),
-                    data: newGate 
-                });
-            }
-            
-        } catch (error) {
-            logger.error('Unexpected error creating gate:', error);
-            return res.status(500).json({ 
-                message: 'Unexpected error creating gate', 
-                error: String(error),
-                requestBody: req.body 
+                status: GateStatus.INACTIVE,
+                is_active: true
             });
+            
+            const savedGate = await gateRepository.save(newGate);
+            return res.status(201).json(savedGate);
+        } catch (error) {
+            logger.error('Error creating gate:', error);
+            return res.status(500).json({ message: 'Error creating gate' });
         }
     }
 
     static async updateGate(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            logger.info(`Updating gate with id: ${id}`, req.body);
+            const updateData = req.body;
             
             const gateRepository = AppDataSource.getRepository(Gate);
             const gate = await gateRepository.findOne({ where: { id: Number(id) } });
             
             if (!gate) {
-                logger.warn(`Gate with id ${id} not found for update`);
                 return res.status(404).json({ message: 'Gate not found' });
             }
             
-            // Update properties if provided
-            const updateData = req.body;
-            
-            // Create updated gate object with safe defaults
             const updatedGate = {
                 ...gate,
-                ...updateData,
-                hardware_config: updateData.hardware_config || gate.hardware_config || {},
-                maintenance_schedule: updateData.maintenance_schedule || gate.maintenance_schedule || {},
-                error_log: updateData.error_log || gate.error_log || {}
+                ...updateData
             };
             
-            logger.info('Gate object to be updated:', updatedGate);
-            
-            try {
-                const savedGate = await gateRepository.save(updatedGate);
-                logger.info('Gate updated successfully:', savedGate.id);
-                return res.status(200).json(savedGate);
-            } catch (saveError) {
-                logger.error('Error updating gate in database:', saveError);
-                return res.status(500).json({ 
-                    message: 'Error updating gate in database', 
-                    error: String(saveError),
-                    data: updatedGate 
-                });
-            }
-            
+            const savedGate = await gateRepository.save(updatedGate);
+            return res.status(200).json(savedGate);
         } catch (error) {
             logger.error(`Error updating gate with id ${req.params.id}:`, error);
-            return res.status(500).json({ 
-                message: 'Error updating gate', 
-                error: String(error),
-                requestBody: req.body 
-            });
+            return res.status(500).json({ message: 'Error updating gate' });
         }
     }
 
     static async deleteGate(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            logger.info(`Deleting gate with id: ${id}`);
+            const gateRepository = AppDataSource.getRepository(Gate);
+            const gate = await gateRepository.findOne({ where: { id: Number(id) } });
+            
+            if (!gate) {
+                return res.status(404).json({ message: 'Gate not found' });
+            }
+            
+            await gateRepository.remove(gate);
+            return res.status(200).json({ message: 'Gate deleted successfully' });
+        } catch (error) {
+            logger.error(`Error deleting gate with id ${req.params.id}:`, error);
+            return res.status(500).json({ message: 'Error deleting gate' });
+        }
+    }
+
+    static async changeGateStatus(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const { status } = req.body;
+            
+            if (!status || !Object.values(GateStatus).includes(status)) {
+                return res.status(400).json({ message: 'Invalid gate status' });
+            }
             
             const gateRepository = AppDataSource.getRepository(Gate);
             const gate = await gateRepository.findOne({ where: { id: Number(id) } });
             
             if (!gate) {
-                logger.warn(`Gate with id ${id} not found for deletion`);
                 return res.status(404).json({ message: 'Gate not found' });
             }
             
-            try {
-                await gateRepository.remove(gate);
-                logger.info(`Gate with id ${id} deleted successfully`);
-                return res.status(200).json({ 
-                    message: 'Gate deleted successfully',
-                    deletedGate: {
-                        id: Number(id),
-                        name: gate.name
-                    }
-                });
-            } catch (deleteError) {
-                logger.error(`Error during database deletion of gate ${id}:`, deleteError);
-                return res.status(500).json({ 
-                    message: 'Error deleting gate from database', 
-                    error: String(deleteError)
-                });
+            gate.status = status;
+            const savedGate = await gateRepository.save(gate);
+            
+            return res.status(200).json(savedGate);
+        } catch (error) {
+            logger.error(`Error changing status for gate with id ${req.params.id}:`, error);
+            return res.status(500).json({ message: 'Error changing gate status' });
+        }
+    }
+
+    static async openGate(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const gateRepository = AppDataSource.getRepository(Gate);
+            const gate = await gateRepository.findOne({ where: { id: Number(id) } });
+            
+            if (!gate) {
+                return res.status(404).json({ message: 'Gate not found' });
             }
             
-        } catch (error) {
-            logger.error(`Unexpected error deleting gate with id ${req.params.id}:`, error);
-            return res.status(500).json({ 
-                message: 'Unexpected error deleting gate', 
-                error: String(error)
+            if (gate.status !== GateStatus.ACTIVE) {
+                return res.status(400).json({ message: 'Gate is not active' });
+            }
+            
+            // Here you would typically integrate with your hardware control system
+            // For now, we'll just simulate the gate opening
+            logger.info(`Opening gate ${id}`);
+            
+            return res.status(200).json({ 
+                message: 'Gate opened successfully',
+                gate_id: id,
+                timestamp: new Date()
             });
+        } catch (error) {
+            logger.error(`Error opening gate with id ${req.params.id}:`, error);
+            return res.status(500).json({ message: 'Error opening gate' });
+        }
+    }
+
+    static async closeGate(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const gateRepository = AppDataSource.getRepository(Gate);
+            const gate = await gateRepository.findOne({ where: { id: Number(id) } });
+            
+            if (!gate) {
+                return res.status(404).json({ message: 'Gate not found' });
+            }
+            
+            if (gate.status !== GateStatus.ACTIVE) {
+                return res.status(400).json({ message: 'Gate is not active' });
+            }
+            
+            // Here you would typically integrate with your hardware control system
+            // For now, we'll just simulate the gate closing
+            logger.info(`Closing gate ${id}`);
+            
+            return res.status(200).json({ 
+                message: 'Gate closed successfully',
+                gate_id: id,
+                timestamp: new Date()
+            });
+        } catch (error) {
+            logger.error(`Error closing gate with id ${req.params.id}:`, error);
+            return res.status(500).json({ message: 'Error closing gate' });
         }
     }
 } 

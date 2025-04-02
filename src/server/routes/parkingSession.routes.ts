@@ -7,6 +7,10 @@ const router = express.Router();
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
+// Vehicle entry and exit
+router.post('/entry', ParkingSessionController.handleVehicleEntry);
+router.post('/exit', ParkingSessionController.handleVehicleExit);
+
 // Get all parking sessions
 router.get('/', ParkingSessionController.getAllParkingSessions);
 

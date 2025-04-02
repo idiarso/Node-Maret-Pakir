@@ -1,4 +1,4 @@
-import { useState, useEffect, FC } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Typography, 
   Box, 
@@ -27,20 +27,18 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Divider
+  Alert
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import InfoIcon from '@mui/icons-material/Info';
-import PrintIcon from '@mui/icons-material/Print';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import CameraAltIcon from '@mui/icons-material/CameraAlt';
-import QrCodeIcon from '@mui/icons-material/QrCode';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PrintIcon from '@mui/icons-material/Print';
 import { parkingSessionService } from '../services/api';
 import { ParkingSession } from '../types';
 
-const ParkingSessionsPage: FC = () => {
+const ParkingSessionsPage = () => {
   const [sessions, setSessions] = useState<ParkingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,16 +57,43 @@ const ParkingSessionsPage: FC = () => {
     setLoading(true);
     setError(null);
     try {
+      console.log('DEBUG: Fetching parking sessions from frontend component...');
+      console.log('DEBUG: API URL:', `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/parking-sessions`);
+      
       const data = await parkingSessionService.getAll();
-      const enhancedData = data.map(session => ({
-        ...session,
-        vehicleImageUrl: `https://source.unsplash.com/random/300x200?car&sig=${session.id}`,
-        barcodeImageUrl: `https://barcodeapi.org/api/code128/${session.vehicle.license_plate.replace(/\s/g, '')}`
-      }));
+      console.log('DEBUG: Received parking sessions data:', data);
+      
+      if (!data || !Array.isArray(data)) {
+        console.error('DEBUG: Invalid data format:', data);
+        setError('Invalid data format received from server');
+        setSessions([]);
+        return;
+      }
+      
+      // Process and enhance the parking sessions
+      const enhancedData = data.map(session => {
+        console.log('DEBUG: Processing session:', session);
+        // Make sure session has a vehicle property
+        const vehicle = session.vehicle || {
+          id: session.vehicle_id || 0,
+          plate_number: 'Unknown',
+          type: 'Unknown'
+        };
+        
+        return {
+          ...session,
+          vehicle,
+          vehicleImageUrl: `https://source.unsplash.com/random/300x200?car&sig=${session.id}`,
+          barcodeImageUrl: `https://barcodeapi.org/api/code128/${vehicle.plate_number.replace(/\s/g, '')}`
+        };
+      });
+      
+      console.log('DEBUG: Enhanced data:', enhancedData);
       setSessions(enhancedData);
     } catch (err) {
-      console.error('Error fetching parking sessions:', err);
-      setError('Failed to load parking sessions');
+      console.error('DEBUG: Error fetching parking sessions:', err);
+      setError(`Failed to load parking sessions: ${err.message || ''}`);
+      setSessions([]);
     } finally {
       setLoading(false);
     }
@@ -97,10 +122,10 @@ const ParkingSessionsPage: FC = () => {
   const handleEditSession = (session: ParkingSession) => {
     setSelectedSession(session);
     setFormData({
-      license_plate: session.vehicle.license_plate,
-      vehicle_type: session.vehicle.type,
-      entry_time: session.entry_time.toISOString(),
-      exit_time: session.exit_time?.toISOString() || '',
+      license_plate: session.vehicle?.plate_number || '',
+      vehicle_type: session.vehicle?.type || '',
+      entry_time: session.entry_time ? new Date(session.entry_time).toISOString() : '',
+      exit_time: session.exit_time ? new Date(session.exit_time).toISOString() : '',
       status: session.status
     });
     setOpenEditDialog(true);
@@ -137,7 +162,7 @@ const ParkingSessionsPage: FC = () => {
       
       // Update in local state
       setSessions(sessions.map(session => 
-        session.id === selectedSession.id ? updatedSession : session
+        session.id === selectedSession?.id ? updatedSession : session
       ));
       
       setOpenEditDialog(false);
@@ -147,52 +172,7 @@ const ParkingSessionsPage: FC = () => {
     }
   };
 
-  const handlePrintTicket = (session: any) => {
-    // Create a printable format for the ticket
-    const ticketContent = `
-      <html>
-        <head>
-          <title>Parking Ticket</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            .ticket { border: 1px solid #ccc; padding: 20px; max-width: 400px; margin: 0 auto; }
-            .header { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 15px; }
-            .barcode { text-align: center; margin: 15px 0; }
-            .barcode img { max-width: 100%; height: auto; }
-            .info { margin: 5px 0; }
-            .footer { text-align: center; margin-top: 20px; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="ticket">
-            <div class="header">Parking Ticket</div>
-            <div class="info"><strong>ID:</strong> ${session.id}</div>
-            <div class="info"><strong>License Plate:</strong> ${session.license_plate}</div>
-            <div class="info"><strong>Vehicle Type:</strong> ${session.vehicle_type}</div>
-            <div class="info"><strong>Entry Time:</strong> ${new Date(session.entry_time).toLocaleString()}</div>
-            <div class="barcode">
-              <img src="${session.barcodeImageUrl}" alt="Barcode" />
-            </div>
-            <div class="footer">Please keep this ticket until you exit.</div>
-          </div>
-        </body>
-      </html>
-    `;
-    
-    // Open a new window and print
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(ticketContent);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    } else {
-      alert('Please allow popups for this website to print tickets.');
-    }
-  };
-
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning" => {
     switch (status) {
       case 'ACTIVE':
         return 'success';
@@ -203,13 +183,9 @@ const ParkingSessionsPage: FC = () => {
     }
   };
 
-  const formatDuration = (minutes: number) => {
-    if (!minutes) return '-';
-    
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  const formatDateTime = (date: string | Date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleString();
   };
 
   return (
@@ -219,6 +195,7 @@ const ParkingSessionsPage: FC = () => {
           Parking Sessions
         </Typography>
         <Button 
+          variant="outlined" 
           startIcon={<RefreshIcon />} 
           onClick={fetchSessions}
           disabled={loading}
@@ -232,9 +209,17 @@ const ParkingSessionsPage: FC = () => {
       </Typography>
 
       {error && (
-        <Paper sx={{ p: 2, mb: 2, bgcolor: '#fff4f4' }}>
-          <Typography color="error">{error}</Typography>
-        </Paper>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={fetchSessions}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
       )}
 
       <Paper sx={{ p: 3, mt: 2 }}>
@@ -243,22 +228,32 @@ const ParkingSessionsPage: FC = () => {
             <CircularProgress />
           </Box>
         ) : sessions.length === 0 ? (
-          <Typography>No parking sessions found.</Typography>
+          <Box sx={{ textAlign: 'center', p: 3 }}>
+            <Typography variant="h6" gutterBottom>No parking sessions found.</Typography>
+            <Typography color="textSecondary" paragraph>
+              There are no parking sessions in the system, or the server might be unavailable.
+            </Typography>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={fetchSessions}
+              startIcon={<RefreshIcon />}
+              sx={{ mt: 2 }}
+            >
+              Retry
+            </Button>
+          </Box>
         ) : (
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell>Vehicle Image</TableCell>
-                  <TableCell>Barcode</TableCell>
                   <TableCell>License Plate</TableCell>
                   <TableCell>Vehicle Type</TableCell>
                   <TableCell>Entry Time</TableCell>
                   <TableCell>Exit Time</TableCell>
-                  <TableCell>Duration</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Fee</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -266,84 +261,41 @@ const ParkingSessionsPage: FC = () => {
                 {sessions.map((session) => (
                   <TableRow key={session.id}>
                     <TableCell>{session.id}</TableCell>
-                    <TableCell>
-                      <Box
-                        component="img"
-                        sx={{
-                          height: 60,
-                          width: 80,
-                          objectFit: 'cover',
-                          borderRadius: 1
-                        }}
-                        alt="Vehicle"
-                        src={session.vehicleImageUrl}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box
-                        component="img"
-                        sx={{
-                          height: 40,
-                          width: 120,
-                          objectFit: 'contain'
-                        }}
-                        alt="Barcode"
-                        src={session.barcodeImageUrl}
-                      />
-                    </TableCell>
-                    <TableCell>{session.license_plate}</TableCell>
-                    <TableCell>{session.vehicle_type}</TableCell>
-                    <TableCell>{new Date(session.entry_time).toLocaleString()}</TableCell>
-                    <TableCell>
-                      {session.exit_time ? new Date(session.exit_time).toLocaleString() : '-'}
-                    </TableCell>
-                    <TableCell>{formatDuration(session.durationMinutes)}</TableCell>
+                    <TableCell>{session.vehicle?.plate_number || 'Unknown'}</TableCell>
+                    <TableCell>{session.vehicle?.type || 'Unknown'}</TableCell>
+                    <TableCell>{formatDateTime(session.entry_time)}</TableCell>
+                    <TableCell>{session.exit_time ? formatDateTime(session.exit_time) : '-'}</TableCell>
                     <TableCell>
                       <Chip 
                         label={session.status} 
-                        color={getStatusColor(session.status) as any}
-                        size="small"
+                        color={getStatusColor(session.status)} 
+                        size="small" 
                       />
                     </TableCell>
                     <TableCell>
-                      {session.fee ? `Rp ${session.fee.toLocaleString('id-ID')}` : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Box sx={{ display: 'flex' }}>
                         <Tooltip title="View Details">
                           <IconButton 
                             size="small" 
-                            color="info"
                             onClick={() => handleViewDetails(session)}
                           >
                             <InfoIcon />
                           </IconButton>
                         </Tooltip>
                         
-                        <Tooltip title="Print Ticket">
+                        <Tooltip title="Edit">
                           <IconButton 
                             size="small" 
-                            color="secondary"
-                            onClick={() => handlePrintTicket(session)}
-                          >
-                            <PrintIcon />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        <Tooltip title="Edit Session">
-                          <IconButton 
-                            size="small" 
-                            color="primary"
                             onClick={() => handleEditSession(session)}
                           >
                             <EditIcon />
                           </IconButton>
                         </Tooltip>
                         
-                        <Tooltip title="Delete Session">
+                        <Tooltip title="Delete">
                           <IconButton 
                             size="small" 
-                            color="error"
+                            color="error" 
                             onClick={() => handleDeleteSession(session.id)}
                           >
                             <DeleteIcon />
@@ -351,16 +303,67 @@ const ParkingSessionsPage: FC = () => {
                         </Tooltip>
                         
                         {session.status === 'ACTIVE' && (
-                          <Tooltip title="Complete Session">
+                          <Tooltip title="Complete">
                             <IconButton 
                               size="small" 
-                              color="success"
+                              color="success" 
                               onClick={() => handleCompleteSession(session.id)}
                             >
                               <CheckCircleIcon />
                             </IconButton>
                           </Tooltip>
                         )}
+                        
+                        <Tooltip title="Print Ticket">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              const printWindow = window.open('', '_blank');
+                              if (printWindow) {
+                                printWindow.document.write(`
+                                  <!DOCTYPE html>
+                                  <html>
+                                  <head>
+                                    <title>Parking Ticket #${session.id}</title>
+                                    <style>
+                                      body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                                      .ticket { max-width: 380px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; }
+                                      .ticket-header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+                                      .ticket-info { margin-bottom: 20px; }
+                                      .ticket-info p { margin: 5px 0; }
+                                      .barcode-container { text-align: center; margin-top: 20px; }
+                                      .barcode-container img { max-width: 100%; height: auto; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <div class="ticket">
+                                      <div class="ticket-header">
+                                        <h1>Parking Ticket</h1>
+                                        <h2>#${session.id}</h2>
+                                      </div>
+                                      <div class="ticket-info">
+                                        <p><strong>License Plate:</strong> ${session.vehicle?.plate_number || 'Unknown'}</p>
+                                        <p><strong>Vehicle Type:</strong> ${session.vehicle?.type || 'Unknown'}</p>
+                                        <p><strong>Entry Time:</strong> ${formatDateTime(session.entry_time)}</p>
+                                        <p><strong>Exit Time:</strong> ${session.exit_time ? formatDateTime(session.exit_time) : 'Not exited yet'}</p>
+                                        <p><strong>Status:</strong> ${session.status}</p>
+                                      </div>
+                                      <div class="barcode-container">
+                                        <img src="https://barcodeapi.org/api/code128/${session.id}" alt="Barcode" />
+                                        <p>${session.id}</p>
+                                      </div>
+                                    </div>
+                                  </body>
+                                  </html>
+                                `);
+                                printWindow.document.close();
+                                printWindow.print();
+                              }
+                            }}
+                          >
+                            <PrintIcon />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -378,94 +381,42 @@ const ParkingSessionsPage: FC = () => {
         maxWidth="md"
         fullWidth
       >
-        {selectedSession && (
-          <>
-            <DialogTitle>
-              Parking Session Details - {selectedSession.license_plate}
-            </DialogTitle>
-            <DialogContent dividers>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardMedia
-                      component="img"
-                      height="200"
-                      image={selectedSession.vehicleImageUrl}
-                      alt="Vehicle Image"
-                    />
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>Vehicle Information</Typography>
-                      <Typography><strong>License Plate:</strong> {selectedSession.license_plate}</Typography>
-                      <Typography><strong>Vehicle Type:</strong> {selectedSession.vehicle_type}</Typography>
-                      <Typography><strong>Status:</strong> {selectedSession.status}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Card sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>Session Information</Typography>
-                      <Typography><strong>ID:</strong> {selectedSession.id}</Typography>
-                      <Typography><strong>Entry Time:</strong> {new Date(selectedSession.entry_time).toLocaleString()}</Typography>
-                      <Typography><strong>Exit Time:</strong> {selectedSession.exit_time ? new Date(selectedSession.exit_time).toLocaleString() : '-'}</Typography>
-                      <Typography><strong>Duration:</strong> {formatDuration(selectedSession.durationMinutes)}</Typography>
-                      <Typography><strong>Fee:</strong> {selectedSession.fee ? `Rp ${selectedSession.fee.toLocaleString('id-ID')}` : '-'}</Typography>
-                      <Typography><strong>Entry Gate:</strong> {selectedSession.entryGateId || '-'}</Typography>
-                      <Typography><strong>Exit Gate:</strong> {selectedSession.exitGateId || '-'}</Typography>
-                      <Typography><strong>Parking Area:</strong> {selectedSession.parkingAreaId || '-'}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>Barcode</Typography>
-                      <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-                        <Box
-                          component="img"
-                          sx={{
-                            maxHeight: 100,
-                            maxWidth: '100%',
-                            objectFit: 'contain'
-                          }}
-                          alt="Barcode"
-                          src={selectedSession.barcodeImageUrl}
-                        />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
+        <DialogTitle>Parking Session Details</DialogTitle>
+        <DialogContent>
+          {selectedSession && (
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardMedia
+                    component="img"
+                    height="200"
+                    image={selectedSession.vehicleImageUrl}
+                    alt="Vehicle"
+                  />
+                  <CardContent>
+                    <Typography variant="h6">Vehicle Information</Typography>
+                    <Typography>License Plate: {selectedSession.vehicle?.plate_number || 'Unknown'}</Typography>
+                    <Typography>Type: {selectedSession.vehicle?.type || 'Unknown'}</Typography>
+                  </CardContent>
+                </Card>
               </Grid>
-            </DialogContent>
-            <DialogActions>
-              <Button 
-                startIcon={<PrintIcon />}
-                variant="outlined" 
-                color="secondary"
-                onClick={() => handlePrintTicket(selectedSession)}
-              >
-                Print Ticket
-              </Button>
-              <Button 
-                startIcon={<EditIcon />}
-                variant="outlined" 
-                color="primary"
-                onClick={() => {
-                  setOpenDetailsDialog(false);
-                  handleEditSession(selectedSession);
-                }}
-              >
-                Edit Session
-              </Button>
-              <Button 
-                variant="contained"
-                onClick={() => setOpenDetailsDialog(false)}
-              >
-                Close
-              </Button>
-            </DialogActions>
-          </>
-        )}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6">Session Information</Typography>
+                    <Typography>ID: {selectedSession.id}</Typography>
+                    <Typography>Entry Time: {formatDateTime(selectedSession.entry_time)}</Typography>
+                    <Typography>Exit Time: {selectedSession.exit_time ? formatDateTime(selectedSession.exit_time) : 'Not exited yet'}</Typography>
+                    <Typography>Status: {selectedSession.status}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDetailsDialog(false)}>Close</Button>
+        </DialogActions>
       </Dialog>
 
       {/* Edit Dialog */}
@@ -475,79 +426,62 @@ const ParkingSessionsPage: FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
-          Edit Parking Session
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box component="form" sx={{ mt: 1 }}>
+        <DialogTitle>Edit Parking Session</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
             <TextField
-              margin="normal"
-              fullWidth
               label="License Plate"
               name="license_plate"
               value={formData.license_plate}
               onChange={handleInputChange}
-            />
-            
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="vehicle-type-label">Vehicle Type</InputLabel>
-              <Select
-                labelId="vehicle-type-label"
-                name="vehicle_type"
-                value={formData.vehicle_type}
-                label="Vehicle Type"
-                onChange={handleInputChange}
-              >
-                <MenuItem value="CAR">Car</MenuItem>
-                <MenuItem value="MOTORCYCLE">Motorcycle</MenuItem>
-                <MenuItem value="TRUCK">Truck</MenuItem>
-              </Select>
-            </FormControl>
-            
-            <TextField
-              margin="normal"
               fullWidth
+              margin="normal"
+            />
+            <TextField
+              label="Vehicle Type"
+              name="vehicle_type"
+              value={formData.vehicle_type}
+              onChange={handleInputChange}
+              fullWidth
+              margin="normal"
+            />
+            <TextField
               label="Entry Time"
               name="entry_time"
               type="datetime-local"
-              value={formData.entry_time}
+              value={formData.entry_time ? formData.entry_time.slice(0, 16) : ''}
               onChange={handleInputChange}
+              fullWidth
+              margin="normal"
               InputLabelProps={{ shrink: true }}
             />
-            
             <TextField
-              margin="normal"
-              fullWidth
               label="Exit Time"
               name="exit_time"
               type="datetime-local"
-              value={formData.exit_time}
+              value={formData.exit_time ? formData.exit_time.slice(0, 16) : ''}
               onChange={handleInputChange}
+              fullWidth
+              margin="normal"
               InputLabelProps={{ shrink: true }}
             />
-            
             <FormControl fullWidth margin="normal">
-              <InputLabel id="status-label">Status</InputLabel>
+              <InputLabel>Status</InputLabel>
               <Select
-                labelId="status-label"
                 name="status"
                 value={formData.status}
-                label="Status"
                 onChange={handleInputChange}
+                label="Status"
               >
-                <MenuItem value="ACTIVE">Active</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
+                <MenuItem value="ACTIVE">ACTIVE</MenuItem>
+                <MenuItem value="COMPLETED">COMPLETED</MenuItem>
               </Select>
             </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenEditDialog(false)}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={handleSubmitEdit}>
-            Save Changes
-          </Button>
+          <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+          <Button onClick={handleSubmitEdit} variant="contained" color="primary">Save</Button>
         </DialogActions>
       </Dialog>
     </Box>

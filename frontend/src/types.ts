@@ -2,23 +2,26 @@
 export interface Gate {
   id: number;
   name: string;
-  location?: string;
-  deviceId?: number;
-  status: string;
-  type?: string;
-  gate_number?: string;
+  type: 'ENTRY' | 'EXIT';
+  location: string;
   description?: string;
-  is_active?: boolean;
+  gate_number: string;
+  status: 'ACTIVE' | 'INACTIVE';
   hardware_config?: any;
   maintenance_schedule?: any;
   error_log?: any;
-  lastStatusChange?: Date;
-  createdAt?: Date;
-  updatedAt?: Date;
-  created_at?: Date;
-  updated_at?: Date;
-  _optimistic?: boolean;
-  _error?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GateFormData {
+  name: string;
+  type: 'ENTRY' | 'EXIT';
+  location: string;
+  description?: string;
+  gate_number: string;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 // Payment interfaces
@@ -114,10 +117,15 @@ export interface Membership {
 export interface OperatorShift {
   id: number;
   operator_id: number;
+  operatorName?: string;
   start_time: Date | string;
   end_time?: Date | string;
   gate_id?: number;
   status: string;
+  total_transactions?: number;
+  total_amount?: number;
+  cash_amount?: number;
+  non_cash_amount?: number;
   created_at: Date | string;
   updated_at: Date | string;
 }

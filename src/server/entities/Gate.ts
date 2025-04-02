@@ -18,7 +18,7 @@ export class Gate {
     @PrimaryGeneratedColumn()
     id!: number;
 
-    @Column({ length: 50, nullable: false })
+    @Column()
     name!: string;
 
     @Column({ length: 20, nullable: true })
@@ -27,7 +27,6 @@ export class Gate {
     @Column({
         type: "enum",
         enum: GateType,
-        nullable: false,
         default: GateType.ENTRY
     })
     type!: GateType;
@@ -35,24 +34,18 @@ export class Gate {
     @Column({
         type: "enum",
         enum: GateStatus,
-        default: GateStatus.INACTIVE,
-        nullable: false
+        default: GateStatus.INACTIVE
     })
     status!: GateStatus;
 
-    @Column({ length: 100, nullable: true })
+    @Column({ nullable: true })
     location?: string;
 
-    @Column({ type: 'text', nullable: true })
+    @Column({ nullable: true })
     description?: string;
 
-    @Column({ type: 'jsonb', nullable: true, default: {} })
-    hardware_config?: {
-        ip_address?: string;
-        port?: number;
-        device_id?: string;
-        last_communication?: Date;
-    };
+    @Column({ type: 'text', nullable: true })
+    hardware_config?: string;
 
     @Column({ type: 'jsonb', nullable: true, default: {} })
     maintenance_schedule?: {
