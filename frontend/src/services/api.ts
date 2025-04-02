@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Payment, PaymentFormData, Ticket, Device, Gate, ApiResponse, ParkingSession, ParkingRate, Membership, OperatorShift, SystemSettings, LanguageSettings, BackupSettings } from '../types';
+import logger from '../utils/logger';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -71,6 +72,7 @@ api.interceptors.request.use(
       // Use a sync check to avoid Promise return type issue
       if (config.url !== '/health') {
         // For non-health check requests when server is down, fail fast
+        logger.warn('Server not available, request skipped', 'API', { url: config.url });
         throw {
           isConnectionError: true,
           message: 'Server tidak tersedia. Permintaan ditunda.'
@@ -83,10 +85,12 @@ api.interceptors.request.use(
     if (token) {
       config.headers!.Authorization = `Bearer ${token}`;
     }
+    
+    logger.debug(`API Request: ${config.method?.toUpperCase()} ${config.url}`, 'API', { params: config.params, data: config.data });
     return config;
   },
   (error) => {
-    console.error('Request error:', error);
+    logger.error('Request configuration error', error, 'API');
     return Promise.reject(error);
   }
 );
@@ -96,19 +100,30 @@ api.interceptors.response.use(
   (response) => {
     // Mark server as connected on successful response
     isServerConnected = true;
+    
+    logger.debug(`API Response: ${response.status} ${response.config.url}`, 'API', { 
+      status: response.status, 
+      statusText: response.statusText
+    });
+    
     return response;
   },
   (error) => {
     // Handle server errors with fallback data for important endpoints
     if (error.response) {
-      if (error.response.status === 500) {
-        console.error('Server error:', error.response.data);
+      const { status, data, config } = error.response;
+      
+      if (status === 500) {
+        logger.error(`Server error (500) for ${config.url}`, error, 'API', { 
+          request: { url: config.url, method: config.method, data: config.data },
+          response: { status, data }
+        });
       }
       
-      if (error.response.status === 401) {
+      if (status === 401) {
         // Redirect to login if unauthorized
         if (window.location.pathname !== '/login') {
-          console.error('Unauthorized access');
+          logger.warn('Unauthorized access, redirecting to login', 'AUTH', { path: window.location.pathname });
           localStorage.removeItem('token');
           // Avoid redirecting in an infinite loop
           if (!window.location.pathname.includes('/login')) {
@@ -118,9 +133,14 @@ api.interceptors.response.use(
       }
     } else if (error.request) {
       // Request was made but no response received - server is likely down
-      console.error('Network error, no response received:', error.request);
+      logger.error('Network error, no response received', error, 'API', { 
+        request: error.request
+      });
+      
+      isServerConnected = false;
+      lastConnectionCheck = Date.now();
     } else {
-      console.error('Error setting up request:', error.message);
+      logger.error('Error setting up request', error, 'API');
     }
     
     return Promise.reject(error);
@@ -130,13 +150,16 @@ api.interceptors.response.use(
 // Function to check server connection
 export const checkServerConnection = async (): Promise<boolean> => {
   try {
+    logger.debug('Checking server connection', 'API');
     await api.get('/api/health');
     isServerConnected = true;
     lastConnectionCheck = Date.now();
+    logger.info('Server connection successful', 'API');
     return true;
   } catch (error) {
     isServerConnected = false;
     lastConnectionCheck = Date.now();
+    logger.warn('Server connection failed', 'API', { error });
     return false;
   }
 };
@@ -253,10 +276,12 @@ const mapGateStatus = (statusValue: string): string => {
 export const gateService = {
   getAll: async (): Promise<Gate[]> => {
     try {
+      logger.debug('Fetching all gates', 'GateService');
       const response = await api.get<Gate[]>('/api/gates');
+      logger.info(`Retrieved ${response.data.length} gates`, 'GateService');
       return response.data as Gate[];
     } catch (error: any) {
-      console.error('API: Error fetching gates:', error);
+      logger.error('Error fetching gates', error, 'GateService');
       // Return empty array on error
       throw error;
     }
@@ -264,16 +289,18 @@ export const gateService = {
   
   getById: async (id: number): Promise<Gate> => {
     try {
+      logger.debug(`Fetching gate with id ${id}`, 'GateService');
       const response = await api.get<Gate>(`/api/gates/${id}`);
+      logger.info(`Retrieved gate: ${response.data.name}`, 'GateService', { gate: response.data });
       return response.data as Gate;
     } catch (error: any) {
-      console.error(`API: Error fetching gate with id ${id}:`, error);
+      logger.error(`Error fetching gate with id ${id}`, error, 'GateService');
       throw error;
     }
   },
   
   create: async (gate: Partial<any>): Promise<Gate> => {
-    console.log('API: Creating gate with data:', gate);
+    logger.info('Creating gate', 'GateService', gate);
     try {
       // Ensure status is a valid enum value
       const formattedData = {
@@ -281,16 +308,21 @@ export const gateService = {
         status: mapGateStatus(gate.status)
       };
       
-      console.log('API: Sending formatted gate data:', formattedData);
+      logger.debug('Sending formatted gate data', 'GateService', formattedData);
       const response = await api.post<Gate>('/api/gates', formattedData);
-      console.log('API: Create gate response:', response);
+      logger.info('Gate created successfully', 'GateService', { 
+        id: response.data.id, 
+        name: response.data.name 
+      });
       return response.data as Gate;
     } catch (error: any) {
-      console.error('API: Error creating gate:', error);
+      logger.error('Error creating gate', error, 'GateService', { requestData: gate });
       
       // Handle 500 Internal Server Error with optimistic response
       if (error.response && error.response.status === 500) {
-        console.warn('API: Server error during gate creation, using optimistic response');
+        logger.warn('Server error during gate creation, using optimistic response', 'GateService', {
+          serverError: error.response.data
+        });
         
         // Create an optimistic fallback response with a negative ID to indicate it's local only
         const timestamp = new Date();
@@ -308,6 +340,12 @@ export const gateService = {
           _error: 'This gate was not saved to the server due to a server error.'
         };
         
+        logger.info('Created optimistic gate', 'GateService', { 
+          id: optimisticGate.id,
+          name: optimisticGate.name,
+          isOptimistic: true
+        });
+        
         return optimisticGate;
       }
       
@@ -316,7 +354,7 @@ export const gateService = {
   },
   
   update: async (id: number, gate: Partial<any>): Promise<Gate> => {
-    console.log('API: Updating gate with data:', gate);
+    logger.info(`Updating gate ${id}`, 'GateService', gate);
     try {
       // Ensure status is a valid enum value
       const formattedData = {
@@ -324,16 +362,21 @@ export const gateService = {
         status: mapGateStatus(gate.status)
       };
       
-      console.log('API: Sending formatted gate data:', formattedData);
+      logger.debug('Sending formatted gate data', 'GateService', formattedData);
       const response = await api.put<Gate>(`/api/gates/${id}`, formattedData);
-      console.log('API: Update gate response:', response);
+      logger.info(`Gate ${id} updated successfully`, 'GateService', { 
+        name: response.data.name 
+      });
       return response.data as Gate;
     } catch (error: any) {
-      console.error(`API: Error updating gate with id ${id}:`, error);
+      logger.error(`Error updating gate ${id}`, error, 'GateService', { requestData: gate });
       
       // Handle 500 Internal Server Error with optimistic response
       if (error.response && error.response.status === 500) {
-        console.warn('API: Server error during gate update, using optimistic response');
+        logger.warn('Server error during gate update, using optimistic response', 'GateService', {
+          id,
+          serverError: error.response.data
+        });
         
         // Try to get the current gate first if it's a real ID
         let baseGate: any = {};
@@ -343,7 +386,7 @@ export const gateService = {
             const currentResponse = await api.get<Gate>(`/api/gates/${id}`);
             baseGate = currentResponse.data;
           } catch (fetchError) {
-            console.error('API: Could not fetch current gate data for optimistic update:', fetchError);
+            logger.error('Could not fetch current gate data for optimistic update', fetchError, 'GateService', { id });
           }
         }
         
@@ -358,6 +401,12 @@ export const gateService = {
           _error: 'Changes were not saved to the server due to a server error.'
         };
         
+        logger.info('Created optimistic gate update', 'GateService', { 
+          id: optimisticGate.id,
+          name: optimisticGate.name,
+          isOptimistic: true
+        });
+        
         return optimisticGate;
       }
       
@@ -367,16 +416,19 @@ export const gateService = {
   
   delete: async (id: number): Promise<void> => {
     try {
+      logger.info(`Deleting gate ${id}`, 'GateService');
       await api.delete(`/api/gates/${id}`);
+      logger.info(`Gate ${id} deleted successfully`, 'GateService');
     } catch (error: any) {
-      console.error(`API: Error deleting gate with id ${id}:`, error);
-      // For deletion, we just throw the error and let the UI handle it
-      // The UI should remove the gate from display regardless of server error
+      logger.error(`Error deleting gate ${id}`, error, 'GateService');
       
       // Check if it's a server error - in which case we'll silently succeed
       // This is because we want to let users continue working even if the server is broken
       if (error.response && error.response.status === 500) {
-        console.warn('API: Server error during gate deletion, continuing as if successful');
+        logger.warn('Server error during gate deletion, continuing as if successful', 'GateService', {
+          id,
+          serverError: error.response.data
+        });
         return; // Return as if deletion succeeded
       }
       
@@ -389,15 +441,22 @@ export const gateService = {
       // Map to valid enum status
       const mappedStatus = mapGateStatus(status);
       
-      console.log(`API: Changing gate ${id} status to ${mappedStatus}`);
+      logger.info(`Changing gate ${id} status to ${mappedStatus}`, 'GateService');
       const response = await api.post<Gate>(`/api/gates/${id}/status`, { status: mappedStatus });
+      logger.info(`Gate ${id} status changed to ${mappedStatus}`, 'GateService');
       return response.data as Gate;
     } catch (error: any) {
-      console.error(`API: Error changing status for gate with id ${id}:`, error);
+      logger.error(`Error changing status for gate ${id}`, error, 'GateService', { 
+        requestedStatus: status 
+      });
       
       // Handle 500 Internal Server Error with optimistic response
       if (error.response && error.response.status === 500) {
-        console.warn('API: Server error during gate status change, using optimistic response');
+        logger.warn('Server error during gate status change, using optimistic response', 'GateService', {
+          id,
+          status,
+          serverError: error.response.data
+        });
         
         // Try to get the current gate first
         let baseGate: any = {};
@@ -406,7 +465,7 @@ export const gateService = {
           const currentResponse = await api.get<Gate>(`/api/gates/${id}`);
           baseGate = currentResponse.data;
         } catch (fetchError) {
-          console.error('API: Could not fetch current gate data for optimistic status change:', fetchError);
+          logger.error('Could not fetch current gate data for optimistic status change', fetchError, 'GateService', { id });
         }
         
         // Create an optimistic fallback response
@@ -419,6 +478,12 @@ export const gateService = {
           _optimistic: true,
           _error: 'Status change was not saved to the server due to a server error.'
         };
+        
+        logger.info('Created optimistic gate status change', 'GateService', { 
+          id,
+          newStatus: status,
+          isOptimistic: true
+        });
         
         return optimisticGate;
       }

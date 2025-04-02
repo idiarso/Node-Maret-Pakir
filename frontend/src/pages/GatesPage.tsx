@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { gateService } from '../services/api';
 import { Gate } from '../types';
+import logger from '../utils/logger';
 
 // Gate status constants
 const GATE_STATUS = {
@@ -76,11 +77,13 @@ const GatesPage: React.FC = () => {
   const fetchGates = async () => {
     setLoading(true);
     try {
+      logger.debug('Fetching gates', 'GatesPage');
       const data = await gateService.getAll();
       setGates(data);
       setError(null);
+      logger.info(`Retrieved ${data.length} gates successfully`, 'GatesPage');
     } catch (err) {
-      console.error('Error fetching gates:', err);
+      logger.error('Failed to load gates', err, 'GatesPage');
       setError('Failed to load gates. Please try again later.');
       // For development purposes, set dummy data when API fails
       setGates([
@@ -115,6 +118,7 @@ const GatesPage: React.FC = () => {
           updatedAt: new Date()
         }
       ]);
+      logger.debug('Using fallback gate data for development', 'GatesPage');
     } finally {
       setLoading(false);
     }
@@ -168,6 +172,7 @@ const GatesPage: React.FC = () => {
     try {
       if (editGate) {
         // Update existing gate
+        logger.debug(`Updating gate ${editGate.id}`, 'GatesPage', formData);
         const updatedGate = await gateService.update(editGate.id, formData);
         
         // Handle optimistic UI updates
@@ -183,6 +188,9 @@ const GatesPage: React.FC = () => {
             message: `Gate "${updatedGate.name}" updated locally. Server error occurred.`,
             severity: 'warning'
           });
+          logger.warn(`Gate ${editGate.id} updated with optimistic data due to server error`, 'GatesPage', {
+            gate: updatedGate
+          });
         } else {
           // Normal update with server success
           setGates(prevGates => 
@@ -196,9 +204,13 @@ const GatesPage: React.FC = () => {
             message: `Gate "${updatedGate.name}" updated successfully`,
             severity: 'success'
           });
+          logger.info(`Gate ${editGate.id} updated successfully`, 'GatesPage', {
+            gate: updatedGate
+          });
         }
       } else {
         // Create new gate
+        logger.debug('Creating new gate', 'GatesPage', formData);
         const newGate = await gateService.create(formData);
         
         // Handle optimistic UI updates
@@ -210,6 +222,9 @@ const GatesPage: React.FC = () => {
             message: `Gate "${newGate.name}" created locally. Server error occurred.`,
             severity: 'warning'
           });
+          logger.warn('Gate created with optimistic data due to server error', 'GatesPage', {
+            gate: newGate
+          });
         } else {
           // Normal creation with server success
           setGates(prevGates => [...prevGates, newGate]);
@@ -219,12 +234,16 @@ const GatesPage: React.FC = () => {
             message: `Gate "${newGate.name}" created successfully`,
             severity: 'success'
           });
+          logger.info('Gate created successfully', 'GatesPage', {
+            id: newGate.id,
+            name: newGate.name
+          });
         }
       }
       
       setOpenDialog(false);
     } catch (err) {
-      console.error('Error saving gate:', err);
+      logger.error('Error saving gate', err, 'GatesPage', { formData });
       
       setSnackbar({
         open: true,
@@ -237,6 +256,7 @@ const GatesPage: React.FC = () => {
   const handleDeleteGate = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this gate?')) {
       try {
+        logger.debug(`Deleting gate ${id}`, 'GatesPage');
         await gateService.delete(id);
         
         // Always update UI regardless of server response
@@ -247,8 +267,9 @@ const GatesPage: React.FC = () => {
           message: 'Gate deleted successfully',
           severity: 'success'
         });
+        logger.info(`Gate ${id} deleted successfully`, 'GatesPage');
       } catch (err) {
-        console.error('Error deleting gate:', err);
+        logger.error(`Error deleting gate ${id}`, err, 'GatesPage');
         
         // Still remove from UI even on error for better UX
         setGates(gates.filter(gate => gate.id !== id));
@@ -264,6 +285,7 @@ const GatesPage: React.FC = () => {
 
   const handleChangeGateStatus = async (id: number, status: string) => {
     try {
+      logger.debug(`Changing gate ${id} status to ${status}`, 'GatesPage');
       const updatedGate = await gateService.changeStatus(id, status);
       
       // Handle optimistic UI updates
@@ -279,6 +301,7 @@ const GatesPage: React.FC = () => {
           message: `Gate status changed locally. Server error occurred.`,
           severity: 'warning'
         });
+        logger.warn(`Gate ${id} status changed to ${status} with optimistic data due to server error`, 'GatesPage');
       } else {
         // Normal update with server success
         setGates(prevGates => 
@@ -292,9 +315,10 @@ const GatesPage: React.FC = () => {
           message: `Gate status changed successfully`,
           severity: 'success'
         });
+        logger.info(`Gate ${id} status changed to ${status} successfully`, 'GatesPage');
       }
     } catch (err) {
-      console.error('Error changing gate status:', err);
+      logger.error(`Error changing gate ${id} status to ${status}`, err, 'GatesPage');
       
       setSnackbar({
         open: true,
