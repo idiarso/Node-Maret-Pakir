@@ -37,6 +37,7 @@ import {
   LocalParking as ParkingIcon
 } from '@mui/icons-material';
 import { parkingAreaService, ParkingArea, ParkingAreaFormData } from '../services/api';
+import logger from '../utils/logger';
 
 const ParkingAreasPage: React.FC = () => {
   const [parkingAreas, setParkingAreas] = useState<ParkingArea[]>([]);
@@ -63,12 +64,14 @@ const ParkingAreasPage: React.FC = () => {
   const fetchParkingAreas = async () => {
     setLoading(true);
     try {
+      logger.debug('Fetching parking areas', 'ParkingAreasPage');
       const areas = await parkingAreaService.getAll();
       setParkingAreas(areas);
       setError(null);
+      logger.info(`Retrieved ${areas.length} parking areas successfully`, 'ParkingAreasPage');
       showNotification('Parking areas loaded successfully', 'success');
     } catch (err) {
-      console.error('Error in fetchParkingAreas:', err);
+      logger.error('Failed to load parking areas', err, 'ParkingAreasPage');
       setError(`Failed to load parking areas: ${err instanceof Error ? err.message : String(err)}`);
       showNotification('Failed to load parking areas', 'error');
     } finally {
@@ -132,7 +135,7 @@ const ParkingAreasPage: React.FC = () => {
     try {
       if (editArea) {
         // Update existing parking area
-        console.log('Updating parking area with data:', formData);
+        logger.debug(`Updating parking area ${editArea.id}`, 'ParkingAreasPage', formData);
         const updatedArea = await parkingAreaService.update(editArea.id, formData);
         
         // Update the UI
@@ -140,21 +143,32 @@ const ParkingAreasPage: React.FC = () => {
           area.id === editArea.id ? updatedArea : area
         );
         setParkingAreas(updatedAreas);
+        logger.info(`Parking area ${editArea.id} updated successfully`, 'ParkingAreasPage', {
+          id: updatedArea.id,
+          name: updatedArea.name
+        });
         showNotification('Parking area updated successfully', 'success');
       } else {
         // Create new parking area
-        console.log('Creating new parking area with data:', formData);
+        logger.debug('Creating new parking area', 'ParkingAreasPage', formData);
         const newArea = await parkingAreaService.create(formData);
         
         // Update the UI
         setParkingAreas([...parkingAreas, newArea]);
+        logger.info('Parking area created successfully', 'ParkingAreasPage', {
+          id: newArea.id,
+          name: newArea.name
+        });
         showNotification('Parking area created successfully', 'success');
       }
       handleCloseDialog();
     } catch (err: any) {
       // Check for special optimistic UI update errors
       if (err.fallbackData && err.isServerError) {
-        console.log('Handling optimistic UI update with fallback data', err.fallbackData);
+        logger.warn('Using optimistic UI update with fallback data due to server error', 'ParkingAreasPage', {
+          fallbackData: err.fallbackData,
+          isEdit: !!editArea
+        });
         
         if (editArea) {
           // Update UI optimistically for edits
@@ -173,7 +187,7 @@ const ParkingAreasPage: React.FC = () => {
       }
       
       // Handle regular errors
-      console.error('Error saving parking area:', err);
+      logger.error('Error saving parking area', err, 'ParkingAreasPage', { formData });
       showNotification(`Error saving parking area: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
@@ -181,13 +195,14 @@ const ParkingAreasPage: React.FC = () => {
   const handleDeleteParkingArea = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this parking area?')) {
       try {
-        console.log('Deleting parking area with ID:', id);
+        logger.debug(`Deleting parking area ${id}`, 'ParkingAreasPage');
         const success = await parkingAreaService.delete(id);
         
         // Always update UI if the service returns success (even if it's optimistic)
         if (success) {
           const filteredAreas = parkingAreas.filter(area => area.id !== id);
           setParkingAreas(filteredAreas);
+          logger.info(`Parking area ${id} deleted successfully`, 'ParkingAreasPage');
           showNotification('Parking area deleted successfully', 'success');
         }
       } catch (err: any) {
@@ -195,11 +210,12 @@ const ParkingAreasPage: React.FC = () => {
           // If the service signals a UI-only delete, update the UI anyway
           const filteredAreas = parkingAreas.filter(area => area.id !== id);
           setParkingAreas(filteredAreas);
+          logger.warn(`Parking area ${id} deleted from UI only due to server error`, 'ParkingAreasPage');
           showNotification('Deleted from UI only. Server error occurred.', 'warning');
           return;
         }
         
-        console.error('Error in delete operation:', err);
+        logger.error(`Error deleting parking area ${id}`, err, 'ParkingAreasPage');
         showNotification(`Error deleting parking area: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
     }
