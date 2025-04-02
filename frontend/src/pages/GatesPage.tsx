@@ -149,17 +149,18 @@ const GatesPage: React.FC = () => {
         return;
       }
 
-      // Menambahkan semua field yang dibutuhkan berdasarkan controller backend
-      // Dari GateController.createGate: { name, type, location, status }
+      // Sesuaikan dengan struktur tabel gates di database
       const formattedData = {
         name: formData.name.trim(),
-        location: formData.location.trim() || 'Default Location',
-        device_id: Number(formData.deviceId) || 1,
-        status: formData.status,
-        type: 'ENTRY'  // Field wajib yang diperlukan backend!
+        location: formData.location.trim() || null,
+        gate_number: formData.name.trim(),  // Gunakan nama sebagai gate_number jika tidak ada field khusus
+        type: 'ENTRY',                      // Dari gates_type_enum di DB
+        status: 'INACTIVE',                 // Dari gates_status_enum di DB - default INACTIVE
+        is_active: true,                    // Boolean field di DB
+        description: `${formData.name.trim()} - ${formData.location.trim() || 'No location'}` // Text field di DB
       };
 
-      console.log('Saving gate with formatted data:', formattedData);
+      console.log('Saving gate with database-aligned data:', formattedData);
       
       if (editGate) {
         // Update existing gate
@@ -167,10 +168,19 @@ const GatesPage: React.FC = () => {
         setError(null);
         alert('Gate updated successfully');
       } else {
-        // Create new gate dengan field yang lengkap
-        await gateService.create(formattedData);
-        setError(null);
-        alert('Gate created successfully');
+        // Create new gate dengan field sesuai DB
+        try {
+          const result = await gateService.create(formattedData);
+          console.log('Create gate result:', result);
+          setError(null);
+          alert('Gate created successfully');
+        } catch (createError: any) {
+          console.error('Detail create error:', createError);
+          if (createError.response && createError.response.data) {
+            console.error('Server error response:', createError.response.data);
+          }
+          throw createError; // Re-throw to be caught by outer try-catch
+        }
       }
       handleCloseDialog();
       fetchGates();
