@@ -19,29 +19,6 @@ export enum VehicleType {
   BUS = 'BUS'
 }
 
-const vehicleTypeTranslations = {
-  [VehicleType.CAR]: {
-    'en': 'Car',
-    'id': 'Mobil'
-  },
-  [VehicleType.MOTORCYCLE]: {
-    'en': 'Motorcycle',
-    'id': 'Motor'
-  },
-  [VehicleType.TRUCK]: {
-    'en': 'Truck',
-    'id': 'Truk'
-  },
-  [VehicleType.VAN]: {
-    'en': 'Van',
-    'id': 'Van'
-  },
-  [VehicleType.BUS]: {
-    'en': 'Bus',
-    'id': 'Bus'
-  }
-};
-
 // Payment Status
 export const PAYMENT_STATUS = ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'] as const;
 export type PaymentStatus = typeof PAYMENT_STATUS[number];
@@ -79,6 +56,7 @@ export const ROUTES = {
   SETTINGS_LANGUAGE: '/settings/language',
   SETTINGS_BACKUP: '/settings/backup',
   SETTINGS_SYSTEM: '/settings/system',
+  MANUAL_BOOK: '/manual-book',
   ENTRY_GATE: '/entry-gate',
   EXIT_GATE: '/exit-gate',
 } as const;

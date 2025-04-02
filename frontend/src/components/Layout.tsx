@@ -40,6 +40,7 @@ import {
   WorkHistory as ShiftsIcon,
   Login as EntryIcon,
   Logout as ExitIcon,
+  Help as HelpIcon,
 } from '@mui/icons-material';
 import { ROUTES } from '../utils/constants';
 import * as storage from '../utils/storage';
@@ -131,6 +132,7 @@ const Layout: React.FC<Props> = ({ children }) => {
             { label: 'System', translationKey: 'systemSettings', icon: <BusinessIcon />, path: ROUTES.SETTINGS_SYSTEM },
           ]
         },
+        { label: 'Manual Book', translationKey: 'manualBook', icon: <HelpIcon />, path: ROUTES.MANUAL_BOOK },
       ]
     }
   ];
