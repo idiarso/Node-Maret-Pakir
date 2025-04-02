@@ -151,7 +151,7 @@ export const checkServerConnection = async (): Promise<boolean> => {
   try {
     console.log('Checking server connection to:', API_BASE_URL + '/health');
     logger.debug('Checking server connection', 'API');
-    await api.get('/api/health');
+    await api.get('/health');
     isServerConnected = true;
     lastConnectionCheck = Date.now();
     logger.info('Server connection successful', 'API');
@@ -182,11 +182,11 @@ export const resetServerConnectionStatus = () => {
 // Dashboard API functions
 export const dashboardService = {
   getData: async (): Promise<DashboardData> => {
-    const response = await api.get<DashboardData>('/api/dashboard');
+    const response = await api.get<DashboardData>('/dashboard');
     return response.data;
   },
   resetData: async (): Promise<{success: boolean; message: string}> => {
-    const response = await api.post<{success: boolean; message: string}>('/api/dashboard/reset');
+    const response = await api.post<{success: boolean; message: string}>('/dashboard/reset');
     return response.data;
   }
 };
@@ -227,23 +227,23 @@ export const getPaymentById = async (id: string) => {
 // Devices API
 export const deviceService = {
   getAll: async (): Promise<Device[]> => {
-    const response = await api.get<Device[]>('/api/devices');
+    const response = await api.get<Device[]>('/devices');
     return response.data as Device[];
   },
   getById: async (id: number): Promise<Device> => {
-    const response = await api.get<Device>(`/api/devices/${id}`);
+    const response = await api.get<Device>(`/devices/${id}`);
     return response.data as Device;
   },
   create: async (device: Partial<Device>): Promise<Device> => {
-    const response = await api.post<Device>('/api/devices', device);
+    const response = await api.post<Device>('/devices', device);
     return response.data as Device;
   },
   update: async (id: number, device: Partial<Device>): Promise<Device> => {
-    const response = await api.put<Device>(`/api/devices/${id}`, device);
+    const response = await api.put<Device>(`/devices/${id}`, device);
     return response.data as Device;
   },
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/api/devices/${id}`);
+    await api.delete(`/devices/${id}`);
   },
 };
 
@@ -252,8 +252,8 @@ export const parkingSessionService = {
   getAll: async (): Promise<ParkingSession[]> => {
     console.log('Fetching all parking sessions...');
     try {
-      // Use the correct API endpoint with /api prefix
-      const response = await api.get<ParkingSession[]>('/api/parking-sessions');
+      // Menghilangkan /api karena sudah ada di API_BASE_URL
+      const response = await api.get<ParkingSession[]>('/parking-sessions');
       console.log('Successfully fetched parking sessions:', response.data);
       
       if (!response.data) {
@@ -275,27 +275,27 @@ export const parkingSessionService = {
     }
   },
   getById: async (id: number): Promise<ParkingSession> => {
-    const response = await api.get<ParkingSession>(`/api/parking-sessions/${id}`);
+    const response = await api.get<ParkingSession>(`/parking-sessions/${id}`);
     return response.data;
   },
   getSession: async (id: string): Promise<ParkingSessionResponse> => {
-    const response = await api.get<ParkingSessionResponse>(`/api/parking-sessions/${id}`);
+    const response = await api.get<ParkingSessionResponse>(`/parking-sessions/${id}`);
     return response.data;
   },
   createEntry: async (data: CreateParkingSessionRequest): Promise<ParkingSessionResponse> => {
-    const response = await api.post<ParkingSessionResponse>('/api/parking-sessions/entry', data);
+    const response = await api.post<ParkingSessionResponse>('/parking-sessions/entry', data);
     return response.data;
   },
   processExit: async (data: ExitParkingSessionRequest): Promise<ParkingSessionResponse> => {
-    const response = await api.post<ParkingSessionResponse>('/api/parking-sessions/exit', data);
+    const response = await api.post<ParkingSessionResponse>('/parking-sessions/exit', data);
     return response.data;
   },
   update: async (id: number, data: Partial<ParkingSession>): Promise<ParkingSession> => {
-    const response = await api.patch<ParkingSession>(`/api/parking-sessions/${id}`, data);
+    const response = await api.patch<ParkingSession>(`/parking-sessions/${id}`, data);
     return response.data;
   },
   complete: async (id: number): Promise<ParkingSession> => {
-    const response = await api.post<ParkingSession>(`/api/parking-sessions/${id}/complete`);
+    const response = await api.post<ParkingSession>(`/parking-sessions/${id}/complete`);
     return response.data;
   }
 };
@@ -335,8 +335,8 @@ export interface GateFormData {
 export const gateService = {
   getAll: async (): Promise<Gate[]> => {
     try {
-      const response = await api.get<Gate[]>('/api/gates');
-      console.log('Fetching gates from:', '/api/gates');
+      const response = await api.get<Gate[]>('/gates');
+      console.log('Fetching gates from:', '/gates');
       console.log('Gates response:', response.data);
       return response.data;
     } catch (error) {
@@ -347,7 +347,7 @@ export const gateService = {
 
   getById: async (id: number): Promise<Gate> => {
     try {
-      const response = await api.get<Gate>(`/api/gates/${id}`);
+      const response = await api.get<Gate>(`/gates/${id}`);
       return response.data;
     } catch (error) {
       logger.error(`Error fetching gate ${id}:`, error);
@@ -357,7 +357,7 @@ export const gateService = {
 
   create: async (data: GateFormData): Promise<Gate> => {
     try {
-      const response = await api.post<Gate>('/api/gates', data);
+      const response = await api.post<Gate>('/gates', data);
       return response.data;
     } catch (error) {
       logger.error('Error creating gate:', error);
@@ -367,7 +367,7 @@ export const gateService = {
 
   update: async (id: number, data: GateFormData): Promise<Gate> => {
     try {
-      const response = await api.put<Gate>(`/api/gates/${id}`, data);
+      const response = await api.put<Gate>(`/gates/${id}`, data);
       return response.data;
     } catch (error) {
       logger.error(`Error updating gate ${id}:`, error);
@@ -377,7 +377,7 @@ export const gateService = {
 
   delete: async (id: number): Promise<void> => {
     try {
-      await api.delete(`/api/gates/${id}`);
+      await api.delete(`/gates/${id}`);
     } catch (error) {
       logger.error(`Error deleting gate ${id}:`, error);
       throw error;
@@ -386,7 +386,7 @@ export const gateService = {
 
   changeStatus: async (id: number, status: string): Promise<Gate> => {
     try {
-      const response = await api.put<Gate>(`/api/gates/${id}/status`, { status });
+      const response = await api.put<Gate>(`/gates/${id}/status`, { status });
       return response.data;
     } catch (error) {
       logger.error(`Error changing gate ${id} status:`, error);
@@ -398,11 +398,11 @@ export const gateService = {
 // Parking Rates API
 export const parkingRateService = {
   getAll: async (): Promise<ParkingRate[]> => {
-    const response = await api.get<ParkingRate[]>('/api/parking-rates');
+    const response = await api.get<ParkingRate[]>('/parking-rates');
     return response.data as ParkingRate[];
   },
   getById: async (id: number): Promise<ParkingRate> => {
-    const response = await api.get<ParkingRate>(`/api/parking-rates/${id}`);
+    const response = await api.get<ParkingRate>(`/parking-rates/${id}`);
     return response.data as ParkingRate;
   },
   create: async (rate: Partial<ParkingRate>): Promise<ParkingRate> => {
@@ -423,7 +423,7 @@ export const parkingRateService = {
       
       try {
         // Try to create on the backend
-        const response = await api.post<ParkingRate>('/api/parking-rates', dataToCreate);
+        const response = await api.post<ParkingRate>('/parking-rates', dataToCreate);
         console.log('Create successful:', response.data);
         return response.data as ParkingRate;
       } catch (apiError: any) {
@@ -483,7 +483,7 @@ export const parkingRateService = {
       
       try {
         // Try to update on the backend
-        const response = await api.put<ParkingRate>(`/api/parking-rates/${id}`, dataToUpdate);
+        const response = await api.put<ParkingRate>(`/parking-rates/${id}`, dataToUpdate);
         console.log('Update successful:', response.data);
         return response.data as ParkingRate;
       } catch (apiError: any) {
@@ -528,7 +528,7 @@ export const parkingRateService = {
   },
   delete: async (id: number): Promise<void> => {
     try {
-      await api.delete(`/api/parking-rates/${id}`);
+      await api.delete(`/parking-rates/${id}`);
     } catch (error) {
       console.error('Error deleting parking rate:', error);
       throw error;
@@ -539,23 +539,23 @@ export const parkingRateService = {
 // Memberships API
 export const membershipService = {
   getAll: async (): Promise<Membership[]> => {
-    const response = await api.get<Membership[]>('/api/memberships');
+    const response = await api.get<Membership[]>('/memberships');
     return response.data as Membership[];
   },
   getById: async (id: number): Promise<Membership> => {
-    const response = await api.get<Membership>(`/api/memberships/${id}`);
+    const response = await api.get<Membership>(`/memberships/${id}`);
     return response.data as Membership;
   },
   create: async (membership: Partial<Membership>): Promise<Membership> => {
-    const response = await api.post<Membership>('/api/memberships', membership);
+    const response = await api.post<Membership>('/memberships', membership);
     return response.data as Membership;
   },
   update: async (id: number, membership: Partial<Membership>): Promise<Membership> => {
-    const response = await api.put<Membership>(`/api/memberships/${id}`, membership);
+    const response = await api.put<Membership>(`/memberships/${id}`, membership);
     return response.data as Membership;
   },
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/api/memberships/${id}`);
+    await api.delete(`/memberships/${id}`);
   }
 };
 
@@ -564,7 +564,7 @@ export const shiftService = {
   getAll: async (): Promise<OperatorShift[]> => {
     try {
       // Use the actual backend API
-      const response = await api.get<{data: any[], total: number}>('/api/shifts');
+      const response = await api.get<{data: any[], total: number}>('/shifts');
       const shifts = response.data.data || [];
       
       // Transform data to match the frontend model
@@ -591,23 +591,23 @@ export const shiftService = {
     }
   },
   getById: async (id: number): Promise<OperatorShift> => {
-    const response = await api.get<OperatorShift>(`/api/shifts/${id}`);
+    const response = await api.get<OperatorShift>(`/shifts/${id}`);
     return response.data as OperatorShift;
   },
   create: async (shift: Partial<OperatorShift>): Promise<OperatorShift> => {
-    const response = await api.post<OperatorShift>('/api/shifts', shift);
+    const response = await api.post<OperatorShift>('/shifts', shift);
     return response.data as OperatorShift;
   },
   update: async (id: number, shift: Partial<OperatorShift>): Promise<OperatorShift> => {
-    const response = await api.put<OperatorShift>(`/api/shifts/${id}`, shift);
+    const response = await api.put<OperatorShift>(`/shifts/${id}`, shift);
     return response.data as OperatorShift;
   },
   complete: async (id: number): Promise<OperatorShift> => {
-    const response = await api.post<OperatorShift>(`/api/shifts/${id}/complete`);
+    const response = await api.post<OperatorShift>(`/shifts/${id}/complete`);
     return response.data as OperatorShift;
   },
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/api/shifts/${id}`);
+    await api.delete(`/shifts/${id}`);
   }
 };
 
@@ -615,11 +615,11 @@ export const shiftService = {
 export const settingsService = {
   // System settings
   getSystemSettings: async (): Promise<SystemSettings> => {
-    const response = await api.get<SystemSettings>('/api/settings/system');
+    const response = await api.get<SystemSettings>('/settings/system');
     return response.data as SystemSettings;
   },
   updateSystemSettings: async (data: SystemSettings): Promise<SystemSettings> => {
-    const response = await api.put<SystemSettings>('/api/settings/system', data);
+    const response = await api.put<SystemSettings>('/settings/system', data);
     return response.data as SystemSettings;
   },
   
@@ -680,26 +680,26 @@ export const settingsService = {
     }
   },
   updateLanguageSettings: async (data: Partial<LanguageSettings>): Promise<LanguageSettings> => {
-    const response = await api.put<LanguageSettings>('/api/settings/language', data);
+    const response = await api.put<LanguageSettings>('/settings/language', data);
     return response.data as LanguageSettings;
   },
   
   // Backup settings
   getBackupSettings: async (): Promise<BackupSettings> => {
-    const response = await api.get<BackupSettings>('/api/backup/settings');
+    const response = await api.get<BackupSettings>('/backup/settings');
     return response.data as BackupSettings;
   },
   updateBackupSettings: async (data: BackupSettings): Promise<BackupSettings> => {
-    const response = await api.put<BackupSettings>('/api/backup/settings', data);
+    const response = await api.put<BackupSettings>('/backup/settings', data);
     return response.data as BackupSettings;
   },
   triggerBackup: async (): Promise<{success: boolean; message: string}> => {
-    const response = await api.post<{success: boolean; message: string}>('/api/backup/trigger');
+    const response = await api.post<{success: boolean; message: string}>('/backup/trigger');
     return response.data;
   },
   // Tambahan untuk backup dengan nama kustom
   triggerBackupWithName: async (customName: string, format: 'json' | 'sql' = 'json'): Promise<{success: boolean; message: string; details?: any}> => {
-    const response = await api.post<{success: boolean; message: string; details?: any}>('/api/backup/trigger', { 
+    const response = await api.post<{success: boolean; message: string; details?: any}>('/backup/trigger', { 
       customName,
       format 
     });
@@ -707,22 +707,22 @@ export const settingsService = {
   },
   // Mendapatkan daftar backup
   listBackups: async (): Promise<any[]> => {
-    const response = await api.get<any[]>('/api/backup/list');
+    const response = await api.get<any[]>('/backup/list');
     return response.data;
   },
   // Menghapus backup
   deleteBackup: async (filename: string): Promise<{success: boolean; message: string}> => {
-    const response = await api.delete<{success: boolean; message: string}>(`/api/backup/delete/${filename}`);
+    const response = await api.delete<{success: boolean; message: string}>(`/backup/delete/${filename}`);
     return response.data;
   },
   // Memulihkan backup
   restoreBackup: async (filename: string): Promise<{success: boolean; message: string}> => {
-    const response = await api.post<{success: boolean; message: string}>(`/api/backup/restore/${filename}`);
+    const response = await api.post<{success: boolean; message: string}>(`/backup/restore/${filename}`);
     return response.data;
   },
   // Download backup dengan custom name
   downloadBackup: (filename: string, customName?: string): void => {
-    let downloadUrl = `/api/backup/download/${filename}`;
+    let downloadUrl = `/backup/download/${filename}`;
     if (customName && customName.trim() !== '') {
       downloadUrl += `?downloadName=${encodeURIComponent(customName.trim())}`;
     }
@@ -736,7 +736,7 @@ export const settingsService = {
     formData.append('backupFile', file);
     formData.append('useOriginalName', useOriginalName ? 'true' : 'false');
     
-    const response = await api.post<{success: boolean; message: string; details?: any}>('/api/backup/upload', formData, {
+    const response = await api.post<{success: boolean; message: string; details?: any}>('/backup/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -748,49 +748,49 @@ export const settingsService = {
 // Authentication API
 export const authService = {
   login: async (username: string, password: string): Promise<{token: string; user: any}> => {
-    const response = await api.post<{token: string; user: any}>('/api/auth/login', { username, password });
+    const response = await api.post<{token: string; user: any}>('/auth/login', { username, password });
     return response.data;
   },
   register: async (userData: any): Promise<{token: string; user: any}> => {
-    const response = await api.post<{token: string; user: any}>('/api/auth/register', userData);
+    const response = await api.post<{token: string; user: any}>('/auth/register', userData);
     return response.data;
   },
   checkAuth: async (): Promise<{isAuthenticated: boolean; user?: any}> => {
     try {
-      const response = await api.get<{user: any}>('/api/auth/me');
+      const response = await api.get<{user: any}>('/auth/me');
       return { isAuthenticated: true, user: response.data.user };
     } catch (error) {
       return { isAuthenticated: false };
     }
   },
   logout: async (): Promise<void> => {
-    await api.post('/api/auth/logout');
+    await api.post('/auth/logout');
   }
 };
 
 // User management API
 export const userService = {
   getUsers: async (): Promise<any[]> => {
-    const response = await api.get<any[]>('/api/users');
+    const response = await api.get<any[]>('/users');
     return response.data;
   },
   getUser: async (id: number): Promise<any> => {
-    const response = await api.get<any>(`/api/users/${id}`);
+    const response = await api.get<any>(`/users/${id}`);
     return response.data;
   },
   createUser: async (userData: any): Promise<any> => {
-    const response = await api.post<any>('/api/users', userData);
+    const response = await api.post<any>('/users', userData);
     return response.data;
   },
   updateUser: async (id: number, userData: any): Promise<any> => {
-    const response = await api.put<any>(`/api/users/${id}`, userData);
+    const response = await api.put<any>(`/users/${id}`, userData);
     return response.data;
   },
   deleteUser: async (id: number): Promise<void> => {
-    await api.delete(`/api/users/${id}`);
+    await api.delete(`/users/${id}`);
   },
   toggleUserStatus: async (id: number): Promise<any> => {
-    const response = await api.patch<any>(`/api/users/${id}/toggle-status`);
+    const response = await api.patch<any>(`/users/${id}/toggle-status`);
     return response.data;
   }
 };
@@ -818,7 +818,7 @@ export const parkingAreaService = {
   getAll: async (): Promise<ParkingArea[]> => {
     try {
       console.log('Fetching parking areas from API');
-      const response = await api.get<ParkingArea[]>('/api/parking-areas');
+      const response = await api.get<ParkingArea[]>('/parking-areas');
       return response.data;
     } catch (error) {
       console.error('Error fetching parking areas:', error);
@@ -850,7 +850,7 @@ export const parkingAreaService = {
   
   getById: async (id: number): Promise<ParkingArea | null> => {
     try {
-      const response = await api.get<ParkingArea>(`/api/parking-areas/${id}`);
+      const response = await api.get<ParkingArea>(`/parking-areas/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching parking area ${id}:`, error);
@@ -862,7 +862,7 @@ export const parkingAreaService = {
     try {
       try {
         // Try with authenticated request first
-        const response = await api.post<ParkingArea>('/api/parking-areas', data);
+        const response = await api.post<ParkingArea>('/parking-areas', data);
         console.log('Create response:', response);
         return response.data;
       } catch (apiError: any) {
@@ -908,7 +908,7 @@ export const parkingAreaService = {
     try {
       try {
         // Try to update on the backend with authenticated request
-        const response = await api.put<ParkingArea>(`/api/parking-areas/${id}`, data);
+        const response = await api.put<ParkingArea>(`/parking-areas/${id}`, data);
         console.log('Update response:', response);
         return response.data;
       } catch (apiError: any) {
@@ -954,7 +954,7 @@ export const parkingAreaService = {
     try {
       try {
         // Try with authenticated request first
-        await api.delete(`/api/parking-areas/${id}`);
+        await api.delete(`/parking-areas/${id}`);
         return true;
       } catch (apiError: any) {
         console.error('Error in API call for delete:', apiError);
@@ -1020,7 +1020,7 @@ export interface RevenueData {
 export const adminDashboardService = {
   getStats: async () => {
     try {
-      const response = await axios.get<DashboardStats>('/api/admin/dashboard/stats');
+      const response = await axios.get<DashboardStats>('/admin/dashboard/stats');
       return response.data;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -1030,7 +1030,7 @@ export const adminDashboardService = {
 
   getRevenue: async () => {
     try {
-      const response = await axios.get<RevenueData[]>('/api/admin/dashboard/revenue');
+      const response = await axios.get<RevenueData[]>('/admin/dashboard/revenue');
       return response.data;
     } catch (error) {
       console.error('Error fetching revenue data:', error);

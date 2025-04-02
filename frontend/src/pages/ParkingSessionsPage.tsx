@@ -27,7 +27,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Alert
+  Alert,
+  SelectChangeEvent
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import InfoIcon from '@mui/icons-material/Info';
@@ -38,13 +39,24 @@ import PrintIcon from '@mui/icons-material/Print';
 import { parkingSessionService } from '../services/api';
 import { ParkingSession } from '../types';
 
+// Memperluas interface ParkingSession untuk tipe dalam komponen ini
+interface EnhancedParkingSession extends ParkingSession {
+  vehicle?: {
+    id: number;
+    plate_number: string;
+    type: string;
+  };
+  vehicleImageUrl?: string;
+  barcodeImageUrl?: string;
+}
+
 const ParkingSessionsPage = () => {
-  const [sessions, setSessions] = useState<ParkingSession[]>([]);
+  const [sessions, setSessions] = useState<EnhancedParkingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<ParkingSession | null>(null);
+  const [selectedSession, setSelectedSession] = useState<EnhancedParkingSession | null>(null);
   const [formData, setFormData] = useState({
     license_plate: '',
     vehicle_type: '',
@@ -58,7 +70,6 @@ const ParkingSessionsPage = () => {
     setError(null);
     try {
       console.log('DEBUG: Fetching parking sessions from frontend component...');
-      console.log('DEBUG: API URL:', `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/parking-sessions`);
       
       const data = await parkingSessionService.getAll();
       console.log('DEBUG: Received parking sessions data:', data);
@@ -72,27 +83,27 @@ const ParkingSessionsPage = () => {
       
       // Process and enhance the parking sessions
       const enhancedData = data.map(session => {
-        console.log('DEBUG: Processing session:', session);
-        // Make sure session has a vehicle property
-        const vehicle = session.vehicle || {
+        // Ensure vehicle data is properly structured
+        const vehicle = (session as any).vehicle || {
           id: session.vehicle_id || 0,
-          plate_number: 'Unknown',
+          plate_number: session.vehicle_id ? `Unknown-${session.vehicle_id}` : 'Unknown',
           type: 'Unknown'
         };
         
         return {
           ...session,
           vehicle,
+          // Add UI enhancement properties
           vehicleImageUrl: `https://source.unsplash.com/random/300x200?car&sig=${session.id}`,
           barcodeImageUrl: `https://barcodeapi.org/api/code128/${vehicle.plate_number.replace(/\s/g, '')}`
-        };
+        } as EnhancedParkingSession;
       });
       
       console.log('DEBUG: Enhanced data:', enhancedData);
       setSessions(enhancedData);
     } catch (err) {
       console.error('DEBUG: Error fetching parking sessions:', err);
-      setError(`Failed to load parking sessions: ${err.message || ''}`);
+      setError(`Failed to load parking sessions: ${(err as Error)?.message || 'Unknown error'}`);
       setSessions([]);
     } finally {
       setLoading(false);
@@ -110,16 +121,16 @@ const ParkingSessionsPage = () => {
       fetchSessions();
     } catch (err) {
       console.error('Error completing session:', err);
-      setError('Failed to complete parking session');
+      setError(`Failed to complete parking session: ${(err as Error)?.message || 'Unknown error'}`);
     }
   };
 
-  const handleViewDetails = (session: ParkingSession) => {
+  const handleViewDetails = (session: EnhancedParkingSession) => {
     setSelectedSession(session);
     setOpenDetailsDialog(true);
   };
 
-  const handleEditSession = (session: ParkingSession) => {
+  const handleEditSession = (session: EnhancedParkingSession) => {
     setSelectedSession(session);
     setFormData({
       license_plate: session.vehicle?.plate_number || '',
@@ -139,7 +150,7 @@ const ParkingSessionsPage = () => {
         setSessions(sessions.filter(session => session.id !== id));
       } catch (err) {
         console.error('Error deleting session:', err);
-        setError('Failed to delete parking session');
+        setError(`Failed to delete parking session: ${(err as Error)?.message || 'Unknown error'}`);
       }
     }
   };
@@ -152,23 +163,40 @@ const ParkingSessionsPage = () => {
     });
   };
 
+  // Tambahkan handler terpisah untuk Select
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name as string]: value
+    });
+  };
+
   const handleSubmitEdit = async () => {
     try {
+      if (!selectedSession) return;
+
       // In a real app, use parkingSessionService.update
-      const updatedSession = {
+      const updatedSession: EnhancedParkingSession = {
         ...selectedSession,
-        ...formData
+        status: formData.status,
+        // Update properties as needed
+        vehicle: selectedSession.vehicle ? {
+          ...selectedSession.vehicle,
+          plate_number: formData.license_plate,
+          type: formData.vehicle_type
+        } : undefined
       };
       
       // Update in local state
       setSessions(sessions.map(session => 
-        session.id === selectedSession?.id ? updatedSession : session
+        session.id === selectedSession.id ? updatedSession : session
       ));
       
       setOpenEditDialog(false);
     } catch (err) {
       console.error('Error updating session:', err);
-      setError('Failed to update parking session');
+      setError(`Failed to update parking session: ${(err as Error)?.message || 'Unknown error'}`);
     }
   };
 
@@ -249,119 +277,84 @@ const ParkingSessionsPage = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell>License Plate</TableCell>
-                  <TableCell>Vehicle Type</TableCell>
-                  <TableCell>Entry Time</TableCell>
-                  <TableCell>Exit Time</TableCell>
+                  <TableCell>Plat Nomor</TableCell>
+                  <TableCell>Jenis Kendaraan</TableCell>
+                  <TableCell>Waktu Masuk</TableCell>
+                  <TableCell>Waktu Keluar</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell align="center">Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {sessions.map((session) => (
-                  <TableRow key={session.id}>
+                  <TableRow key={session.id} hover>
                     <TableCell>{session.id}</TableCell>
-                    <TableCell>{session.vehicle?.plate_number || 'Unknown'}</TableCell>
-                    <TableCell>{session.vehicle?.type || 'Unknown'}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {session.vehicle?.plate_number || 'Unknown'}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={session.vehicle?.type || 'Unknown'} 
+                        size="small"
+                        color={
+                          session.vehicle?.type === 'CAR' ? 'primary' : 
+                          session.vehicle?.type === 'MOTORCYCLE' ? 'secondary' : 
+                          'default'
+                        }
+                      />
+                    </TableCell>
                     <TableCell>{formatDateTime(session.entry_time)}</TableCell>
                     <TableCell>{session.exit_time ? formatDateTime(session.exit_time) : '-'}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={session.status} 
-                        color={getStatusColor(session.status)} 
-                        size="small" 
+                      <Chip
+                        label={session.status}
+                        size="small"
+                        color={getStatusColor(session.status)}
                       />
                     </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex' }}>
-                        <Tooltip title="View Details">
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                        <Tooltip title="Lihat Detail">
                           <IconButton 
                             size="small" 
                             onClick={() => handleViewDetails(session)}
+                            color="info"
                           >
-                            <InfoIcon />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        <Tooltip title="Edit">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleEditSession(session)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        <Tooltip title="Delete">
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleDeleteSession(session.id)}
-                          >
-                            <DeleteIcon />
+                            <InfoIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         
                         {session.status === 'ACTIVE' && (
-                          <Tooltip title="Complete">
+                          <Tooltip title="Selesaikan Sesi">
                             <IconButton 
                               size="small" 
-                              color="success" 
-                              onClick={() => handleCompleteSession(session.id)}
+                              onClick={() => handleCompleteSession(session.id)} 
+                              color="success"
                             >
-                              <CheckCircleIcon />
+                              <CheckCircleIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
                         
-                        <Tooltip title="Print Ticket">
+                        <Tooltip title="Edit">
                           <IconButton 
-                            size="small"
-                            onClick={() => {
-                              const printWindow = window.open('', '_blank');
-                              if (printWindow) {
-                                printWindow.document.write(`
-                                  <!DOCTYPE html>
-                                  <html>
-                                  <head>
-                                    <title>Parking Ticket #${session.id}</title>
-                                    <style>
-                                      body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-                                      .ticket { max-width: 380px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; }
-                                      .ticket-header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-                                      .ticket-info { margin-bottom: 20px; }
-                                      .ticket-info p { margin: 5px 0; }
-                                      .barcode-container { text-align: center; margin-top: 20px; }
-                                      .barcode-container img { max-width: 100%; height: auto; }
-                                    </style>
-                                  </head>
-                                  <body>
-                                    <div class="ticket">
-                                      <div class="ticket-header">
-                                        <h1>Parking Ticket</h1>
-                                        <h2>#${session.id}</h2>
-                                      </div>
-                                      <div class="ticket-info">
-                                        <p><strong>License Plate:</strong> ${session.vehicle?.plate_number || 'Unknown'}</p>
-                                        <p><strong>Vehicle Type:</strong> ${session.vehicle?.type || 'Unknown'}</p>
-                                        <p><strong>Entry Time:</strong> ${formatDateTime(session.entry_time)}</p>
-                                        <p><strong>Exit Time:</strong> ${session.exit_time ? formatDateTime(session.exit_time) : 'Not exited yet'}</p>
-                                        <p><strong>Status:</strong> ${session.status}</p>
-                                      </div>
-                                      <div class="barcode-container">
-                                        <img src="https://barcodeapi.org/api/code128/${session.id}" alt="Barcode" />
-                                        <p>${session.id}</p>
-                                      </div>
-                                    </div>
-                                  </body>
-                                  </html>
-                                `);
-                                printWindow.document.close();
-                                printWindow.print();
-                              }
-                            }}
+                            size="small" 
+                            onClick={() => handleEditSession(session)} 
+                            color="primary"
                           >
-                            <PrintIcon />
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        
+                        <Tooltip title="Hapus">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDeleteSession(session.id)} 
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       </Box>
@@ -470,7 +463,7 @@ const ParkingSessionsPage = () => {
               <Select
                 name="status"
                 value={formData.status}
-                onChange={handleInputChange}
+                onChange={handleSelectChange}
                 label="Status"
               >
                 <MenuItem value="ACTIVE">ACTIVE</MenuItem>
