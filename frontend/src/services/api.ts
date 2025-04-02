@@ -356,7 +356,32 @@ export const gateService = {
   update: async (id: number, gate: Partial<any>): Promise<Gate> => {
     logger.info(`Updating gate ${id}`, 'GateService', gate);
     try {
-      // Ensure status is a valid enum value
+      // Check if we're dealing with a local-only gate (negative ID)
+      if (id < 0) {
+        logger.warn(`Attempted to update a local-only gate with ID ${id}`, 'GateService', {
+          gate
+        });
+        
+        // Create a new optimistic gate with updated data but keep negative ID
+        const timestamp = new Date();
+        const optimisticGate: Gate = {
+          ...gate,
+          id, // Preserve negative ID
+          status: mapGateStatus(gate.status),
+          updated_at: timestamp,
+          _optimistic: true,
+          _error: 'This gate only exists locally and cannot be saved to the server.'
+        };
+        
+        logger.info(`Updated local-only gate ${id}`, 'GateService', { 
+          id: optimisticGate.id,
+          name: optimisticGate.name
+        });
+        
+        return optimisticGate;
+      }
+      
+      // For real gates, proceed with normal update
       const formattedData = {
         ...gate,
         status: mapGateStatus(gate.status)
@@ -370,6 +395,25 @@ export const gateService = {
       return response.data as Gate;
     } catch (error: any) {
       logger.error(`Error updating gate ${id}`, error, 'GateService', { requestData: gate });
+      
+      // Check if this is for a local-only gate that 404'd
+      if (error.response && error.response.status === 404 && id < 0) {
+        logger.warn(`Server returned 404 for local-only gate ${id}`, 'GateService');
+        
+        // Create an optimistic update response for the local gate
+        const timestamp = new Date();
+        const optimisticGate: Gate = {
+          ...gate,
+          id, // Keep the negative ID
+          status: mapGateStatus(gate.status),
+          updated_at: timestamp,
+          _optimistic: true,
+          _error: 'This gate only exists locally and cannot be saved to the server.'
+        };
+        
+        logger.info(`Created optimistic update for local-only gate ${id}`, 'GateService');
+        return optimisticGate;
+      }
       
       // Handle 500 Internal Server Error with optimistic response
       if (error.response && error.response.status === 500) {
@@ -416,11 +460,23 @@ export const gateService = {
   
   delete: async (id: number): Promise<void> => {
     try {
+      // For local-only gates (negative IDs), just return success without server call
+      if (id < 0) {
+        logger.info(`Skipping server delete for local-only gate ${id}`, 'GateService');
+        return;
+      }
+      
       logger.info(`Deleting gate ${id}`, 'GateService');
       await api.delete(`/api/gates/${id}`);
       logger.info(`Gate ${id} deleted successfully`, 'GateService');
     } catch (error: any) {
       logger.error(`Error deleting gate ${id}`, error, 'GateService');
+      
+      // Handle 404 errors for negative IDs gracefully
+      if (error.response && error.response.status === 404 && id < 0) {
+        logger.warn(`Server returned 404 for local-only gate ${id} deletion`, 'GateService');
+        return; // Return as if deletion succeeded
+      }
       
       // Check if it's a server error - in which case we'll silently succeed
       // This is because we want to let users continue working even if the server is broken
@@ -438,6 +494,28 @@ export const gateService = {
   
   changeStatus: async (id: number, status: string): Promise<Gate> => {
     try {
+      // Check if we're dealing with a local-only gate (negative ID)
+      if (id < 0) {
+        logger.warn(`Attempted to change status of a local-only gate with ID ${id}`, 'GateService', {
+          id,
+          status
+        });
+        
+        // Create a new optimistic gate with updated status but keep negative ID
+        const timestamp = new Date();
+        const optimisticGate: Gate = {
+          id, // Preserve negative ID
+          name: 'Local Gate', // Add required name property
+          status: mapGateStatus(status),
+          updated_at: timestamp,
+          _optimistic: true,
+          _error: 'This gate only exists locally and cannot be saved to the server.'
+        };
+        
+        logger.info(`Updated status of local-only gate ${id} to ${status}`, 'GateService');
+        return optimisticGate;
+      }
+      
       // Map to valid enum status
       const mappedStatus = mapGateStatus(status);
       
@@ -449,6 +527,25 @@ export const gateService = {
       logger.error(`Error changing status for gate ${id}`, error, 'GateService', { 
         requestedStatus: status 
       });
+      
+      // Check if this is for a local-only gate that 404'd
+      if (error.response && error.response.status === 404 && id < 0) {
+        logger.warn(`Server returned 404 for local-only gate ${id} status change`, 'GateService');
+        
+        // Create an optimistic status change for the local gate
+        const timestamp = new Date();
+        const optimisticGate: Gate = {
+          id, // Keep the negative ID
+          name: 'Local Gate', // Add required name property
+          status: mapGateStatus(status),
+          updated_at: timestamp,
+          _optimistic: true,
+          _error: 'This gate only exists locally and cannot be saved to the server.'
+        };
+        
+        logger.info(`Created optimistic status change for local-only gate ${id}`, 'GateService');
+        return optimisticGate;
+      }
       
       // Handle 500 Internal Server Error with optimistic response
       if (error.response && error.response.status === 500) {
