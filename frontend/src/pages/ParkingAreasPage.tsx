@@ -36,192 +36,11 @@ import {
   Refresh as RefreshIcon,
   LocalParking as ParkingIcon
 } from '@mui/icons-material';
-import api from '../services/api';
-import { ApiResponse } from '../types';
-import { API_BASE_URL } from '../utils/constants';
-import axios from 'axios';
-
-interface ParkingArea {
-  id: number;
-  name: string;
-  location: string;
-  capacity: number;
-  occupied: number;
-  status: string;
-  created_at: string | Date;
-  updated_at: string | Date;
-}
-
-interface ParkingAreaFormData {
-  name: string;
-  location: string;
-  capacity: number;
-  status: string;
-}
-
-// ParkingAreaService to handle all API operations with fallbacks
-const ParkingAreaService = {
-  getAll: async (): Promise<ParkingArea[]> => {
-    try {
-      console.log('Fetching parking areas from:', `${API_BASE_URL}/api/parking-areas`);
-      
-      try {
-        // Try with a different approach - direct fetch
-        const response = await fetch(`${API_BASE_URL}/api/parking-areas`, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        
-        console.log('Fetch response status:', response.status);
-        
-        // Try to parse the response as text first
-        const textData = await response.text();
-        console.log('Raw text response:', textData);
-        
-        let jsonData;
-        try {
-          // Then convert text to JSON
-          jsonData = JSON.parse(textData);
-          console.log('Parsed JSON:', jsonData);
-          
-          if (Array.isArray(jsonData) && jsonData.length > 0) {
-            return jsonData;
-          }
-        } catch (e) {
-          console.error('Failed to parse response as JSON:', e);
-        }
-      } catch (err) {
-        console.error('Error fetching from API:', err);
-      }
-      
-      // Fallback to hardcoded data
-      return ParkingAreaService.getHardcodedData();
-    } catch (err) {
-      console.error('Error in getAll:', err);
-      return ParkingAreaService.getHardcodedData();
-    }
-  },
-  
-  getHardcodedData: (): ParkingArea[] => {
-    console.log('Using hardcoded data');
-    return [
-      {
-        id: 3,
-        name: "Main Parking",
-        location: "Building A",
-        capacity: 100,
-        occupied: 0,
-        status: "active",
-        created_at: "2025-04-02 02:39:05.391254",
-        updated_at: "2025-04-02 02:39:05.391254"
-      },
-      {
-        id: 4,
-        name: "Main Parking",
-        location: "Building A",
-        capacity: 100,
-        occupied: 0,
-        status: "active",
-        created_at: "2025-04-02 02:39:08.695967",
-        updated_at: "2025-04-02 02:39:08.695967"
-      },
-      {
-        id: 5,
-        name: "Area 1",
-        location: "Area 1",
-        capacity: 1000,
-        occupied: 0,
-        status: "active",
-        created_at: "2025-04-02 10:23:13.945085",
-        updated_at: "2025-04-02 10:23:13.945085"
-      },
-      {
-        id: 6,
-        name: "Area 2",
-        location: "Area 2",
-        capacity: 500,
-        occupied: 0,
-        status: "active",
-        created_at: "2025-04-02 10:27:57.606309",
-        updated_at: "2025-04-02 10:27:57.606309"
-      }
-    ];
-  },
-  
-  create: async (data: ParkingAreaFormData): Promise<ParkingArea> => {
-    const token = localStorage.getItem('token');
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
-    
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/parking-areas`, data, { headers });
-      console.log('Create response:', response);
-      return response.data;
-    } catch (error) {
-      console.error('Error creating parking area:', error);
-      // Return a mock object with a random ID for UI purposes
-      return {
-        id: Math.floor(Math.random() * 10000),
-        name: data.name,
-        location: data.location,
-        capacity: data.capacity,
-        occupied: 0,
-        status: data.status,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-    }
-  },
-  
-  update: async (id: number, data: ParkingAreaFormData): Promise<ParkingArea> => {
-    const token = localStorage.getItem('token');
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
-    
-    try {
-      const response = await axios.put(`${API_BASE_URL}/api/parking-areas/${id}`, data, { headers });
-      console.log('Update response:', response);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating parking area:', error);
-      // Return the updated data for UI purposes
-      return {
-        id,
-        name: data.name,
-        location: data.location,
-        capacity: data.capacity,
-        occupied: 0, // Maintain existing value in real implementation
-        status: data.status,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-    }
-  },
-  
-  delete: async (id: number): Promise<boolean> => {
-    const token = localStorage.getItem('token');
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
-    
-    try {
-      const response = await axios.delete(`${API_BASE_URL}/api/parking-areas/${id}`, { headers });
-      console.log('Delete response:', response);
-      return true;
-    } catch (error) {
-      console.error('Error deleting parking area:', error);
-      return false; // For UI updates, still return success
-    }
-  }
-};
+import { parkingAreaService, ParkingArea, ParkingAreaFormData } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 const ParkingAreasPage: React.FC = () => {
+  const { t: translate } = useTranslation();
   const [parkingAreas, setParkingAreas] = useState<ParkingArea[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -243,20 +62,10 @@ const ParkingAreasPage: React.FC = () => {
     severity: 'info'
   });
 
-  // Use hardcoded data matching the database
-  const loadHardcodedData = () => {
-    const hardcodedData = ParkingAreaService.getHardcodedData();
-    console.log('Using hardcoded data:', hardcodedData);
-    setParkingAreas(hardcodedData);
-    setLoading(false);
-    showNotification('Loaded hardcoded data successfully', 'success');
-    return hardcodedData;
-  };
-
   const fetchParkingAreas = async () => {
     setLoading(true);
     try {
-      const areas = await ParkingAreaService.getAll();
+      const areas = await parkingAreaService.getAll();
       setParkingAreas(areas);
       setError(null);
       showNotification('Parking areas loaded successfully', 'success');
@@ -264,7 +73,6 @@ const ParkingAreasPage: React.FC = () => {
       console.error('Error in fetchParkingAreas:', err);
       setError(`Failed to load parking areas: ${err instanceof Error ? err.message : String(err)}`);
       showNotification('Failed to load parking areas', 'error');
-      loadHardcodedData();
     } finally {
       setLoading(false);
     }
@@ -327,7 +135,7 @@ const ParkingAreasPage: React.FC = () => {
       if (editArea) {
         // Update existing parking area
         console.log('Updating parking area with data:', formData);
-        const updatedArea = await ParkingAreaService.update(editArea.id, formData);
+        const updatedArea = await parkingAreaService.update(editArea.id, formData);
         
         // Update the UI
         const updatedAreas = parkingAreas.map(area => 
@@ -338,14 +146,35 @@ const ParkingAreasPage: React.FC = () => {
       } else {
         // Create new parking area
         console.log('Creating new parking area with data:', formData);
-        const newArea = await ParkingAreaService.create(formData);
+        const newArea = await parkingAreaService.create(formData);
         
         // Update the UI
         setParkingAreas([...parkingAreas, newArea]);
         showNotification('Parking area created successfully', 'success');
       }
       handleCloseDialog();
-    } catch (err) {
+    } catch (err: any) {
+      // Check for special optimistic UI update errors
+      if (err.fallbackData && err.isServerError) {
+        console.log('Handling optimistic UI update with fallback data', err.fallbackData);
+        
+        if (editArea) {
+          // Update UI optimistically for edits
+          const updatedAreas = parkingAreas.map(area => 
+            area.id === editArea.id ? err.fallbackData : area
+          );
+          setParkingAreas(updatedAreas);
+        } else {
+          // Update UI optimistically for creates
+          setParkingAreas([...parkingAreas, err.fallbackData]);
+        }
+        
+        handleCloseDialog();
+        showNotification('Changes saved locally only. Server error occurred.', 'warning');
+        return;
+      }
+      
+      // Handle regular errors
       console.error('Error saving parking area:', err);
       showNotification(`Error saving parking area: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
@@ -355,18 +184,23 @@ const ParkingAreasPage: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this parking area?')) {
       try {
         console.log('Deleting parking area with ID:', id);
-        const success = await ParkingAreaService.delete(id);
+        const success = await parkingAreaService.delete(id);
         
-        // Always update UI even if API fails
-        const filteredAreas = parkingAreas.filter(area => area.id !== id);
-        setParkingAreas(filteredAreas);
-        
+        // Always update UI if the service returns success (even if it's optimistic)
         if (success) {
+          const filteredAreas = parkingAreas.filter(area => area.id !== id);
+          setParkingAreas(filteredAreas);
           showNotification('Parking area deleted successfully', 'success');
-        } else {
-          showNotification('API delete failed. Removed from UI only.', 'warning');
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err.uiDeleteSuccess) {
+          // If the service signals a UI-only delete, update the UI anyway
+          const filteredAreas = parkingAreas.filter(area => area.id !== id);
+          setParkingAreas(filteredAreas);
+          showNotification('Deleted from UI only. Server error occurred.', 'warning');
+          return;
+        }
+        
         console.error('Error in delete operation:', err);
         showNotification(`Error deleting parking area: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
@@ -387,72 +221,6 @@ const ParkingAreasPage: React.FC = () => {
         return 'error';
       default:
         return 'default';
-    }
-  };
-
-  // Test different API endpoints to find the working one
-  const testEndpoints = async () => {
-    const endpoints = [
-      'http://localhost:3000/api/parking-areas',
-      'http://localhost:8080/api/parking-areas', 
-      'http://localhost:3000/parking-areas',
-      'http://localhost:8080/parking-areas',
-      '/api/parking-areas',
-      '/parking-areas'
-    ];
-    
-    console.log('Testing different API endpoints...');
-    
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Testing endpoint: ${endpoint}`);
-        const response = await fetch(endpoint, {
-          headers: { 'Accept': 'application/json' }
-        });
-        
-        console.log(`Response status for ${endpoint}: ${response.status}`);
-        
-        if (response.ok) {
-          const text = await response.text();
-          console.log(`Response for ${endpoint}:`, text);
-          
-          try {
-            const json = JSON.parse(text);
-            console.log(`Parsed JSON for ${endpoint}:`, json);
-            
-            if (Array.isArray(json) && json.length > 0) {
-              console.log(`✅ WORKING ENDPOINT FOUND: ${endpoint}`);
-              return {
-                endpoint,
-                data: json
-              };
-            }
-          } catch (e) {
-            console.log(`Error parsing JSON for ${endpoint}:`, e);
-          }
-        }
-      } catch (err) {
-        console.log(`Error testing ${endpoint}:`, err);
-      }
-    }
-    
-    console.log('❌ No working endpoints found');
-    return null;
-  };
-  
-  // Add this to the debug panel
-  const [testedEndpoint, setTestedEndpoint] = useState<string | null>(null);
-  const [endpointData, setEndpointData] = useState<any>(null);
-  
-  const handleTestEndpoints = async () => {
-    const result = await testEndpoints();
-    if (result) {
-      setTestedEndpoint(result.endpoint);
-      setEndpointData(result.data);
-      setParkingAreas(result.data);
-      showNotification(`Working endpoint found: ${result.endpoint}`, 'success');
-    } else {
-      showNotification('No working endpoints found', 'warning');
     }
   };
 
@@ -499,7 +267,7 @@ const ParkingAreasPage: React.FC = () => {
       {/* Debug information for development */}
       <Paper sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5', display: process.env.NODE_ENV === 'production' ? 'none' : 'block' }}>
         <Typography variant="h6">Debug Info</Typography>
-        <Typography variant="body2">API URL: {API_BASE_URL}/api/parking-areas</Typography>
+        <Typography variant="body2">API URL: {process.env.REACT_APP_API_BASE_URL}/api/parking-areas</Typography>
         <Typography variant="body2">Token: {localStorage.getItem('token') ? 'Present' : 'Missing'}</Typography>
         <Typography variant="body2">Areas array length: {parkingAreas.length}</Typography>
         <Typography variant="body2">Data: {JSON.stringify(parkingAreas).slice(0, 200)}</Typography>
@@ -530,27 +298,12 @@ const ParkingAreasPage: React.FC = () => {
             size="small"
             variant="contained"
             color="primary"
-            onClick={handleTestEndpoints}
+            onClick={fetchParkingAreas}
             sx={{ mr: 1 }}
           >
             Test All Endpoints
           </Button>
-          <Button
-            size="small"
-            variant="contained"
-            color="success"
-            onClick={() => loadHardcodedData()}
-          >
-            Use Database Data
-          </Button>
         </Box>
-        
-        {testedEndpoint && (
-          <Box mt={2} p={1} bgcolor="#e3f2fd" borderRadius={1}>
-            <Typography variant="body2" fontWeight="bold">Working endpoint found: {testedEndpoint}</Typography>
-            <Typography variant="body2">Data: {JSON.stringify(endpointData).slice(0, 100)}...</Typography>
-          </Box>
-        )}
       </Paper>
 
       {error && (
