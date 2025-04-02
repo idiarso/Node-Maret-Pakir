@@ -142,12 +142,25 @@ const GatesPage: React.FC = () => {
 
   const handleSaveGate = async () => {
     try {
-      // Prepare data - ensure deviceId is a number and follow expected API format
+      // Validasi input terlebih dahulu
+      if (!formData.name.trim()) {
+        setError('Gate name is required');
+        alert('Gate name is required');
+        return;
+      }
+
+      // Prepare data - ensure all required fields are included in proper format
       const formattedData = {
-        name: formData.name,
-        location: formData.location,
+        name: formData.name.trim(),
+        location: formData.location.trim(),
         device_id: parseInt(formData.deviceId.toString()) || 0, // Ensure backend format uses snake_case
-        status: formData.status
+        status: formData.status,
+        // Tambahkan field lain yang mungkin diperlukan oleh backend
+        type: 'NORMAL',
+        is_active: true,
+        description: `${formData.name} - ${formData.location}`.trim(),
+        created_by: 1, // Default userID jika tidak ada
+        updated_by: 1  // Default userID jika tidak ada
       };
       
       console.log('Saving gate with formatted data:', formattedData);
@@ -172,6 +185,16 @@ const GatesPage: React.FC = () => {
       if (err.response) {
         console.error('Error response:', err.response);
         console.error('Error response data:', err.response.data);
+        
+        // Additional error inspection
+        if (err.response.data && typeof err.response.data === 'object') {
+          console.log('Missing fields check:', Object.keys(err.response.data));
+          
+          // If backend returns validation errors with field details
+          if (err.response.data.errors) {
+            console.log('Validation errors:', err.response.data.errors);
+          }
+        }
       }
       
       let errorMessage = 'Failed to save gate.';
