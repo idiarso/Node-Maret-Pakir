@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Typography,
   TextField,
@@ -16,7 +16,16 @@ import {
   MenuItem,
   Container,
   Box,
-  Divider
+  Divider,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  Fade,
+  Stack,
+  IconButton,
+  InputAdornment,
+  useTheme
 } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { parkingSessionService, gateService } from '../services/api';
@@ -24,7 +33,25 @@ import PageWrapper from '../components/PageWrapper';
 import { useAuth } from '../contexts/AuthContext';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { useTranslation } from 'react-i18next';
-import { formatDateTime } from '../utils/format';
+import { formatDateTime, formatCurrency } from '../utils/format';
+import {
+  DirectionsCar as CarIcon,
+  QrCodeScanner as ScanIcon,
+  Keyboard as KeyboardIcon,
+  CreditCard as PaymentIcon,
+  Receipt as ReceiptIcon,
+  Timer as TimerIcon,
+  LocalParking as ParkingIcon,
+  CheckCircle as SuccessIcon,
+  Close as CloseIcon,
+  Search as SearchIcon,
+  Send as SendIcon,
+  BarChart as BarcodeIcon,
+  Info as InfoIcon
+} from '@mui/icons-material';
+import PageHeader from '../components/PageHeader';
+import Breadcrumbs from '../components/Breadcrumbs';
+import { keyframes } from '@mui/system';
 
 interface ActiveSession {
   id: number;
@@ -59,8 +86,22 @@ interface SnackbarState {
   severity: 'success' | 'info' | 'warning' | 'error';
 }
 
+// Define the scanLine animation
+const scanLine = keyframes`
+  0% {
+    transform: translateY(-50px);
+  }
+  50% {
+    transform: translateY(50px);
+  }
+  100% {
+    transform: translateY(-50px);
+  }
+`;
+
 const ExitGatePage: React.FC = () => {
   const { t } = useTranslation();
+  const theme = useTheme();
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [selectedGate, setSelectedGate] = useState<number | null>(null);
@@ -73,6 +114,9 @@ const ExitGatePage: React.FC = () => {
   });
   const [gates, setGates] = useState<Gate[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scanMode, setScanMode] = useState<'camera' | 'manual'>('camera');
+  const [manualInput, setManualInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Helper functions for parking calculations
   const calculateParkingDuration = (entryTime: Date, exitTime: Date): number => {
@@ -120,12 +164,22 @@ const ExitGatePage: React.FC = () => {
     }
   });
 
-  // Fetch gates on component mount
   useEffect(() => {
     if (gatesData) {
       setGates(gatesData);
+      // Set first gate as default if available
+      if (gatesData.length > 0 && !selectedGate) {
+        setSelectedGate(gatesData[0].id);
+      }
     }
   }, [gatesData]);
+
+  // Focus input field when switching to manual mode
+  useEffect(() => {
+    if (scanMode === 'manual' && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [scanMode]);
 
   // Process barcode to find session
   const getSessionMutation = useMutation({
@@ -136,16 +190,16 @@ const ExitGatePage: React.FC = () => {
       setActiveSession(data as ActiveSession);
       setSnackbar({
         open: true,
-        message: 'Vehicle found successfully',
+        message: 'Kendaraan ditemukan',
         severity: 'success'
       });
     },
     onError: (error: any) => {
       setActiveSession(null);
-      setError(`Error: ${error.message || 'Failed to find vehicle'}`);
+      setError(`Error: ${error.message || 'Gagal menemukan kendaraan'}`);
       setSnackbar({
         open: true,
-        message: error.message || 'Failed to find vehicle',
+        message: error.message || 'Gagal menemukan kendaraan',
         severity: 'error'
       });
     }
@@ -161,15 +215,15 @@ const ExitGatePage: React.FC = () => {
       setReceiptDialogOpen(true);
       setSnackbar({
         open: true,
-        message: 'Exit processed successfully',
+        message: 'Kendaraan berhasil keluar',
         severity: 'success'
       });
     },
     onError: (error: any) => {
-      setError(`Error: ${error.message || 'Failed to process exit'}`);
+      setError(`Error: ${error.message || 'Gagal memproses keluar'}`);
       setSnackbar({
         open: true,
-        message: error.message || 'Failed to process exit',
+        message: error.message || 'Gagal memproses keluar',
         severity: 'error'
       });
     }
@@ -179,6 +233,14 @@ const ExitGatePage: React.FC = () => {
     processBarcode(code);
   };
 
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualInput.trim()) {
+      processBarcode(manualInput.trim());
+      setManualInput('');
+    }
+  };
+
   const processBarcode = async (barcodeData: string) => {
     if (!barcodeData) return;
     
@@ -186,18 +248,9 @@ const ExitGatePage: React.FC = () => {
     setError(null);
     
     try {
-      const data = await getSessionMutation.mutateAsync(barcodeData);
-      
-      if (!data || data.status !== 'ACTIVE') {
-        setError('Invalid or already processed parking session');
-        setActiveSession(null);
-    } else {
-        setActiveSession(data as ActiveSession);
-      }
+      await getSessionMutation.mutateAsync(barcodeData);
     } catch (error) {
       console.error('Error processing barcode:', error);
-      setError('Failed to process barcode. Please try again.');
-      setActiveSession(null);
     } finally {
       setLoading(false);
     }
@@ -255,380 +308,467 @@ const ExitGatePage: React.FC = () => {
     }
   };
 
-  return (
-    <PageWrapper title={t('Exit Gate')}>
-      <Container maxWidth="md">
-        <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {t('Exit Gate')}
-        </Typography>
+  const toggleScanMode = () => {
+    setScanMode(scanMode === 'camera' ? 'manual' : 'camera');
+  };
 
-          <BarcodeScanner onScan={handleBarcodeScanned} />
-          
-                {error && (
-            <Typography color="error" sx={{ mt: 2 }}>
-                    {error}
-            </Typography>
-          )}
-          
-          {loading && <CircularProgress sx={{ mt: 2 }} />}
-          
-          {activeSession && (
-            <Paper elevation={2} sx={{ p: 2, mt: 3 }}>
-              <Typography variant="h5" gutterBottom>
-                {t('Vehicle Details')}
-                </Typography>
-              
-                    <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>{t('Plate Number')}:</strong>
-                        </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    {activeSession.vehicle.plate_number}
-                        </Typography>
-                      </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>{t('Vehicle Type')}:</strong>
-                        </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    {activeSession.vehicle.type}
-                        </Typography>
-                      </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>{t('Entry Time')}:</strong>
-                        </Typography>
-                        <Typography variant="body1" gutterBottom>
-                    {formatDateTime(new Date(activeSession.entry_time))}
-                        </Typography>
-                      </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>{t('Duration')}:</strong>
-                        </Typography>
-                        <Typography variant="body1" gutterBottom>
-                    {duration.toFixed(2)} hour(s)
-                        </Typography>
-                      </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>{t('Parking Fee')}:</strong>
-                        </Typography>
-                        <Typography variant="h5" gutterBottom color="primary">
-                    ${parkingFee.toFixed(2)}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>{t('Parking Area')}:</strong>
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    {activeSession.parkingArea?.name || 'N/A'}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-              
-                <Button
-                  variant="contained"
-                  color="primary"
-                fullWidth
-                onClick={handleOpenExitDialog}
-                sx={{ mt: 2 }}
-              >
-                {t('Process Exit')}
-              </Button>
-            </Paper>
-          )}
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({...prev, open: false}));
+  };
 
-        {/* Exit Confirmation Dialog */}
-          <Dialog open={exitDialogOpen} onClose={handleCloseExitDialog}>
-            <DialogTitle>{t('Confirm Exit')}</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-                {t('Are you sure you want to process the exit for this vehicle?')}
-            </DialogContentText>
-            <Typography variant="h6" color="primary" sx={{ mt: 2 }}>
-                {t('Payment Amount')}: ${parkingFee.toFixed(2)}
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-              <Button onClick={handleCloseExitDialog}>
-                {t('Cancel')}
-            </Button>
-            <Button
-              onClick={handleProcessExit}
+  const renderVehicleDetails = () => {
+    if (!activeSession) return null;
+
+    const entryTime = new Date(activeSession.entry_time);
+    const currentTime = new Date();
+    const durationHours = calculateParkingDuration(entryTime, currentTime);
+    const durationFormatted = `${Math.floor(durationHours)}h ${Math.round((durationHours % 1) * 60)}m`;
+    
+    return (
+      <Fade in={true} timeout={500}>
+        <Card elevation={3} sx={{ mt: 3, overflow: 'visible', position: 'relative' }}>
+          <CardHeader
+            title="Informasi Kendaraan"
+            action={
+              <Chip
+                label={activeSession.vehicle.type === 'CAR' ? 'Mobil' : 
+                       activeSession.vehicle.type === 'MOTORCYCLE' ? 'Motor' : 
+                       activeSession.vehicle.type === 'TRUCK' ? 'Truk' : 
+                       activeSession.vehicle.type}
+                color="primary"
+                icon={<CarIcon />}
+                sx={{ fontWeight: 'bold' }}
+              />
+            }
+          />
+          <Divider />
+          <CardContent>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Nomor Plat</Typography>
+                    <Typography variant="h5" fontWeight="bold">{activeSession.vehicle.plate_number}</Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Waktu Masuk</Typography>
+                    <Typography variant="body1">{formatDateTime(entryTime)}</Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Area Parkir</Typography>
+                    <Typography variant="body1">{activeSession.parkingArea?.name || 'Main Area'}</Typography>
+                  </Box>
+                </Stack>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Durasi Parkir</Typography>
+                    <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center' }}>
+                      <TimerIcon sx={{ mr: 1, color: 'primary.main' }} />
+                      {durationFormatted}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Biaya Parkir</Typography>
+                    <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center' }}>
+                      <PaymentIcon sx={{ mr: 1, color: 'success.main' }} />
+                      {formatCurrency(parkingFee)}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Total (termasuk pajak 10%)</Typography>
+                    <Typography variant="h5" color="primary" fontWeight="bold">
+                      {formatCurrency(totalAmount)}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Grid>
+            </Grid>
+            
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+              <Button
                 variant="contained"
-              color="primary"
-                disabled={processExitMutation.isPending}
+                size="large"
+                color="primary"
+                onClick={handleOpenExitDialog}
+                startIcon={<ParkingIcon />}
+                disabled={loading || processExitMutation.isPending}
+                sx={{ borderRadius: 8, px: 4, py: 1.5 }}
               >
                 {processExitMutation.isPending ? (
-                  <CircularProgress size={24} />
+                  <CircularProgress size={24} color="inherit" />
                 ) : (
-                  t('Confirm')
+                  'Proses Keluar'
                 )}
-            </Button>
-          </DialogActions>
-        </Dialog>
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      </Fade>
+    );
+  };
 
-        {/* Receipt Dialog */}
-          <Dialog open={receiptDialogOpen} onClose={handleCloseReceiptDialog} maxWidth="sm" fullWidth>
-            <DialogTitle>{t('Payment Receipt')}</DialogTitle>
-          <DialogContent>
-              <Paper elevation={0} sx={{ p: 2, border: '1px dashed #ccc', fontFamily: 'monospace' }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="h6" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    PARKING RECEIPT
-                  </Typography>
-                  
-                  <Typography variant="body2" align="center" gutterBottom>
-                    {new Date().toLocaleString()}
-                  </Typography>
-                  
-                  {/* Thermal printer compatible barcode */}
-                  <Box sx={{ my: 2, py: 1, bgcolor: '#f5f5f5' }}>
-                    <img 
-                      src={`https://barcodeapi.org/api/code128/${activeSession?.id || '0000'}`}
-                      alt="Barcode"
-                      style={{ 
-                        width: '90%', 
-                        height: '60px',
-                        display: 'block',
-                        margin: '0 auto'
+  return (
+    <PageWrapper>
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', path: '/dashboard' },
+          { label: 'Exit Gate' },
+        ]}
+      />
+      
+      <PageHeader
+        title="Exit Gate"
+        subtitle="Proses kendaraan keluar dan pembayaran"
+      />
+      
+      <Container maxWidth="lg" sx={{ mt: 3 }}>
+        <Paper elevation={3} sx={{ p: 3, borderRadius: 2, bgcolor: 'background.paper' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" component="h2" sx={{ display: 'flex', alignItems: 'center' }}>
+              <BarcodeIcon sx={{ mr: 1, color: 'primary.main' }} />
+              Barcode Tiket
+            </Typography>
+            
+            <Button
+              startIcon={scanMode === 'camera' ? <KeyboardIcon /> : <BarcodeIcon />}
+              variant="outlined"
+              onClick={toggleScanMode}
+            >
+              {scanMode === 'camera' ? 'Input Manual' : 'Mode Barcode'}
+            </Button>
+          </Box>
+          
+          <Divider sx={{ mb: 3 }} />
+          
+          {scanMode === 'camera' ? (
+            <Box>
+              <Box 
+                sx={{ 
+                  width: '100%', 
+                  height: 200,
+                  border: '2px dashed',
+                  borderColor: 'primary.main',
+                  borderRadius: 2,
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  bgcolor: theme.palette.background.default,
+                  mb: 2,
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <Box sx={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '100%', 
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Box sx={{
+                    position: 'relative',
+                    width: '80%',
+                    height: '100px',
+                  }}>
+                    <Box sx={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: 0,
+                      width: '100%',
+                      height: '2px',
+                      bgcolor: 'error.main',
+                      animation: `${scanLine} 2s linear infinite`,
+                      zIndex: 1,
+                      boxShadow: '0px 0px 8px rgba(255, 0, 0, 0.8)'
+                    }} />
+                    <Box component="img" 
+                      src="/barcode-example.png" 
+                      alt="Barcode Example"
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        opacity: 0.15,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain'
                       }}
                     />
-                    <Typography variant="body2" align="center" sx={{ fontFamily: 'monospace', mt: 1 }}>
-                      {activeSession?.id.toString().padStart(8, '0')}
-                    </Typography>
                   </Box>
                 </Box>
                 
-                <Divider sx={{ my: 1 }} />
-                
-                <Grid container spacing={1} sx={{ mt: 1 }}>
-                  <Grid item xs={12}>
-                    <Typography variant="body2">
-                      <strong>{t('Vehicle')}:</strong> {activeSession?.vehicle.plate_number} ({activeSession?.vehicle.type})
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>{t('Entry Time')}:</strong> {activeSession ? formatDateTime(new Date(activeSession.entry_time)) : ''}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>{t('Exit Time')}:</strong> {formatDateTime(new Date())}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>{t('Duration')}:</strong> {duration.toFixed(2)} hour(s)
-                    </Typography>
-                  </Grid>
-                </Grid>
-                
-                    <Divider sx={{ my: 1 }} />
-                
-                <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>
-                  {t('Payment Details')}
+                <BarcodeIcon sx={{ fontSize: 48, mb: 2, color: 'primary.main', zIndex: 2 }} />
+                <Typography variant="body1" align="center" fontWeight="medium" gutterBottom sx={{ zIndex: 2 }}>
+                  Scan barcode tiket
                 </Typography>
-                
-                <Grid container spacing={1}>
-                  <Grid item xs={8}>
-                    <Typography variant="body2">
-                      {t('Parking Fee')}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="body2" align="right">
-                      ${parkingFee.toFixed(2)}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={8}>
-                    <Typography variant="body2">
-                      {t('Tax (10%)')}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="body2" align="right">
-                      ${taxAmount.toFixed(2)}
-                    </Typography>
-                  </Grid>
-                </Grid>
-                
-                    <Divider sx={{ my: 1 }} />
-                
-                <Grid container spacing={1}>
-                  <Grid item xs={8}>
-                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                      {t('Total')}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="body1" align="right" sx={{ fontWeight: 'bold' }}>
-                      ${totalAmount.toFixed(2)}
-                    </Typography>
-                  </Grid>
-                </Grid>
-                
-                <Box sx={{ textAlign: 'center', mt: 3, pt: 1, borderTop: '1px dashed #ccc' }}>
-                  <Typography variant="body2" align="center">
-                    {t('Thank you for using our parking service!')}
-                  </Typography>
-                </Box>
-              </Paper>
+                <Typography variant="body2" align="center" color="text.secondary" sx={{ zIndex: 2 }}>
+                  Posisikan barcode di bawah scanner
+                </Typography>
+              </Box>
               
-              <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                 <Button 
-                  fullWidth
-                  variant="outlined"
-                  color="primary"
-                  onClick={() => {
-                    // Create a printable version of the receipt with optimized barcode for thermal printer
-                    const printWindow = window.open('', '_blank');
-                    if (printWindow) {
-                      printWindow.document.write(`
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                          <title>Parking Receipt #${activeSession?.id || '0'}</title>
-                          <style>
-                            body { 
-                              font-family: monospace; 
-                              margin: 0; 
-                              padding: 10px; 
-                              width: 80mm; /* Standard thermal paper width */
-                              max-width: 80mm;
-                              font-size: 12px;
-                            }
-                            .receipt { text-align: center; }
-                            .receipt-header { margin-bottom: 10px; }
-                            .receipt-title { font-size: 16px; font-weight: bold; margin: 0; }
-                            .receipt-subtitle { font-size: 12px; margin: 5px 0; }
-                            .receipt-barcode { margin: 10px 0; }
-                            .receipt-barcode img { width: 100%; height: 50px; }
-                            .receipt-id { margin: 5px 0; font-size: 14px; }
-                            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-                            .details { margin: 10px 0; text-align: left; }
-                            .details p { margin: 3px 0; }
-                            .payment { margin: 10px 0; }
-                            .payment-row { display: flex; justify-content: space-between; margin: 3px 0; }
-                            .total { font-weight: bold; font-size: 14px; }
-                            .footer { margin-top: 15px; font-size: 12px; text-align: center; }
-                          </style>
-                        </head>
-                        <body>
-                          <div class="receipt">
-                            <div class="receipt-header">
-                              <p class="receipt-title">PARKING RECEIPT</p>
-                              <p class="receipt-subtitle">${new Date().toLocaleString()}</p>
-                            </div>
-                            
-                            <div class="receipt-barcode">
-                              <img src="https://barcodeapi.org/api/code128/${activeSession?.id || '0000'}" alt="Barcode">
-                              <p class="receipt-id">${activeSession?.id.toString().padStart(8, '0') || '00000000'}</p>
-                            </div>
-                            
-                            <div class="divider"></div>
-                            
-                            <div class="details">
-                              <p><strong>Vehicle:</strong> ${activeSession?.vehicle.plate_number || ''} (${activeSession?.vehicle.type || ''})</p>
-                              <p><strong>Entry Time:</strong> ${activeSession ? formatDateTime(new Date(activeSession.entry_time)) : ''}</p>
-                              <p><strong>Exit Time:</strong> ${formatDateTime(new Date())}</p>
-                              <p><strong>Duration:</strong> ${duration.toFixed(2)} hour(s)</p>
-                            </div>
-                            
-                            <div class="divider"></div>
-                            
-                            <div class="payment">
-                              <p><strong>Payment Details</strong></p>
-                              
-                              <div class="payment-row">
-                                <span>Parking Fee:</span>
-                                <span>$${parkingFee.toFixed(2)}</span>
-                              </div>
-                              
-                              <div class="payment-row">
-                                <span>Tax (10%):</span>
-                                <span>$${taxAmount.toFixed(2)}</span>
-                              </div>
-                              
-                              <div class="divider"></div>
-                              
-                              <div class="payment-row total">
-                                <span>Total:</span>
-                                <span>$${totalAmount.toFixed(2)}</span>
-                              </div>
-                            </div>
-                            
-                            <div class="divider"></div>
-                            
-                            <div class="footer">
-                              <p>Thank you for using our parking service!</p>
-                            </div>
-                          </div>
-                        </body>
-                        </html>
-                      `);
-                      printWindow.document.close();
-                      printWindow.print();
-                    }
-                  }}
+                  variant="outlined" 
+                  size="medium"
+                  onClick={() => handleBarcodeScanned("T" + Math.floor(Math.random() * 10000).toString().padStart(5, '0'))}
+                  startIcon={<BarcodeIcon />}
                 >
-                  {t('Print Receipt')}
+                  Simulasi Scan
                 </Button>
               </Box>
               
-              <Grid container spacing={2} sx={{ mt: 2 }}>
-                <Grid item xs={12}>
-                  <TextField
-                    select
-                    label={t('Select Gate')}
-                    fullWidth
-                    value={selectedGate || ''}
-                    onChange={(e) => setSelectedGate(Number(e.target.value))}
-                  >
-                    {gates.map((gate) => (
-                      <MenuItem key={gate.id} value={gate.id}>
-                        {gate.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              </Grid>
+              <Box sx={{ 
+                mt: 3, 
+                p: 2, 
+                bgcolor: 'info.light', 
+                color: 'info.contrastText',
+                borderRadius: 1,
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                <InfoIcon sx={{ mr: 1 }} />
+                <Typography variant="body2">
+                  Pastikan barcode berada dalam posisi horizontal dan terlihat jelas.
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            <Box component="form" onSubmit={handleManualSubmit}>
+              <TextField
+                inputRef={inputRef}
+                fullWidth
+                label="Masukkan ID Tiket / Nomor Barcode"
+                variant="outlined"
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                placeholder="Contoh: T12345 atau nomor barcode"
+                disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="primary" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton 
+                        color="primary" 
+                        onClick={handleManualSubmit}
+                        disabled={!manualInput.trim() || loading}
+                      >
+                        <SendIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+                sx={{ mb: 2 }}
+              />
+              
+              <Typography variant="caption" color="text.secondary">
+                Masukkan nomor tiket atau ID barcode dan tekan Enter untuk mencari
+              </Typography>
+            </Box>
+          )}
+          
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <CircularProgress size={40} />
+            </Box>
+          )}
+          
+          {error && !loading && (
+            <Alert severity="error" sx={{ mt: 3 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+        </Paper>
+        
+        {renderVehicleDetails()}
+        
+        {/* Exit Confirmation Dialog */}
+        <Dialog open={exitDialogOpen} onClose={handleCloseExitDialog}>
+          <DialogTitle>Konfirmasi Keluar</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Apakah Anda yakin ingin memproses keluar kendaraan ini?
+            </DialogContentText>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2">Nomor Plat:</Typography>
+              <Typography variant="body1" fontWeight="bold">
+                {activeSession?.vehicle.plate_number}
+              </Typography>
+            </Box>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2">Total Biaya:</Typography>
+              <Typography variant="h6" color="primary" fontWeight="bold">
+                {formatCurrency(totalAmount)}
+              </Typography>
+            </Box>
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2">Pilih Gerbang:</Typography>
+              <TextField
+                select
+                fullWidth
+                label="Gerbang Keluar"
+                value={selectedGate || ''}
+                onChange={(e) => setSelectedGate(Number(e.target.value))}
+                variant="outlined"
+                sx={{ mt: 1 }}
+              >
+                {gates.map((gate) => (
+                  <MenuItem key={gate.id} value={gate.id}>
+                    {gate.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
           </DialogContent>
           <DialogActions>
-              <Button onClick={handleCloseReceiptDialog}>
-                {t('Cancel')}
-              </Button>
-            <Button
-                onClick={handleOpenGate}
-              variant="contained"
+            <Button onClick={handleCloseExitDialog} color="inherit">
+              Batal
+            </Button>
+            <Button 
+              onClick={handleProcessExit} 
+              variant="contained" 
               color="primary"
-                disabled={!selectedGate}
+              disabled={!selectedGate || processExitMutation.isPending}
+              startIcon={processExitMutation.isPending ? <CircularProgress size={20} /> : <SuccessIcon />}
             >
-                {t('Open Gate')}
+              Konfirmasi
             </Button>
           </DialogActions>
         </Dialog>
-        </Paper>
-      </Container>
-
-        {/* Snackbar for notifications */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-        onClose={() => setSnackbar({...snackbar, open: false})}
+        
+        {/* Receipt Dialog */}
+        <Dialog open={receiptDialogOpen} onClose={handleCloseReceiptDialog} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
+            <ReceiptIcon sx={{ mr: 1 }} /> 
+            Struk Pembayaran
+            <IconButton
+              onClick={handleCloseReceiptDialog}
+              sx={{ position: 'absolute', right: 8, top: 8 }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ p: 2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, mb: 3 }}>
+              <Typography variant="h6" align="center" gutterBottom>
+                Pembayaran Berhasil
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <SuccessIcon color="success" sx={{ fontSize: 64 }} />
+              </Box>
+              
+              {activeSession && (
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Nomor Plat</Typography>
+                    <Typography variant="body1" fontWeight="bold">
+                      {activeSession.vehicle.plate_number}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Jenis Kendaraan</Typography>
+                    <Typography variant="body1">
+                      {activeSession.vehicle.type === 'CAR' ? 'Mobil' : 
+                       activeSession.vehicle.type === 'MOTORCYCLE' ? 'Motor' : 
+                       activeSession.vehicle.type === 'TRUCK' ? 'Truk' : 
+                       activeSession.vehicle.type}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Waktu Masuk</Typography>
+                    <Typography variant="body2">
+                      {formatDateTime(new Date(activeSession.entry_time))}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Waktu Keluar</Typography>
+                    <Typography variant="body2">
+                      {formatDateTime(new Date())}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 1 }} />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">Biaya Parkir</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" align="right">
+                      {formatCurrency(parkingFee)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">Pajak (10%)</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" align="right">
+                      {formatCurrency(taxAmount)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 1 }} />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" fontWeight="bold">Total</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" fontWeight="bold" align="right">
+                      {formatCurrency(totalAmount)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+            
+            <Typography variant="body2" align="center" gutterBottom>
+              Silakan membuka gerbang untuk mengizinkan kendaraan keluar
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleOpenGate}
+              size="large"
+              disabled={!selectedGate}
+              sx={{ borderRadius: 8, px: 4 }}
+            >
+              Buka Gerbang
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        <Snackbar 
+          open={snackbar.open} 
+          autoHideDuration={6000} 
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert
-          onClose={() => setSnackbar({...snackbar, open: false})} 
-            severity={snackbar.severity}
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={snackbar.severity} 
+            variant="filled"
+            sx={{ width: '100%' }}
           >
             {snackbar.message}
           </Alert>
         </Snackbar>
+      </Container>
     </PageWrapper>
   );
 };
