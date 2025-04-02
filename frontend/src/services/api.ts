@@ -295,22 +295,59 @@ export const parkingRateService = {
       
       console.log('Sending to backend for create:', formattedRate);
       
-      const response = await api.post<ParkingRate>('/api/parking-rates', formattedRate);
-      return response.data as ParkingRate;
-    } catch (error: any) {
-      console.error('Error creating parking rate:', error);
-      // Format the error message for better handling in the component
-      if (error.response && error.response.data) {
-        if (error.response.data.message) {
-          throw new Error(
-            Array.isArray(error.response.data.message) 
-              ? error.response.data.message.join(', ') 
-              : error.response.data.message
-          );
-        } else if (error.response.data.error) {
-          throw new Error(error.response.data.error);
+      try {
+        // Try to create on the backend
+        const response = await api.post<ParkingRate>('/api/parking-rates', formattedRate);
+        console.log('Create successful:', response.data);
+        return response.data as ParkingRate;
+      } catch (apiError: any) {
+        console.error('Error in API call for create:', apiError);
+        
+        // If server returns 500 error, implement client-side fallback
+        if (apiError.response && apiError.response.status === 500) {
+          console.warn('Using optimistic create fallback due to server error');
+          
+          // Create an optimistic response with temporary ID
+          const optimisticResponse: ParkingRate = {
+            id: Math.floor(Math.random() * -1000), // Temporary negative ID
+            ...formattedRate,
+            created_at: new Date(),
+            updated_at: new Date(),
+            status: rate.status || 'active'
+          } as ParkingRate;
+          
+          // Log warning about offline mode
+          console.warn('Operating in offline mode. New item will be visible in UI but not saved to database.');
+          
+          // Show a specific error about server error but return optimistic data
+          const serverError = new Error('Server error occurred. New item displayed locally only.');
+          (serverError as any).fallbackData = optimisticResponse;
+          (serverError as any).isServerError = true;
+          throw serverError;
         }
+        
+        // Format the error message for better handling in the component
+        if (apiError.response && apiError.response.data) {
+          if (apiError.response.data.message) {
+            throw new Error(
+              Array.isArray(apiError.response.data.message) 
+                ? apiError.response.data.message.join(', ') 
+                : apiError.response.data.message
+            );
+          } else if (apiError.response.data.error) {
+            throw new Error(apiError.response.data.error);
+          }
+        }
+        throw apiError;
       }
+    } catch (error: any) {
+      // Check if this is our optimistic update error with fallback data
+      if (error.fallbackData && error.isServerError) {
+        // Rethrow this special error so we can handle it in the mutation
+        throw error;
+      }
+      
+      console.error('Error creating parking rate:', error);
       throw error;
     }
   },

@@ -80,7 +80,7 @@ const ParkingRatesPageContent: FC = () => {
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error';
+    severity: 'success' | 'error' | 'warning';
   }>({
     open: false,
     message: '',
@@ -120,15 +120,39 @@ const ParkingRatesPageContent: FC = () => {
       handleCloseDialog();
       setSnackbar({
         open: true,
-        message: translate('parkingRateSaved'),
+        message: getTranslation('parkingRateSaved'),
         severity: 'success',
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error saving parking rate:', error);
+      
+      // Check if this is our special fallback error with optimistic data
+      if (error.fallbackData && error.isServerError) {
+        // Use the optimistic data for UI without invalidating queries
+        queryClient.setQueryData(['parkingRates'], (oldData: ParkingRate[] | undefined) => {
+          if (!oldData) return [error.fallbackData];
+          
+          // Add the new optimistic item
+          return [...oldData, error.fallbackData];
+        });
+        
+        // Close dialog since we're showing created data in UI
+        handleCloseDialog();
+        
+        // Show warning notification
+        setSnackbar({
+          open: true,
+          message: getTranslation('serverErrorFallbackUsed'),
+          severity: 'warning',
+        });
+        
+        return;
+      }
+      
       setSnackbar({
         open: true,
-        message: translate('errorSavingParkingRate'),
+        message: error.message || getTranslation('errorSavingParkingRate'),
         severity: 'error',
       });
     }
@@ -142,21 +166,46 @@ const ParkingRatesPageContent: FC = () => {
       handleCloseDialog();
       setSnackbar({
         open: true,
-        message: translate('parkingRateUpdated'),
+        message: getTranslation('parkingRateUpdated'),
         severity: 'success',
       });
     },
     onError: (error: any) => {
       console.error('Error updating parking rate:', error);
       
+      // Check if this is our special fallback error with optimistic data
+      if (error.fallbackData && error.isServerError) {
+        // Use the optimistic data for UI without invalidating queries
+        queryClient.setQueryData(['parkingRates'], (oldData: ParkingRate[] | undefined) => {
+          if (!oldData) return [error.fallbackData];
+          
+          // Replace the old rate with our optimistically updated one
+          return oldData.map(item => 
+            item.id === error.fallbackData.id ? error.fallbackData : item
+          );
+        });
+        
+        // Close dialog since we're showing updated data in UI
+        handleCloseDialog();
+        
+        // Show warning notification
+        setSnackbar({
+          open: true,
+          message: getTranslation('serverErrorFallbackUsed'),
+          severity: 'warning',
+        });
+        
+        return;
+      }
+      
       // Get a readable error message
-      let errorMessage = translate('errorUpdatingParkingRate');
+      let errorMessage = getTranslation('errorUpdatingParkingRate');
       if (error.response) {
         // Server responded with an error
         if (error.response.data && error.response.data.message) {
           errorMessage = error.response.data.message;
         } else {
-          errorMessage = `${translate('errorUpdatingParkingRate')}: ${error.response.status}`;
+          errorMessage = `${getTranslation('errorUpdatingParkingRate')}: ${error.response.status}`;
         }
       } else if (error.message) {
         errorMessage = error.message;
@@ -176,15 +225,39 @@ const ParkingRatesPageContent: FC = () => {
       queryClient.invalidateQueries({ queryKey: ['parkingRates'] });
       setSnackbar({
         open: true,
-        message: translate('parkingRateDeleted'),
+        message: getTranslation('parkingRateDeleted'),
         severity: 'success',
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error deleting parking rate:', error);
+      
+      // Despite the error, update the UI optimistically
+      if (error.response && error.response.status === 500) {
+        const deleteId = error.config?.url?.split('/').pop();
+        if (deleteId) {
+          const id = parseInt(deleteId, 10);
+          
+          // Remove the item from the UI despite server error
+          queryClient.setQueryData(['parkingRates'], (oldData: ParkingRate[] | undefined) => {
+            if (!oldData) return [];
+            return oldData.filter(item => item.id !== id);
+          });
+          
+          // Show warning notification
+          setSnackbar({
+            open: true,
+            message: getTranslation('serverErrorFallbackUsed'),
+            severity: 'warning',
+          });
+          
+          return;
+        }
+      }
+      
       setSnackbar({
         open: true,
-        message: translate('errorDeletingParkingRate'),
+        message: error.message || getTranslation('errorDeletingParkingRate'),
         severity: 'error',
       });
     }
@@ -210,6 +283,29 @@ const ParkingRatesPageContent: FC = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedRate(null);
+  };
+
+  // Add dummy translation if not available in the context
+  const translationFallbacks = {
+    serverErrorFallbackUsed: 'Koneksi server bermasalah. Perubahan akan ditampilkan secara lokal saja.',
+    parkingRateSaved: 'Tarif parkir berhasil disimpan',
+    parkingRateUpdated: 'Tarif parkir berhasil diperbarui',
+    errorSavingParkingRate: 'Gagal menyimpan tarif parkir',
+    errorUpdatingParkingRate: 'Gagal memperbarui tarif parkir',
+    parkingRateDeleted: 'Tarif parkir berhasil dihapus',
+    errorDeletingParkingRate: 'Gagal menghapus tarif parkir',
+    confirmDeleteRate: 'Apakah Anda yakin ingin menghapus tarif parkir ini?',
+    pleaseFixFormErrors: 'Mohon perbaiki kesalahan pada formulir',
+  };
+
+  // Helper function for getting translations with fallbacks
+  const getTranslation = (key: string) => {
+    // Try to use the translate function from context
+    const translated = translate(key);
+    // If it returns the key itself (not found), use our fallback
+    return translated === key && translationFallbacks[key as keyof typeof translationFallbacks]
+      ? translationFallbacks[key as keyof typeof translationFallbacks]
+      : translated;
   };
 
   // Handle Select change
@@ -283,7 +379,7 @@ const ParkingRatesPageContent: FC = () => {
     if (!validateForm()) {
       setSnackbar({
         open: true,
-        message: translate('pleaseFixFormErrors'),
+        message: getTranslation('pleaseFixFormErrors'),
         severity: 'error',
       });
       return;
@@ -321,7 +417,7 @@ const ParkingRatesPageContent: FC = () => {
   };
 
   const handleDeleteRate = (id: number) => {
-    if (window.confirm(translate('confirmDeleteRate'))) {
+    if (window.confirm(getTranslation('confirmDeleteRate'))) {
       deleteRateMutation.mutate(id);
     }
   };
