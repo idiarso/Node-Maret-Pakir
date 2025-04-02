@@ -30,13 +30,10 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { parkingSessionService, gateService } from '../services/api';
 import PageWrapper from '../components/PageWrapper';
-import { useAuth } from '../contexts/AuthContext';
-import BarcodeScanner from '../components/BarcodeScanner';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatCurrency } from '../utils/format';
 import {
   DirectionsCar as CarIcon,
-  QrCodeScanner as ScanIcon,
   Keyboard as KeyboardIcon,
   CreditCard as PaymentIcon,
   Receipt as ReceiptIcon,
@@ -100,7 +97,7 @@ const scanLine = keyframes`
 `;
 
 const ExitGatePage: React.FC = () => {
-  const { t } = useTranslation();
+  useTranslation();
   const theme = useTheme();
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
