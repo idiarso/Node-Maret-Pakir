@@ -328,8 +328,8 @@ export const parkingRateService = {
         vehicle_type: rate.vehicle_type,
         status: rate.status || 'active',
         
-        // Required date fields
-        effective_from: rate.effective_from || now,
+        // Required date fields - format as ISO string for consistent date handling
+        effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
         
         // Required boolean fields
         is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
@@ -349,7 +349,14 @@ export const parkingRateService = {
         const errorData = error.response.data;
         console.error('Error response data:', errorData);
         
-        if (errorData.message) {
+        // Check for validation errors array
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          const errorMessages = errorData.errors.map((err: any) => 
+            err.message || err.property || JSON.stringify(err)
+          ).join(', ');
+          throw new Error(`Validation failed: ${errorMessages}`);
+        }
+        else if (errorData.message) {
           throw new Error(
             Array.isArray(errorData.message) 
               ? errorData.message.join(', ') 
