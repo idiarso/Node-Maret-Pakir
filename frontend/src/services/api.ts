@@ -274,30 +274,23 @@ export const parkingRateService = {
   },
   create: async (rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      // Format data to match backend expectations
-      const now = new Date();
-      // Tanggal jauh di masa depan (50 tahun dari sekarang) untuk effective_to
-      const farFuture = new Date();
-      farFuture.setFullYear(farFuture.getFullYear() + 50);
-      
-      // Hanya kirim field yang ada di model database
-      const formattedRate = {
+      // Format data to match backend expectations using a simpler approach
+      const dataToCreate = {
         vehicle_type: rate.vehicle_type,
         base_rate: Number(rate.base_rate || 0),
+        status: rate.status || 'active',
         hourly_rate: Number(rate.hourly_rate || 0),
         daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
-        grace_period: rate.grace_period !== undefined ? Number(rate.grace_period) : 15,
-        is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
-        is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false,
-        effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
-        effective_to: rate.effective_to || farFuture.toISOString() // Tanggal jauh di masa depan
+        grace_period: 15,
+        is_weekend_rate: false,
+        is_holiday_rate: false
       };
       
-      console.log('Sending to backend for create:', formattedRate);
+      console.log('Sending to backend for create with simplified format:', dataToCreate);
       
       try {
         // Try to create on the backend
-        const response = await api.post<ParkingRate>('/api/parking-rates', formattedRate);
+        const response = await api.post<ParkingRate>('/api/parking-rates', dataToCreate);
         console.log('Create successful:', response.data);
         return response.data as ParkingRate;
       } catch (apiError: any) {
@@ -310,7 +303,7 @@ export const parkingRateService = {
           // Create an optimistic response with temporary ID
           const optimisticResponse: ParkingRate = {
             id: Math.floor(Math.random() * -1000), // Temporary negative ID
-            ...formattedRate,
+            ...dataToCreate,
             created_at: new Date(),
             updated_at: new Date(),
             status: rate.status || 'active'
@@ -326,18 +319,6 @@ export const parkingRateService = {
           throw serverError;
         }
         
-        // Format the error message for better handling in the component
-        if (apiError.response && apiError.response.data) {
-          if (apiError.response.data.message) {
-            throw new Error(
-              Array.isArray(apiError.response.data.message) 
-                ? apiError.response.data.message.join(', ') 
-                : apiError.response.data.message
-            );
-          } else if (apiError.response.data.error) {
-            throw new Error(apiError.response.data.error);
-          }
-        }
         throw apiError;
       }
     } catch (error: any) {
@@ -353,80 +334,63 @@ export const parkingRateService = {
   },
   update: async (id: number, rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      // Format data to match backend expectations
-      const now = new Date();
-      // Tanggal jauh di masa depan (50 tahun dari sekarang) untuk effective_to
-      const farFuture = new Date();
-      farFuture.setFullYear(farFuture.getFullYear() + 50);
-      
-      // Log inputs before formatting
-      console.log('Input rate data:', {
-        ...rate,
-        vehicle_type_type: typeof rate.vehicle_type,
-        effective_to_type: typeof rate.effective_to,
-        effective_to_value: rate.effective_to
-      });
-      
-      // Hanya kirim field yang ada di model database
-      const formattedRate = {
+      // Format data to match backend expectations using a simpler, previously working approach
+      const dataToUpdate = {
         vehicle_type: rate.vehicle_type,
         base_rate: Number(rate.base_rate || 0),
+        status: rate.status || 'active',
         hourly_rate: Number(rate.hourly_rate || 0),
         daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
-        grace_period: rate.grace_period !== undefined ? Number(rate.grace_period) : 15,
-        is_weekend_rate: rate.is_weekend_rate !== undefined ? rate.is_weekend_rate : false,
-        is_holiday_rate: rate.is_holiday_rate !== undefined ? rate.is_holiday_rate : false,
-        effective_from: rate.effective_from ? new Date(rate.effective_from).toISOString() : now.toISOString(),
-        effective_to: rate.effective_to || farFuture.toISOString() // Tanggal jauh di masa depan bukan null
+        grace_period: 15,
+        is_weekend_rate: false,
+        is_holiday_rate: false
       };
       
-      // Log the formatted data for debugging
-      console.log('Sending to backend:', formattedRate);
-      console.log('Types check:', {
-        vehicle_type: typeof formattedRate.vehicle_type,
-        base_rate: typeof formattedRate.base_rate,
-        effective_from: typeof formattedRate.effective_from,
-        effective_to: typeof formattedRate.effective_to,
-        is_weekend_rate: typeof formattedRate.is_weekend_rate
-      });
+      console.log('Sending to backend with simplified format:', dataToUpdate);
       
-      const response = await api.put<ParkingRate>(`/api/parking-rates/${id}`, formattedRate);
-      return response.data as ParkingRate;
-    } catch (error: any) {
-      console.error('Error updating parking rate:', error);
-      
-      // Get detailed error message from response if available
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-        console.error('Error response data:', errorData);
+      try {
+        // Try to update on the backend
+        const response = await api.put<ParkingRate>(`/api/parking-rates/${id}`, dataToUpdate);
+        console.log('Update successful:', response.data);
+        return response.data as ParkingRate;
+      } catch (apiError: any) {
+        console.error('Error in API call:', apiError);
         
-        // Print all error information for debugging
-        if (errorData.errors && Array.isArray(errorData.errors)) {
-          console.error('Validation errors:', JSON.stringify(errorData.errors));
-          const errorMessages = errorData.errors.map((err: any) => {
-            console.error('Individual error:', err);
-            return err.message || err.property || JSON.stringify(err);
-          }).join(', ');
-          throw new Error(`Validation failed: ${errorMessages}`);
+        // If server returns 500 error, implement client-side fallback
+        if (apiError.response && apiError.response.status === 500) {
+          console.warn('Using optimistic update fallback due to server error');
+          
+          // Create an optimistic response based on the submitted data
+          const optimisticResponse: ParkingRate = {
+            id,
+            ...dataToUpdate,
+            created_at: new Date(),
+            updated_at: new Date(),
+            status: rate.status || 'active'
+          } as ParkingRate;
+          
+          // Log warning about offline mode
+          console.warn('Operating in offline mode. Changes will be visible in UI but not saved to database.');
+          
+          // Show a specific error about server error but return optimistic data
+          // so UI can continue to function
+          const serverError = new Error('Server error occurred. Changes displayed locally only.');
+          (serverError as any).fallbackData = optimisticResponse;
+          (serverError as any).isServerError = true;
+          throw serverError;
         }
-        else if (errorData.message) {
-          console.error('Error message:', errorData.message);
-          throw new Error(
-            Array.isArray(errorData.message) 
-              ? errorData.message.join(', ') 
-              : errorData.message
-          );
-        } else if (errorData.error) {
-          console.error('Error object:', errorData.error);
-          throw new Error(errorData.error);
-        }
+        
+        throw apiError;
+      }
+    } catch (error: any) {
+      // Check if this is our optimistic update error with fallback data
+      if (error.fallbackData && error.isServerError) {
+        // Rethrow this special error so we can handle it in the mutation
+        throw error;
       }
       
-      // If we don't have a more specific error message, use a generic one
-      if (error.message) {
-        throw new Error(error.message);
-      }
-      throw new Error("Validation failed");
+      console.error('Error updating parking rate:', error);
+      throw error;
     }
   },
   delete: async (id: number): Promise<void> => {

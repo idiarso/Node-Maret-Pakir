@@ -385,23 +385,11 @@ const ParkingRatesPageContent: FC = () => {
       return;
     }
 
-    // Transform the data to match backend expectations
-    const now = new Date();
-    // Tanggal 50 tahun di masa depan
-    const farFuture = new Date();
-    farFuture.setFullYear(farFuture.getFullYear() + 50);
-    
+    // Simplified data submission
     const dataToSubmit: Partial<ParkingRate> = {
       vehicle_type: formData.vehicle_type,
       base_rate: Number(formData.base_rate),
-      // Add required fields
-      effective_from: now.toISOString(), // ISO string format
-      hourly_rate: 0,
-      daily_rate: Number(formData.base_rate) * 8, // Default daily rate (8x base rate)
-      is_weekend_rate: false,
-      is_holiday_rate: false,
-      grace_period: 15,
-      effective_to: farFuture.toISOString() // Tanggal jauh di masa depan
+      status: formData.status || 'active'
     };
 
     console.log('Submitting data:', dataToSubmit);
