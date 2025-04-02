@@ -149,13 +149,14 @@ const GatesPage: React.FC = () => {
         return;
       }
 
-      // Simplify data to minimal required fields with proper naming conventions
-      // Trial with very basic structure to identify required fields
+      // Menambahkan semua field yang dibutuhkan berdasarkan controller backend
+      // Dari GateController.createGate: { name, type, location, status }
       const formattedData = {
         name: formData.name.trim(),
         location: formData.location.trim() || 'Default Location',
         device_id: Number(formData.deviceId) || 1,
-        status: formData.status
+        status: formData.status,
+        type: 'ENTRY'  // Field wajib yang diperlukan backend!
       };
 
       console.log('Saving gate with formatted data:', formattedData);
@@ -166,25 +167,8 @@ const GatesPage: React.FC = () => {
         setError(null);
         alert('Gate updated successfully');
       } else {
-        // Create new gate with raw form data as fallback if structured approach fails
-        try {
-          // First attempt - with formatted data
-          await gateService.create(formattedData);
-        } catch (firstError) {
-          console.error('First attempt failed:', firstError);
-          
-          // Second attempt - try with camelCase keys
-          const camelCaseData = {
-            name: formData.name.trim(),
-            location: formData.location.trim() || 'Default Location',
-            deviceId: Number(formData.deviceId) || 1,
-            status: formData.status
-          };
-          
-          console.log('Retrying with camelCase data:', camelCaseData);
-          await gateService.create(camelCaseData);
-        }
-        
+        // Create new gate dengan field yang lengkap
+        await gateService.create(formattedData);
         setError(null);
         alert('Gate created successfully');
       }
