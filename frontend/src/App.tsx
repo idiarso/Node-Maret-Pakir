@@ -38,6 +38,10 @@ import BackupSettingsPage from './pages/settings/BackupSettingsPage';
 import SystemSettingsPage from './pages/settings/SystemSettingsPage';
 import ParkingPage from './pages/ParkingPage';
 import HelpPage from './pages/HelpPage';
+import ManualBookPage from './pages/ManualBookPage';
+import GatePageNew from './pages/GatePageNew';
+import EntryGatePage from './pages/EntryGatePage';
+import ExitGatePage from './pages/ExitGatePage';
 
 // Create 404 page if it doesn't exist
 const NotFoundPage = () => (
@@ -110,10 +114,14 @@ function App() {
                   <Route path="settings/language" element={<LanguageSettingsPage />} />
                   <Route path="settings/backup" element={<BackupSettingsPage />} />
                   <Route path="settings/system" element={<SystemSettingsPage />} />
+                  <Route path="manual-book" element={<ManualBookPage />} />
                   
                   {/* Legacy routes */}
                   <Route path="parking" element={<ParkingPage />} />
                   <Route path="help" element={<HelpPage />} />
+                  <Route path="gates" element={<GatePageNew />} />
+                  <Route path="entry-gate" element={<EntryGatePage />} />
+                  <Route path="exit-gate" element={<ExitGatePage />} />
                 </Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

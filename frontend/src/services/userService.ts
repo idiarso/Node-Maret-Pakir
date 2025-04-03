@@ -6,8 +6,8 @@ export interface User {
   username: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'operator' | 'cashier';
-  status: 'active' | 'inactive';
+  role: 'ADMIN' | 'OPERATOR' | 'USER';
+  active: boolean;
   last_login?: string;
   created_at: string;
   updated_at: string;
@@ -18,21 +18,28 @@ export interface CreateUserDto {
   email: string;
   full_name: string;
   password: string;
-  role: 'admin' | 'operator' | 'cashier';
+  role: 'ADMIN' | 'OPERATOR' | 'USER';
 }
 
 export interface UpdateUserDto {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: 'admin' | 'operator' | 'cashier';
-  status?: 'active' | 'inactive';
+  role?: 'ADMIN' | 'OPERATOR' | 'USER';
+  active?: boolean;
 }
 
 const userService = {
   async getUsers(): Promise<User[]> {
-    const response = await axios.get(`${API_BASE_URL}/users`);
-    return response.data;
+    console.log('Fetching users from:', `${API_BASE_URL}/users`);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users`);
+      console.log('User response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      throw error;
+    }
   },
 
   async createUser(data: CreateUserDto): Promise<User> {

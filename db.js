@@ -35,6 +35,18 @@ const initDatabase = async () => {
                 flat_rate INTEGER NOT NULL,
                 description TEXT
             );
+            
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                ticket_id VARCHAR(10) REFERENCES parking_tickets(id),
+                amount NUMERIC(10, 2) NOT NULL,
+                payment_method VARCHAR(20) NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
+                transaction_id VARCHAR(50),
+                paid_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
 
         // Insert default parking rates if they don't exist
@@ -49,6 +61,27 @@ const initDatabase = async () => {
             INSERT INTO users (username, password, role)
             VALUES ('admin', '$2b$10$xLrv0mLKPmVWDOEpBPYGzeYyQn/yndm4CvE0tB33iW0S3jXWoGfxq', 'admin')
             ON CONFLICT (username) DO NOTHING;
+            
+            -- Insert sample payments data if payments table is empty
+            INSERT INTO payments (ticket_id, amount, payment_method, status, transaction_id, paid_by)
+            SELECT
+                t.id,
+                t.fee,
+                CASE
+                    WHEN random() < 0.4 THEN 'CASH'
+                    WHEN random() < 0.7 THEN 'CARD'
+                    ELSE 'EWALLET'
+                END,
+                'COMPLETED',
+                'TRANS-' || floor(random() * 1000000)::text,
+                1
+            FROM
+                parking_tickets t
+            WHERE
+                t.status = 'completed' AND
+                t.fee > 0 AND
+                NOT EXISTS (SELECT 1 FROM payments WHERE ticket_id = t.id)
+            LIMIT 10;
         `);
 
     } catch (err) {
@@ -236,10 +269,145 @@ const authenticateUser = async (username, password) => {
     }
 };
 
+// Get all payments with license plate information
+const getPayments = async () => {
+    try {
+        console.log('DB: Executing payment query with proper column names...');
+        const result = await pool.query(`
+            SELECT 
+                p.id,
+                p.ticket_id,
+                p.amount,
+                p.payment_method as "paymentMethod", 
+                p.status,
+                p.transaction_id as "transactionId",
+                p.paid_by as "paid_by",
+                p.created_at as "createdAt",
+                p.updated_at as "updatedAt",
+                t.plate_number as "licensePlate",
+                t.id as "ticketNumber"
+            FROM 
+                payments p
+            LEFT JOIN 
+                parking_tickets t ON p.ticket_id = t.id
+            ORDER BY 
+                p.created_at DESC
+        `);
+        console.log('DB: Payment query successful, rows returned:', result.rows.length);
+        
+        if (result.rows.length === 0) {
+            console.log('DB: No payment data found in database!');
+        } else {
+            console.log('DB: First payment data:', JSON.stringify(result.rows[0]));
+        }
+        
+        return result.rows;
+    } catch (err) {
+        console.error('Error fetching payments:', err);
+        throw err;
+    }
+};
+
+// Create new payment
+const createPayment = async (payment) => {
+    try {
+        const result = await pool.query(
+            `INSERT INTO payments 
+            (ticket_id, amount, payment_method, status, transaction_id, paid_by) 
+            VALUES ($1, $2, $3, $4, $5, $6) 
+            RETURNING *`,
+            [
+                payment.ticketId, 
+                payment.amount, 
+                payment.paymentMethod, 
+                payment.status || 'COMPLETED',
+                payment.transactionId || `TRANS-${Date.now()}`,
+                payment.paidBy || 1
+            ]
+        );
+        return result.rows[0];
+    } catch (err) {
+        console.error('Error creating payment:', err);
+        throw err;
+    }
+};
+
+// Get payment by ID
+const getPaymentById = async (id) => {
+    try {
+        const result = await pool.query(
+            `SELECT 
+                p.*,
+                t.plate_number as license_plate,
+                t.id as ticket_number
+            FROM 
+                payments p
+            LEFT JOIN 
+                parking_tickets t ON p.ticket_id = t.id
+            WHERE 
+                p.id = $1`,
+            [id]
+        );
+        return result.rows[0];
+    } catch (err) {
+        console.error('Error fetching payment by ID:', err);
+        throw err;
+    }
+};
+
+// Update payment
+const updatePayment = async (id, payment) => {
+    try {
+        const result = await pool.query(
+            `UPDATE payments 
+            SET 
+                amount = $1, 
+                payment_method = $2, 
+                status = $3,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $4 
+            RETURNING *`,
+            [
+                payment.amount,
+                payment.paymentMethod,
+                payment.status,
+                id
+            ]
+        );
+        return result.rows[0];
+    } catch (err) {
+        console.error('Error updating payment:', err);
+        throw err;
+    }
+};
+
+// Delete payment
+const deletePayment = async (id) => {
+    try {
+        await pool.query('DELETE FROM payments WHERE id = $1', [id]);
+        return true;
+    } catch (err) {
+        console.error('Error deleting payment:', err);
+        throw err;
+    }
+};
+
 module.exports = {
     initDatabase,
     getParkingTickets,
     createParkingTicket,
     updateParkingTicket,
-    getParkingRates
+    getParkingRates,
+    createParkingRate,
+    updateParkingRate,
+    deleteParkingRate,
+    authenticateUser,
+    getDashboardStats,
+    getDailyIncomeStats,
+    getMonthlyIncomeStats,
+    getPayments,
+    createPayment,
+    getPaymentById,
+    updatePayment,
+    deletePayment
 };

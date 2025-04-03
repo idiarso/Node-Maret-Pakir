@@ -18,41 +18,34 @@ export class Gate {
     @PrimaryGeneratedColumn()
     id!: number;
 
-    @Column({ length: 50, nullable: false })
+    @Column()
     name!: string;
 
-    @Column({ length: 20, nullable: true })
-    gate_number?: string;
+    @Column({ name: 'gate_number' })
+    gate_number!: string;
+
+    @Column({ nullable: true })
+    location?: string;
 
     @Column({
         type: "enum",
         enum: GateType,
-        nullable: false,
         default: GateType.ENTRY
     })
-    type!: GateType;
+    type!: string;
 
     @Column({
         type: "enum",
         enum: GateStatus,
-        default: GateStatus.INACTIVE,
-        nullable: false
+        default: GateStatus.INACTIVE
     })
-    status!: GateStatus;
+    status!: string;
 
-    @Column({ length: 100, nullable: true })
-    location?: string;
-
-    @Column({ type: 'text', nullable: true })
+    @Column({ nullable: true })
     description?: string;
 
-    @Column({ type: 'jsonb', nullable: true, default: {} })
-    hardware_config?: {
-        ip_address?: string;
-        port?: number;
-        device_id?: string;
-        last_communication?: Date;
-    };
+    @Column({ type: 'text', nullable: true })
+    hardware_config?: string;
 
     @Column({ type: 'jsonb', nullable: true, default: {} })
     maintenance_schedule?: {
@@ -71,10 +64,10 @@ export class Gate {
     @Column({ default: true })
     is_active!: boolean;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'created_at' })
     created_at!: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ name: 'updated_at' })
     updated_at!: Date;
 
     @OneToMany(() => GateLog, log => log.gate)

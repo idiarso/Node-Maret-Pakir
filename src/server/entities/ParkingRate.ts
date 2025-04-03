@@ -58,4 +58,7 @@ export class ParkingRate {
 
     @UpdateDateColumn({ type: 'timestamp with time zone' })
     updated_at!: Date;
+
+    @Column({ type: 'varchar', length: 20, default: 'active' })
+    status!: string;
 }

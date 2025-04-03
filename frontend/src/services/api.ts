@@ -1,40 +1,18 @@
 import axios from 'axios';
-import { Payment, PaymentFormData, Ticket, Device, Gate, ApiResponse, ParkingSession, ParkingRate, Membership, OperatorShift, SystemSettings, LanguageSettings, BackupSettings } from '../types';
+import { Payment, PaymentFormData, Ticket, Device, ParkingSession, ParkingRate, Membership, OperatorShift, SystemSettings, LanguageSettings, BackupSettings, Gate } from '../types';
 import logger from '../utils/logger';
+import { API_BASE_URL } from '../config';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+// Log API base URL for debugging
+console.log('Using API base URL:', API_BASE_URL);
 
 // Dashboard data interface
 export interface DashboardData {
-  activeTickets: number;
-  totalTickets: number;
-  availableSpots: number;
-  totalCapacity: number;
-  occupancyRate: number;
-  todayRevenue: number;
-  weeklyRevenue: number;
-  monthlyRevenue: number;
-  averageDuration: string;
-  peakHours: string[];
+  activeSessionsCount: number;
+  completedSessionsCount: number;
   totalVehicles: number;
-  vehicleTypes: {
-    car: number;
-    motorcycle: number;
-    truck: number;
-  };
-  deviceStatus: {
-    online: number;
-    offline: number;
-    maintenance: number;
-  };
-  recentTransactions: Array<{
-    id: number;
-    licensePlate: string;
-    amount: number;
-    vehicleType: string;
-    timestamp: string;
-    duration: string;
-  }>;
+  totalRevenue: number;
+  recentSessions: any[];
 }
 
 export interface DashboardResponse {
@@ -55,12 +33,19 @@ let isServerConnected = true;
 let lastConnectionCheck = 0;
 const CONNECTION_CHECK_INTERVAL = 10000; // 10 seconds between connection checks
 
+// Specify API URL explicitly for clarity
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 10000, // Add timeout to avoid hanging requests
+});
+
+// Log semua request
+api.interceptors.request.use((config) => {
+  logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`);
+  return config;
 });
 
 // Request interceptor to add the auth token and check server status
@@ -150,16 +135,26 @@ api.interceptors.response.use(
 // Function to check server connection
 export const checkServerConnection = async (): Promise<boolean> => {
   try {
+    console.log('Checking server connection to:', API_BASE_URL + '/health');
     logger.debug('Checking server connection', 'API');
-    await api.get('/api/health');
+    await api.get('/health');
     isServerConnected = true;
     lastConnectionCheck = Date.now();
     logger.info('Server connection successful', 'API');
+    console.log('✅ Server connection successful');
     return true;
   } catch (error) {
     isServerConnected = false;
     lastConnectionCheck = Date.now();
     logger.warn('Server connection failed', 'API', { error });
+    console.error('❌ Server connection failed:', error);
+    
+    // Tampilkan informasi tambahan untuk debugging
+    console.log('👉 Silakan periksa:');
+    console.log('1. Apakah server backend berjalan di localhost:3000?');
+    console.log('2. Apakah ada error di konsol server?');
+    console.log('3. Apakah ada masalah CORS?');
+    
     return false;
   }
 };
@@ -173,19 +168,47 @@ export const resetServerConnectionStatus = () => {
 // Dashboard API functions
 export const dashboardService = {
   getData: async (): Promise<DashboardData> => {
-    const response = await api.get<DashboardData>('/api/dashboard');
+    const response = await api.get<DashboardData>('/dashboard');
     return response.data;
   },
   resetData: async (): Promise<{success: boolean; message: string}> => {
-    const response = await api.post<{success: boolean; message: string}>('/api/dashboard/reset');
+    const response = await api.post<{success: boolean; message: string}>('/dashboard/reset');
     return response.data;
   }
 };
 
 // Payment API functions
-export const getPayments = async (): Promise<Payment[]> => {
-  const response = await api.get<Payment[]>('/payments');
-  return response.data as Payment[];
+export const getPayments = async (): Promise<any> => {
+  console.log('Fetching payments from database...');
+  try {
+    // Get token from localStorage
+    const token = localStorage.getItem('token');
+    
+    // Menggunakan fetch langsung untuk menghindari masalah CORS dan routing
+    const response = await fetch('http://localhost:3000/api/payments', {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Raw payment response:', data);
+    
+    // Backend sudah mengembalikan data dengan format yang benar
+    // sehingga tidak perlu transformasi yang kompleks
+    return { data };
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    return { 
+      data: [], 
+      error: error instanceof Error ? error.message : 'Unknown error fetching payments'
+    };
+  }
 };
 
 export const createPayment = async (data: PaymentFormData): Promise<Payment> => {
@@ -218,48 +241,104 @@ export const getPaymentById = async (id: string) => {
 // Devices API
 export const deviceService = {
   getAll: async (): Promise<Device[]> => {
-    const response = await api.get<Device[]>('/api/devices');
+    const response = await api.get<Device[]>('/devices');
     return response.data as Device[];
   },
   getById: async (id: number): Promise<Device> => {
-    const response = await api.get<Device>(`/api/devices/${id}`);
+    const response = await api.get<Device>(`/devices/${id}`);
     return response.data as Device;
   },
   create: async (device: Partial<Device>): Promise<Device> => {
-    const response = await api.post<Device>('/api/devices', device);
+    const response = await api.post<Device>('/devices', device);
     return response.data as Device;
   },
   update: async (id: number, device: Partial<Device>): Promise<Device> => {
-    const response = await api.put<Device>(`/api/devices/${id}`, device);
+    const response = await api.put<Device>(`/devices/${id}`, device);
     return response.data as Device;
   },
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/api/devices/${id}`);
+    await api.delete(`/devices/${id}`);
   },
 };
 
 // Parking Sessions API
 export const parkingSessionService = {
   getAll: async (): Promise<ParkingSession[]> => {
-    const response = await api.get<ParkingSession[]>('/api/parking-sessions');
+    const response = await api.get<ParkingSession[]>('/parking-sessions');
     return response.data;
   },
-  getById: async (id: number): Promise<ParkingSession> => {
-    const response = await api.get<ParkingSession>(`/api/parking-sessions/${id}`);
+  
+  getSession: async (barcode: string): Promise<ParkingSession> => {
+    console.log('Searching for parking session with barcode:', barcode);
+    try {
+      const response = await api.get<ParkingSession>(`/parking-sessions/search?barcode=${encodeURIComponent(barcode)}`);
+      console.log('Found parking session:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error searching for parking session:', error);
+      throw error;
+    }
+  },
+  
+  createEntry: async (data: CreateParkingSessionRequest): Promise<ParkingSessionResponse> => {
+    console.log('Creating parking session entry with data:', data);
+    try {
+      const url = getApiUrl('parking-sessions/entry');
+      console.log(`Sending POST request to ${url}`);
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to create entry: ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Entry created successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Error creating parking session entry:', error);
+      throw error;
+    }
+  },
+  
+  update: async (id: number, data: Partial<ParkingSession> & { license_plate?: string, vehicle_type?: string }): Promise<ParkingSession> => {
+    try {
+      console.log(`Updating parking session ${id} with data:`, data);
+      
+      const response = await api.put<ParkingSession>(`/parking-sessions/${id}`, data);
+      
+      if (response.status === 200) {
+        console.log(`Successfully updated parking session ${id}:`, response.data);
+        return response.data;
+      } else {
+        throw new Error(`Failed to update parking session: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error(`Error updating parking session ${id}:`, error);
+      throw error;
+    }
+  },
+  
+  processExit: async (data: ExitParkingSessionRequest): Promise<ParkingSessionResponse> => {
+    const response = await api.post<ParkingSessionResponse>('/parking-sessions/exit', data);
     return response.data;
-  },
-  update: async (id: number, data: Partial<ParkingSession>): Promise<ParkingSession> => {
-    const response = await api.put<ParkingSession>(`/api/parking-sessions/${id}`, data);
-    return response.data as ParkingSession;
-  },
-  complete: async (id: number): Promise<ParkingSession> => {
-    const response = await api.post<ParkingSession>(`/api/parking-sessions/${id}/complete`);
-    return response.data as ParkingSession;
   }
 };
 
 // Helper for mapping frontend status values to database enum values
-const mapGateStatus = (statusValue: string): string => {
+export const mapGateStatus = (statusValue: string): string => {
   // Define the valid Gate statuses according to the database enum
   const validGateStatuses = ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'ERROR'];
   
@@ -280,497 +359,219 @@ const mapGateStatus = (statusValue: string): string => {
   return 'INACTIVE';
 };
 
-// Gates API
+// Interfaces for different forms
+export interface GateFormData {
+  name: string;
+  gate_number: string;
+  location: string;
+  type: 'ENTRY' | 'EXIT';
+  description: string;
+}
+
+// Gate API functions
 export const gateService = {
   getAll: async (): Promise<Gate[]> => {
     try {
-      logger.debug('Fetching all gates', 'GateService');
-      const response = await api.get<Gate[]>('/api/gates');
-      logger.info(`Retrieved ${response.data.length} gates`, 'GateService');
-      return response.data as Gate[];
-    } catch (error: any) {
-      logger.error('Error fetching gates', error, 'GateService');
-      // Return empty array on error
-      throw error;
+      console.log('Fetching gates...');
+      const url = getApiUrl('gates');
+      console.log('Gates API URL:', url);
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to fetch gates: ${errorText || response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Gates fetched successfully:', data);
+      
+      // Ensure we return an array even if server response is invalid
+      if (!Array.isArray(data)) {
+        console.warn('Gates API returned non-array data:', data);
+        return [];
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching gates:', error);
+      // Return empty array instead of throwing to avoid crashing UI
+      return [];
     }
   },
-  
+
   getById: async (id: number): Promise<Gate> => {
     try {
-      logger.debug(`Fetching gate with id ${id}`, 'GateService');
-      const response = await api.get<Gate>(`/api/gates/${id}`);
-      logger.info(`Retrieved gate: ${response.data.name}`, 'GateService', { gate: response.data });
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error(`Error fetching gate with id ${id}`, error, 'GateService');
+      const response = await api.get<Gate>(`/gates/${id}`);
+      return response.data;
+    } catch (error) {
+      logger.error(`Error fetching gate ${id}:`, error);
       throw error;
     }
   },
-  
-  create: async (gate: Partial<any>): Promise<Gate> => {
-    logger.info('Creating gate', 'GateService', gate);
+
+  create: async (data: GateFormData): Promise<Gate> => {
     try {
-      // Ensure status is a valid enum value and add required fields
-      const formattedData = {
-        ...gate,
-        // Add required type field if missing (ENTRY is default in backend)
-        type: gate.type || 'ENTRY',
-        // Map deviceId to device_id if present
-        ...(gate.deviceId && { device_id: gate.deviceId }),
-        // Format gate_number if not provided
-        gate_number: gate.gate_number || gate.name?.substring(0, 20) || 'Gate',
-        // Ensure status is a valid enum value
-        status: mapGateStatus(gate.status)
-      };
-      
-      // Remove frontend-only fields that might cause issues with the backend
-      delete formattedData.deviceId;
-      
-      logger.debug('Sending formatted gate data', 'GateService', formattedData);
-      const response = await api.post<Gate>('/api/gates', formattedData);
-      logger.info('Gate created successfully', 'GateService', { 
-        id: response.data.id, 
-        name: response.data.name 
-      });
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error('Error creating gate', error, 'GateService', { requestData: gate });
-      
-      // Handle 500 Internal Server Error with optimistic response
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate creation, using optimistic response', 'GateService', {
-          serverError: error.response.data
-        });
-        
-        // Create an optimistic fallback response with a negative ID to indicate it's local only
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          id: -Math.floor(Math.random() * 1000), // Negative ID indicates local-only data
-          name: gate.name || 'New Gate',
-          location: gate.location,
-          status: gate.status || 'INACTIVE',
-          gate_number: gate.gate_number,
-          description: gate.description,
-          is_active: gate.is_active !== undefined ? gate.is_active : true,
-          created_at: timestamp,
-          updated_at: timestamp,
-          _optimistic: true, // Flag to indicate this is optimistic data
-          _error: 'This gate was not saved to the server due to a server error.'
-        };
-        
-        logger.info('Created optimistic gate', 'GateService', { 
-          id: optimisticGate.id,
-          name: optimisticGate.name,
-          isOptimistic: true
-        });
-        
-        return optimisticGate;
-      }
-      
+      const response = await api.post<Gate>('/gates', data);
+      return response.data;
+    } catch (error) {
+      logger.error('Error creating gate:', error);
       throw error;
     }
   },
-  
-  update: async (id: number, gate: Partial<any>): Promise<Gate> => {
-    logger.info(`Updating gate ${id}`, 'GateService', gate);
+
+  update: async (id: number, data: GateFormData): Promise<Gate> => {
     try {
-      // Check if we're dealing with a local-only gate (negative ID)
-      if (id < 0) {
-        logger.warn(`Attempted to update a local-only gate with ID ${id}`, 'GateService', {
-          gate
-        });
-        
-        // Create a new optimistic gate with updated data but keep negative ID
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...gate,
-          id, // Preserve negative ID
-          name: gate.name || 'Local Gate', // Ensure name property is present
-          status: mapGateStatus(gate.status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Updated local-only gate ${id}`, 'GateService', { 
-          id: optimisticGate.id,
-          name: optimisticGate.name
-        });
-        
-        return optimisticGate;
-      }
-      
-      // For real gates, proceed with normal update
-      const formattedData = {
-        ...gate,
-        status: mapGateStatus(gate.status)
-      };
-      
-      logger.debug('Sending formatted gate data', 'GateService', formattedData);
-      const response = await api.put<Gate>(`/api/gates/${id}`, formattedData);
-      logger.info(`Gate ${id} updated successfully`, 'GateService', { 
-        name: response.data.name 
-      });
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error(`Error updating gate ${id}`, error, 'GateService', { requestData: gate });
-      
-      // Check if this is for a local-only gate that 404'd
-      if (error.response && error.response.status === 404 && id < 0) {
-        logger.warn(`Server returned 404 for local-only gate ${id}`, 'GateService');
-        
-        // Create an optimistic update response for the local gate
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...gate,
-          id, // Keep the negative ID
-          name: gate.name || 'Local Gate', // Ensure name property is present
-          status: mapGateStatus(gate.status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Created optimistic update for local-only gate ${id}`, 'GateService');
-        return optimisticGate;
-      }
-      
-      // Handle 500 Internal Server Error with optimistic response
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate update, using optimistic response', 'GateService', {
-          id,
-          serverError: error.response.data
-        });
-        
-        // Try to get the current gate first if it's a real ID
-        let baseGate: any = {};
-        if (id > 0) {
-          try {
-            // Try to get the current gate data to use as a base
-            const currentResponse = await api.get<Gate>(`/api/gates/${id}`);
-            baseGate = currentResponse.data;
-          } catch (fetchError) {
-            logger.error('Could not fetch current gate data for optimistic update', fetchError, 'GateService', { id });
-          }
-        }
-        
-        // Create an optimistic fallback response
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...baseGate,
-          ...gate,
-          id: id > 0 ? id : -Math.floor(Math.random() * 1000), // Preserve ID or use negative for new
-          updated_at: timestamp,
-          _optimistic: true, // Flag to indicate this is optimistic data
-          _error: 'Changes were not saved to the server due to a server error.'
-        };
-        
-        logger.info('Created optimistic gate update', 'GateService', { 
-          id: optimisticGate.id,
-          name: optimisticGate.name,
-          isOptimistic: true
-        });
-        
-        return optimisticGate;
-      }
-      
+      const response = await api.put<Gate>(`/gates/${id}`, data);
+      return response.data;
+    } catch (error) {
+      logger.error(`Error updating gate ${id}:`, error);
       throw error;
     }
   },
-  
+
   delete: async (id: number): Promise<void> => {
     try {
-      // For local-only gates (negative IDs), just return success without server call
-      if (id < 0) {
-        logger.info(`Skipping server delete for local-only gate ${id}`, 'GateService');
-        return;
-      }
-      
-      logger.info(`Deleting gate ${id}`, 'GateService');
-      await api.delete(`/api/gates/${id}`);
-      logger.info(`Gate ${id} deleted successfully`, 'GateService');
-    } catch (error: any) {
-      logger.error(`Error deleting gate ${id}`, error, 'GateService');
-      
-      // Handle 404 errors for negative IDs gracefully
-      if (error.response && error.response.status === 404 && id < 0) {
-        logger.warn(`Server returned 404 for local-only gate ${id} deletion`, 'GateService');
-        return; // Return as if deletion succeeded
-      }
-      
-      // Check if it's a server error - in which case we'll silently succeed
-      // This is because we want to let users continue working even if the server is broken
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate deletion, continuing as if successful', 'GateService', {
-          id,
-          serverError: error.response.data
-        });
-        return; // Return as if deletion succeeded
-      }
-      
+      await api.delete(`/gates/${id}`);
+    } catch (error) {
+      logger.error(`Error deleting gate ${id}:`, error);
       throw error;
     }
   },
-  
+
   changeStatus: async (id: number, status: string): Promise<Gate> => {
     try {
-      // Check if we're dealing with a local-only gate (negative ID)
-      if (id < 0) {
-        logger.warn(`Attempted to change status of a local-only gate with ID ${id}`, 'GateService', {
-          id,
-          status
-        });
-        
-        // Create a new optimistic gate with updated status but keep negative ID
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          id, // Preserve negative ID
-          name: 'Local Gate', // Add required name property
-          status: mapGateStatus(status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Updated status of local-only gate ${id} to ${status}`, 'GateService');
-        return optimisticGate;
-      }
+      console.log(`Changing gate ${id} status to ${status}`);
       
-      // Map to valid enum status
-      const mappedStatus = mapGateStatus(status);
+      // Map open/close to database status if needed
+      let dbStatus = status;
+      if (status === 'OPEN') dbStatus = 'ACTIVE';
+      if (status === 'CLOSE') dbStatus = 'INACTIVE';
       
-      logger.info(`Changing gate ${id} status to ${mappedStatus}`, 'GateService');
-      const response = await api.post<Gate>(`/api/gates/${id}/status`, { status: mappedStatus });
-      logger.info(`Gate ${id} status changed to ${mappedStatus}`, 'GateService');
-      return response.data as Gate;
-    } catch (error: any) {
-      logger.error(`Error changing status for gate ${id}`, error, 'GateService', { 
-        requestedStatus: status 
+      const url = getApiUrl(`gates/${id}/status`);
+      console.log(`Sending PUT request to ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: dbStatus }),
       });
       
-      // Check if this is for a local-only gate that 404'd
-      if (error.response && error.response.status === 404 && id < 0) {
-        logger.warn(`Server returned 404 for local-only gate ${id} status change`, 'GateService');
-        
-        // Create an optimistic status change for the local gate
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          id, // Keep the negative ID
-          name: 'Local Gate', // Add required name property
-          status: mapGateStatus(status),
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'This gate only exists locally and cannot be saved to the server.'
-        };
-        
-        logger.info(`Created optimistic status change for local-only gate ${id}`, 'GateService');
-        return optimisticGate;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to change gate status: ${errorText}`);
       }
       
-      // Handle 500 Internal Server Error with optimistic response
-      if (error.response && error.response.status === 500) {
-        logger.warn('Server error during gate status change, using optimistic response', 'GateService', {
-          id,
-          status,
-          serverError: error.response.data
-        });
-        
-        // Try to get the current gate first
-        let baseGate: any = {};
-        try {
-          // Try to get the current gate data to use as a base
-          const currentResponse = await api.get<Gate>(`/api/gates/${id}`);
-          baseGate = currentResponse.data;
-        } catch (fetchError) {
-          logger.error('Could not fetch current gate data for optimistic status change', fetchError, 'GateService', { id });
-        }
-        
-        // Create an optimistic fallback response
-        const timestamp = new Date();
-        const optimisticGate: Gate = {
-          ...baseGate,
-          id,
-          status,
-          updated_at: timestamp,
-          _optimistic: true,
-          _error: 'Status change was not saved to the server due to a server error.'
-        };
-        
-        logger.info('Created optimistic gate status change', 'GateService', { 
-          id,
-          newStatus: status,
-          isOptimistic: true
-        });
-        
-        return optimisticGate;
-      }
-      
-      throw error;
-    }
-  },
-};
-
-// Parking Rates API
-export const parkingRateService = {
-  getAll: async (): Promise<ParkingRate[]> => {
-    const response = await api.get<ParkingRate[]>('/api/parking-rates');
-    return response.data as ParkingRate[];
-  },
-  getById: async (id: number): Promise<ParkingRate> => {
-    const response = await api.get<ParkingRate>(`/api/parking-rates/${id}`);
-    return response.data as ParkingRate;
-  },
-  create: async (rate: Partial<ParkingRate>): Promise<ParkingRate> => {
-    try {
-      // Format data to match backend expectations using a simpler approach
-      const dataToCreate = {
-        vehicle_type: rate.vehicle_type,
-        base_rate: Number(rate.base_rate || 0),
-        status: rate.status || 'active',
-        hourly_rate: Number(rate.hourly_rate || 0),
-        daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
-        grace_period: 15,
-        is_weekend_rate: false,
-        is_holiday_rate: false
-      };
-      
-      console.log('Sending to backend for create with simplified format:', dataToCreate);
-      
-      try {
-        // Try to create on the backend
-        const response = await api.post<ParkingRate>('/api/parking-rates', dataToCreate);
-        console.log('Create successful:', response.data);
-        return response.data as ParkingRate;
-      } catch (apiError: any) {
-        console.error('Error in API call for create:', apiError);
-        
-        // If server returns 500 error, implement client-side fallback
-        if (apiError.response && apiError.response.status === 500) {
-          console.warn('Using optimistic create fallback due to server error');
-          
-          // Create an optimistic response with temporary ID
-          const optimisticResponse: ParkingRate = {
-            id: Math.floor(Math.random() * -1000), // Temporary negative ID
-            ...dataToCreate,
-            created_at: new Date(),
-            updated_at: new Date(),
-            status: rate.status || 'active'
-          } as ParkingRate;
-          
-          // Log warning about offline mode
-          console.warn('Operating in offline mode. New item will be visible in UI but not saved to database.');
-          
-          // Show a specific error about server error but return optimistic data
-          const serverError = new Error('Server error occurred. New item displayed locally only.');
-          (serverError as any).fallbackData = optimisticResponse;
-          (serverError as any).isServerError = true;
-          throw serverError;
-        }
-        
-        throw apiError;
-      }
-    } catch (error: any) {
-      // Check if this is our optimistic update error with fallback data
-      if (error.fallbackData && error.isServerError) {
-        // Rethrow this special error so we can handle it in the mutation
-        throw error;
-      }
-      
-      console.error('Error creating parking rate:', error);
-      throw error;
-    }
-  },
-  update: async (id: number, rate: Partial<ParkingRate>): Promise<ParkingRate> => {
-    try {
-      // Format data to match backend expectations using a simpler, previously working approach
-      const dataToUpdate = {
-        vehicle_type: rate.vehicle_type,
-        base_rate: Number(rate.base_rate || 0),
-        status: rate.status || 'active',
-        hourly_rate: Number(rate.hourly_rate || 0),
-        daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
-        grace_period: 15,
-        is_weekend_rate: false,
-        is_holiday_rate: false
-      };
-      
-      console.log('Sending to backend with simplified format:', dataToUpdate);
-      
-      try {
-        // Try to update on the backend
-        const response = await api.put<ParkingRate>(`/api/parking-rates/${id}`, dataToUpdate);
-        console.log('Update successful:', response.data);
-        return response.data as ParkingRate;
-      } catch (apiError: any) {
-        console.error('Error in API call:', apiError);
-        
-        // If server returns 500 error, implement client-side fallback
-        if (apiError.response && apiError.response.status === 500) {
-          console.warn('Using optimistic update fallback due to server error');
-          
-          // Create an optimistic response based on the submitted data
-          const optimisticResponse: ParkingRate = {
-            id,
-            ...dataToUpdate,
-            created_at: new Date(),
-            updated_at: new Date(),
-            status: rate.status || 'active'
-          } as ParkingRate;
-          
-          // Log warning about offline mode
-          console.warn('Operating in offline mode. Changes will be visible in UI but not saved to database.');
-          
-          // Show a specific error about server error but return optimistic data
-          // so UI can continue to function
-          const serverError = new Error('Server error occurred. Changes displayed locally only.');
-          (serverError as any).fallbackData = optimisticResponse;
-          (serverError as any).isServerError = true;
-          throw serverError;
-        }
-        
-        throw apiError;
-      }
-    } catch (error: any) {
-      // Check if this is our optimistic update error with fallback data
-      if (error.fallbackData && error.isServerError) {
-        // Rethrow this special error so we can handle it in the mutation
-        throw error;
-      }
-      
-      console.error('Error updating parking rate:', error);
-      throw error;
-    }
-  },
-  delete: async (id: number): Promise<void> => {
-    try {
-      await api.delete(`/api/parking-rates/${id}`);
+      const result = await response.json();
+      console.log('Gate status changed successfully:', result);
+      return result;
     } catch (error) {
-      console.error('Error deleting parking rate:', error);
+      console.error(`Error changing gate ${id} status:`, error);
       throw error;
     }
   }
 };
 
+// Parking Rates API
+export const parkingRateService = {
+  getAll: async (): Promise<ParkingRate[]> => {
+    const response = await api.get<ParkingRate[]>('/parking-rates');
+    return response.data;
+  },
+  
+  getById: async (id: number): Promise<ParkingRate> => {
+    const response = await api.get<ParkingRate>(`/parking-rates/${id}`);
+    return response.data;
+  },
+  
+  create: async (rate: Partial<ParkingRate>): Promise<ParkingRate> => {
+    try {
+      // Map vehicle type to enum value
+      const mappedRate = {
+        ...rate,
+        vehicle_type: mapVehicleTypeToDbFormat(rate.vehicle_type)
+      };
+      console.log('Creating parking rate with data:', mappedRate);
+      const response = await api.post<ParkingRate>('/parking-rates', mappedRate);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating parking rate:', error);
+      throw error;
+    }
+  },
+  
+  update: async (id: number, rate: Partial<ParkingRate>): Promise<ParkingRate> => {
+    try {
+      console.log('Updating parking rate with data:', { id, rate });
+      
+      // Map vehicle type to enum value
+      const mappedRate = {
+        ...rate,
+        vehicle_type: rate.vehicle_type ? mapVehicleTypeToDbFormat(rate.vehicle_type) : undefined,
+        base_rate: Number(rate.base_rate),
+        hourly_rate: rate.hourly_rate ? Number(rate.hourly_rate) : undefined,
+        daily_rate: rate.daily_rate ? Number(rate.daily_rate) : undefined,
+        status: rate.status || 'active'
+      };
+      
+      console.log('Formatted update data:', mappedRate);
+      
+      const response = await api.put<ParkingRate>(`/parking-rates/${id}`, mappedRate);
+      console.log('Update response:', response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error updating parking rate:', error);
+      throw error;
+    }
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/parking-rates/${id}`);
+  }
+};
+
+// Helper function to map frontend vehicle types to database enum values
+const mapVehicleTypeToDbFormat = (type: string | undefined): string | undefined => {
+  if (!type) return undefined;
+  
+  // Return the type as is since we're now using the same values as in the database
+  return type;
+};
+
 // Memberships API
 export const membershipService = {
   getAll: async (): Promise<Membership[]> => {
-    const response = await api.get<Membership[]>('/api/memberships');
+    const response = await api.get<Membership[]>('/memberships');
     return response.data as Membership[];
   },
   getById: async (id: number): Promise<Membership> => {
-    const response = await api.get<Membership>(`/api/memberships/${id}`);
+    const response = await api.get<Membership>(`/memberships/${id}`);
     return response.data as Membership;
   },
   create: async (membership: Partial<Membership>): Promise<Membership> => {
-    const response = await api.post<Membership>('/api/memberships', membership);
+    const response = await api.post<Membership>('/memberships', membership);
     return response.data as Membership;
   },
   update: async (id: number, membership: Partial<Membership>): Promise<Membership> => {
-    const response = await api.put<Membership>(`/api/memberships/${id}`, membership);
+    const response = await api.put<Membership>(`/memberships/${id}`, membership);
     return response.data as Membership;
   },
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/api/memberships/${id}`);
+    await api.delete(`/memberships/${id}`);
   }
 };
 
@@ -779,7 +580,7 @@ export const shiftService = {
   getAll: async (): Promise<OperatorShift[]> => {
     try {
       // Use the actual backend API
-      const response = await api.get<{data: any[], total: number}>('/api/shifts');
+      const response = await api.get<{data: any[], total: number}>('/shifts');
       const shifts = response.data.data || [];
       
       // Transform data to match the frontend model
@@ -788,8 +589,8 @@ export const shiftService = {
           id: shift.id,
           operator_id: shift.operator_id,
           operatorName: `Operator ${shift.operator_id}`,
-          shift_start: new Date(shift.shift_start),
-          shift_end: shift.shift_end ? new Date(shift.shift_end) : undefined,
+          start_time: new Date(shift.shift_start),
+          end_time: shift.shift_end ? new Date(shift.shift_end) : undefined,
           total_transactions: shift.total_transactions || 0,
           total_amount: shift.total_amount || 0,
           cash_amount: shift.cash_amount || 0,
@@ -806,23 +607,23 @@ export const shiftService = {
     }
   },
   getById: async (id: number): Promise<OperatorShift> => {
-    const response = await api.get<OperatorShift>(`/api/shifts/${id}`);
+    const response = await api.get<OperatorShift>(`/shifts/${id}`);
     return response.data as OperatorShift;
   },
   create: async (shift: Partial<OperatorShift>): Promise<OperatorShift> => {
-    const response = await api.post<OperatorShift>('/api/shifts', shift);
+    const response = await api.post<OperatorShift>('/shifts', shift);
     return response.data as OperatorShift;
   },
   update: async (id: number, shift: Partial<OperatorShift>): Promise<OperatorShift> => {
-    const response = await api.put<OperatorShift>(`/api/shifts/${id}`, shift);
+    const response = await api.put<OperatorShift>(`/shifts/${id}`, shift);
     return response.data as OperatorShift;
   },
   complete: async (id: number): Promise<OperatorShift> => {
-    const response = await api.post<OperatorShift>(`/api/shifts/${id}/complete`);
+    const response = await api.post<OperatorShift>(`/shifts/${id}/complete`);
     return response.data as OperatorShift;
   },
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/api/shifts/${id}`);
+    await api.delete(`/shifts/${id}`);
   }
 };
 
@@ -830,40 +631,91 @@ export const shiftService = {
 export const settingsService = {
   // System settings
   getSystemSettings: async (): Promise<SystemSettings> => {
-    const response = await api.get<SystemSettings>('/api/settings/system');
+    const response = await api.get<SystemSettings>('/settings/system');
     return response.data as SystemSettings;
   },
   updateSystemSettings: async (data: SystemSettings): Promise<SystemSettings> => {
-    const response = await api.put<SystemSettings>('/api/settings/system', data);
+    const response = await api.put<SystemSettings>('/settings/system', data);
     return response.data as SystemSettings;
   },
   
   // Language settings
   getLanguageSettings: async (): Promise<LanguageSettings> => {
-    const response = await api.get<LanguageSettings>('/api/settings/language');
-    return response.data as LanguageSettings;
+    try {
+      console.log('Fetching language settings from API:', `${API_BASE_URL}/settings/language`);
+      
+      // Make sure we're using the correct API endpoint
+      const response = await api.get<any>('/settings/language');
+      
+      // Log the actual response data for debugging
+      console.log('Language settings API response type:', typeof response.data);
+      
+      // Check if response is HTML (error page)
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        console.error('API returned HTML instead of JSON. Server might be returning an error page.');
+        // Return default values
+        return {
+          default_language: 'en',
+          available_languages: ['en', 'id'],
+          translations: {}
+        };
+      }
+      
+      // Check if response has the expected structure
+      if (!response.data) {
+        console.error('Language settings API returned empty data');
+        return {
+          default_language: 'en',
+          available_languages: ['en', 'id'],
+          translations: {}
+        };
+      }
+      
+      // Map response to our expected format if needed
+      const { defaultLanguage, availableLanguages, translations } = response.data;
+      if (defaultLanguage && availableLanguages) {
+        console.log('Mapping server response to expected format...');
+        // Server returns camelCase, our frontend expects snake_case
+        return {
+          default_language: defaultLanguage,
+          available_languages: availableLanguages,
+          translations: translations
+        };
+      }
+      
+      // If the response already matches our expected format
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching language settings:', error);
+      // Return sensible defaults for error case
+      return {
+        default_language: 'id',
+        available_languages: ['en', 'id'],
+        translations: {}
+      };
+    }
   },
   updateLanguageSettings: async (data: Partial<LanguageSettings>): Promise<LanguageSettings> => {
-    const response = await api.put<LanguageSettings>('/api/settings/language', data);
+    const response = await api.put<LanguageSettings>('/settings/language', data);
     return response.data as LanguageSettings;
   },
   
   // Backup settings
   getBackupSettings: async (): Promise<BackupSettings> => {
-    const response = await api.get<BackupSettings>('/api/backup/settings');
+    const response = await api.get<BackupSettings>('/backup/settings');
     return response.data as BackupSettings;
   },
   updateBackupSettings: async (data: BackupSettings): Promise<BackupSettings> => {
-    const response = await api.put<BackupSettings>('/api/backup/settings', data);
+    const response = await api.put<BackupSettings>('/backup/settings', data);
     return response.data as BackupSettings;
   },
   triggerBackup: async (): Promise<{success: boolean; message: string}> => {
-    const response = await api.post<{success: boolean; message: string}>('/api/backup/trigger');
+    const response = await api.post<{success: boolean; message: string}>('/backup/trigger');
     return response.data;
   },
   // Tambahan untuk backup dengan nama kustom
   triggerBackupWithName: async (customName: string, format: 'json' | 'sql' = 'json'): Promise<{success: boolean; message: string; details?: any}> => {
-    const response = await api.post<{success: boolean; message: string; details?: any}>('/api/backup/trigger', { 
+    const response = await api.post<{success: boolean; message: string; details?: any}>('/backup/trigger', { 
       customName,
       format 
     });
@@ -871,22 +723,22 @@ export const settingsService = {
   },
   // Mendapatkan daftar backup
   listBackups: async (): Promise<any[]> => {
-    const response = await api.get<any[]>('/api/backup/list');
+    const response = await api.get<any[]>('/backup/list');
     return response.data;
   },
   // Menghapus backup
   deleteBackup: async (filename: string): Promise<{success: boolean; message: string}> => {
-    const response = await api.delete<{success: boolean; message: string}>(`/api/backup/delete/${filename}`);
+    const response = await api.delete<{success: boolean; message: string}>(`/backup/delete/${filename}`);
     return response.data;
   },
   // Memulihkan backup
   restoreBackup: async (filename: string): Promise<{success: boolean; message: string}> => {
-    const response = await api.post<{success: boolean; message: string}>(`/api/backup/restore/${filename}`);
+    const response = await api.post<{success: boolean; message: string}>(`/backup/restore/${filename}`);
     return response.data;
   },
   // Download backup dengan custom name
   downloadBackup: (filename: string, customName?: string): void => {
-    let downloadUrl = `/api/backup/download/${filename}`;
+    let downloadUrl = `/backup/download/${filename}`;
     if (customName && customName.trim() !== '') {
       downloadUrl += `?downloadName=${encodeURIComponent(customName.trim())}`;
     }
@@ -900,7 +752,7 @@ export const settingsService = {
     formData.append('backupFile', file);
     formData.append('useOriginalName', useOriginalName ? 'true' : 'false');
     
-    const response = await api.post<{success: boolean; message: string; details?: any}>('/api/backup/upload', formData, {
+    const response = await api.post<{success: boolean; message: string; details?: any}>('/backup/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -912,49 +764,49 @@ export const settingsService = {
 // Authentication API
 export const authService = {
   login: async (username: string, password: string): Promise<{token: string; user: any}> => {
-    const response = await api.post<{token: string; user: any}>('/api/auth/login', { username, password });
+    const response = await api.post<{token: string; user: any}>('/auth/login', { username, password });
     return response.data;
   },
   register: async (userData: any): Promise<{token: string; user: any}> => {
-    const response = await api.post<{token: string; user: any}>('/api/auth/register', userData);
+    const response = await api.post<{token: string; user: any}>('/auth/register', userData);
     return response.data;
   },
   checkAuth: async (): Promise<{isAuthenticated: boolean; user?: any}> => {
     try {
-      const response = await api.get<{user: any}>('/api/auth/me');
+      const response = await api.get<{user: any}>('/auth/me');
       return { isAuthenticated: true, user: response.data.user };
     } catch (error) {
       return { isAuthenticated: false };
     }
   },
   logout: async (): Promise<void> => {
-    await api.post('/api/auth/logout');
+    await api.post('/auth/logout');
   }
 };
 
 // User management API
 export const userService = {
   getUsers: async (): Promise<any[]> => {
-    const response = await api.get<any[]>('/api/users');
+    const response = await api.get<any[]>('/users');
     return response.data;
   },
   getUser: async (id: number): Promise<any> => {
-    const response = await api.get<any>(`/api/users/${id}`);
+    const response = await api.get<any>(`/users/${id}`);
     return response.data;
   },
   createUser: async (userData: any): Promise<any> => {
-    const response = await api.post<any>('/api/users', userData);
+    const response = await api.post<any>('/users', userData);
     return response.data;
   },
   updateUser: async (id: number, userData: any): Promise<any> => {
-    const response = await api.put<any>(`/api/users/${id}`, userData);
+    const response = await api.put<any>(`/users/${id}`, userData);
     return response.data;
   },
   deleteUser: async (id: number): Promise<void> => {
-    await api.delete(`/api/users/${id}`);
+    await api.delete(`/users/${id}`);
   },
   toggleUserStatus: async (id: number): Promise<any> => {
-    const response = await api.patch<any>(`/api/users/${id}/toggle-status`);
+    const response = await api.patch<any>(`/users/${id}/toggle-status`);
     return response.data;
   }
 };
@@ -982,7 +834,7 @@ export const parkingAreaService = {
   getAll: async (): Promise<ParkingArea[]> => {
     try {
       console.log('Fetching parking areas from API');
-      const response = await api.get<ParkingArea[]>('/api/parking-areas');
+      const response = await api.get<ParkingArea[]>('/parking-areas');
       return response.data;
     } catch (error) {
       console.error('Error fetching parking areas:', error);
@@ -1014,7 +866,7 @@ export const parkingAreaService = {
   
   getById: async (id: number): Promise<ParkingArea | null> => {
     try {
-      const response = await api.get<ParkingArea>(`/api/parking-areas/${id}`);
+      const response = await api.get<ParkingArea>(`/parking-areas/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching parking area ${id}:`, error);
@@ -1026,7 +878,7 @@ export const parkingAreaService = {
     try {
       try {
         // Try with authenticated request first
-        const response = await api.post<ParkingArea>('/api/parking-areas', data);
+        const response = await api.post<ParkingArea>('/parking-areas', data);
         console.log('Create response:', response);
         return response.data;
       } catch (apiError: any) {
@@ -1072,7 +924,7 @@ export const parkingAreaService = {
     try {
       try {
         // Try to update on the backend with authenticated request
-        const response = await api.put<ParkingArea>(`/api/parking-areas/${id}`, data);
+        const response = await api.put<ParkingArea>(`/parking-areas/${id}`, data);
         console.log('Update response:', response);
         return response.data;
       } catch (apiError: any) {
@@ -1118,7 +970,7 @@ export const parkingAreaService = {
     try {
       try {
         // Try with authenticated request first
-        await api.delete(`/api/parking-areas/${id}`);
+        await api.delete(`/parking-areas/${id}`);
         return true;
       } catch (apiError: any) {
         console.error('Error in API call for delete:', apiError);
@@ -1145,4 +997,75 @@ export const parkingAreaService = {
   }
 };
 
-export default api; 
+// Parking Session interfaces
+export interface Vehicle {
+  id: number;
+  plate_number: string;
+  type: string;
+}
+
+export interface ParkingSessionResponse {
+  id: number;
+  vehicle: Vehicle;
+  entry_time: string;
+  exit_time?: string;
+  status: string;
+}
+
+export interface CreateParkingSessionRequest {
+  plate_number: string;
+  type: string;
+  gate_id?: number;
+  photo_data?: string;
+}
+
+export interface ExitParkingSessionRequest {
+  session_id: number;
+}
+
+export interface DashboardStats {
+  totalVehicles: number;
+  activeVehicles: number;
+  totalRevenue: number;
+  totalUsers: number;
+}
+
+export interface RevenueData {
+  date: string;
+  amount: number;
+}
+
+export const adminDashboardService = {
+  getStats: async () => {
+    try {
+      const response = await axios.get<DashboardStats>('/admin/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw error;
+    }
+  },
+
+  getRevenue: async () => {
+    try {
+      const response = await axios.get<RevenueData[]>('/admin/dashboard/revenue');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching revenue data:', error);
+      throw error;
+    }
+  }
+};
+
+export default api;
+
+// Helper to get the full API URL for direct fetch calls
+export const getApiUrl = (path: string): string => {
+  // Remove leading slash if present on path and API_BASE_URL already has trailing slash
+  const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  // Ensure base URL ends with a slash if path doesn't start with one
+  const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
+  
+  return `${baseUrl}${normalizedPath}`;
+}; 

@@ -7,11 +7,18 @@ const router = express.Router();
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
+// Vehicle entry and exit
+router.post('/entry', ParkingSessionController.handleVehicleEntry);
+router.post('/exit', ParkingSessionController.handleVehicleExit);
+
 // Get all parking sessions
 router.get('/', ParkingSessionController.getAllParkingSessions);
 
 // Get active parking sessions
 router.get('/active', ParkingSessionController.getActiveParkingSessions);
+
+// Search by barcode
+router.get('/search', ParkingSessionController.searchByBarcode);
 
 // Get parking session by ID
 router.get('/:id', ParkingSessionController.getParkingSessionById);
@@ -23,6 +30,6 @@ router.post('/', ParkingSessionController.createParkingSession);
 router.put('/:id', ParkingSessionController.updateParkingSession);
 
 // Complete parking session
-router.put('/:id/complete', ParkingSessionController.completeParkingSession);
+router.post('/:id/complete', ParkingSessionController.completeParkingSession);
 
 export default router; 

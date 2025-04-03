@@ -9,7 +9,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField,
   Divider,
   List,
   ListItem,
@@ -19,7 +18,6 @@ import {
   Snackbar,
   Alert
 } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { settingsService } from '../../services/api';
@@ -49,6 +47,24 @@ const LanguageSettingsContent: FC = () => {
     severity: 'success'
   });
   
+  // Add fallback data for when API fails
+  const fallbackData: LanguageSettings = {
+    default_language: 'id',
+    available_languages: ['en', 'id', 'ja'],
+    translations: {
+      language: {
+        en: 'Language',
+        id: 'Bahasa',
+        ja: '言語'
+      },
+      settings: {
+        en: 'Settings',
+        id: 'Pengaturan',
+        ja: '設定'
+      }
+    }
+  };
+  
   const queryClient = useQueryClient();
   const { currentLanguage, setLanguage, translate } = useLanguage();
   
@@ -58,16 +74,21 @@ const LanguageSettingsContent: FC = () => {
     error 
   } = useQuery({
     queryKey: ['languageSettings'],
-    queryFn: settingsService.getLanguageSettings
+    queryFn: settingsService.getLanguageSettings,
+    retry: 1, // Only retry once
+    retryDelay: 1000,
   });
+
+  // Use fallback data if API fails
+  const effectiveSettings = settings && settings.available_languages ? settings : fallbackData;
 
   useEffect(() => {
     // If settings load and currentLanguage is not in available languages,
     // reset to default language
-    if (settings && !settings.availableLanguages.includes(currentLanguage)) {
-      setLanguage(settings.defaultLanguage);
+    if (effectiveSettings && !effectiveSettings.available_languages.includes(currentLanguage)) {
+      setLanguage(effectiveSettings.default_language);
     }
-  }, [settings, currentLanguage, setLanguage]);
+  }, [effectiveSettings, currentLanguage, setLanguage]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: Partial<LanguageSettings>) => settingsService.updateLanguageSettings(data),
@@ -89,10 +110,10 @@ const LanguageSettingsContent: FC = () => {
   });
 
   const handleDefaultLanguageChange = (language: string) => {
-    if (settings) {
+    if (effectiveSettings) {
       updateSettingsMutation.mutate({
-        ...settings,
-        defaultLanguage: language
+        ...effectiveSettings,
+        default_language: language
       });
       
       // Also update the current language in use
@@ -101,27 +122,27 @@ const LanguageSettingsContent: FC = () => {
   };
 
   const handleAddLanguage = (language: string) => {
-    if (settings && !settings.availableLanguages.includes(language)) {
-      const newAvailableLanguages = [...settings.availableLanguages, language];
+    if (effectiveSettings && !effectiveSettings.available_languages.includes(language)) {
+      const newAvailableLanguages = [...effectiveSettings.available_languages, language];
       updateSettingsMutation.mutate({
-        ...settings,
-        availableLanguages: newAvailableLanguages
+        ...effectiveSettings,
+        available_languages: newAvailableLanguages
       });
       setSelectedLanguage('');
     }
   };
 
   const handleRemoveLanguage = (language: string) => {
-    if (settings && settings.availableLanguages.includes(language) && language !== settings.defaultLanguage) {
-      const newAvailableLanguages = settings.availableLanguages.filter(lang => lang !== language);
+    if (effectiveSettings && effectiveSettings.available_languages.includes(language) && language !== effectiveSettings.default_language) {
+      const newAvailableLanguages = effectiveSettings.available_languages.filter(lang => lang !== language);
       updateSettingsMutation.mutate({
-        ...settings,
-        availableLanguages: newAvailableLanguages
+        ...effectiveSettings,
+        available_languages: newAvailableLanguages
       });
       
       // If the currently used language is removed, switch to default
       if (language === currentLanguage) {
-        setLanguage(settings.defaultLanguage);
+        setLanguage(effectiveSettings.default_language);
       }
     } else {
       setSnackbar({
@@ -159,11 +180,143 @@ const LanguageSettingsContent: FC = () => {
     );
   }
 
-  if (error) {
+  // If there's an error or invalid data, show warning but continue with fallback data
+  if (error || (settings && !settings.available_languages)) {
     return (
-      <Box p={3}>
-        <Typography color="error">{translate('errorLoadingLanguageSettings') || 'Error loading language settings'}</Typography>
+      <Box>
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {translate('usingOfflineData') || 'Using offline data due to server error. Changes will only be applied locally.'}
+        </Alert>
+        
+        <Typography variant="h4" gutterBottom>
+          {translate('language') || 'Language Settings'}
+        </Typography>
+        
+        {renderContent(fallbackData)}
       </Box>
+    );
+  }
+
+  // Extract the main content rendering to avoid duplication
+  function renderContent(data: LanguageSettings) {
+    return (
+      <>
+        <Typography variant="body1" paragraph>
+          {translate('configureLanguageSettings') || 'Configure language settings for the system.'}
+        </Typography>
+
+        <Paper sx={{ p: 3, mt: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            {translate('currentUILanguage') || 'Current UI Language'}
+          </Typography>
+          <Box sx={{ maxWidth: 400, mb: 4 }}>
+            <FormControl fullWidth>
+              <InputLabel id="current-language-label">{translate('currentUILanguage') || 'Current UI Language'}</InputLabel>
+              <Select
+                labelId="current-language-label"
+                value={currentLanguage}
+                label={translate('currentUILanguage') || 'Current UI Language'}
+                onChange={(e) => handleSwitchUILanguage(e.target.value)}
+              >
+                {data.available_languages.map((lang) => (
+                  <MenuItem key={lang} value={lang}>
+                    {getLanguageName(lang)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="h6" gutterBottom>
+            {translate('defaultLanguage') || 'Default Language'}
+          </Typography>
+          <Box sx={{ maxWidth: 400, mb: 4 }}>
+            <FormControl fullWidth>
+              <InputLabel id="default-language-label">{translate('defaultLanguage') || 'Default Language'}</InputLabel>
+              <Select
+                labelId="default-language-label"
+                value={data.default_language || 'en'}
+                label={translate('defaultLanguage') || 'Default Language'}
+                onChange={(e) => handleDefaultLanguageChange(e.target.value)}
+              >
+                {data.available_languages.map((lang) => (
+                  <MenuItem key={lang} value={lang}>
+                    {getLanguageName(lang)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="h6" gutterBottom>
+            {translate('availableLanguages') || 'Available Languages'}
+          </Typography>
+          <List>
+            {data.available_languages.map((lang) => (
+              <ListItem key={lang}>
+                <ListItemText 
+                  primary={getLanguageName(lang)} 
+                  secondary={lang === data.default_language ? `(${translate('default') || 'Default'})` : 
+                            lang === currentLanguage ? `(${translate('current') || 'Current'})` : ''}
+                />
+                <ListItemSecondaryAction>
+                  <IconButton 
+                    edge="end" 
+                    disabled={lang === data.default_language}
+                    onClick={() => handleRemoveLanguage(lang)}
+                    title={translate('removeLanguage') || "Remove Language"}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              </ListItem>
+            ))}
+          </List>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+            <FormControl fullWidth sx={{ mr: 1 }}>
+              <InputLabel id="add-language-label">{translate('addLanguage') || 'Add Language'}</InputLabel>
+              <Select
+                labelId="add-language-label"
+                value={selectedLanguage}
+                label={translate('addLanguage') || 'Add Language'}
+                onChange={(e) => setSelectedLanguage(e.target.value)}
+              >
+                {availableLanguages
+                  .filter(lang => !data.available_languages.includes(lang.code))
+                  .map((lang) => (
+                    <MenuItem key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+            <Button 
+              variant="contained" 
+              startIcon={<AddIcon />}
+              disabled={!selectedLanguage} 
+              onClick={() => handleAddLanguage(selectedLanguage)}
+            >
+              {translate('add') || 'Add'}
+            </Button>
+          </Box>
+        </Paper>
+
+        <Snackbar 
+          open={snackbar.open} 
+          autoHideDuration={6000} 
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </>
     );
   }
 
@@ -172,121 +325,7 @@ const LanguageSettingsContent: FC = () => {
       <Typography variant="h4" gutterBottom>
         {translate('language') || 'Language Settings'}
       </Typography>
-      <Typography variant="body1" paragraph>
-        {translate('configureLanguageSettings') || 'Configure language settings for the system.'}
-      </Typography>
-
-      <Paper sx={{ p: 3, mt: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          {translate('currentUILanguage') || 'Current UI Language'}
-        </Typography>
-        <Box sx={{ maxWidth: 400, mb: 4 }}>
-          <FormControl fullWidth>
-            <InputLabel id="current-language-label">{translate('currentUILanguage') || 'Current UI Language'}</InputLabel>
-            <Select
-              labelId="current-language-label"
-              value={currentLanguage}
-              label={translate('currentUILanguage') || 'Current UI Language'}
-              onChange={(e) => handleSwitchUILanguage(e.target.value)}
-            >
-              {settings?.availableLanguages.map((lang) => (
-                <MenuItem key={lang} value={lang}>
-                  {getLanguageName(lang)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-
-        <Divider sx={{ my: 3 }} />
-
-        <Typography variant="h6" gutterBottom>
-          {translate('defaultLanguage') || 'Default Language'}
-        </Typography>
-        <Box sx={{ maxWidth: 400, mb: 4 }}>
-          <FormControl fullWidth>
-            <InputLabel id="default-language-label">{translate('defaultLanguage') || 'Default Language'}</InputLabel>
-            <Select
-              labelId="default-language-label"
-              value={settings?.defaultLanguage || 'en'}
-              label={translate('defaultLanguage') || 'Default Language'}
-              onChange={(e) => handleDefaultLanguageChange(e.target.value)}
-            >
-              {settings?.availableLanguages.map((lang) => (
-                <MenuItem key={lang} value={lang}>
-                  {getLanguageName(lang)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-
-        <Divider sx={{ my: 3 }} />
-
-        <Typography variant="h6" gutterBottom>
-          {translate('availableLanguages') || 'Available Languages'}
-        </Typography>
-        <List>
-          {settings?.availableLanguages.map((lang) => (
-            <ListItem key={lang}>
-              <ListItemText 
-                primary={getLanguageName(lang)} 
-                secondary={lang === settings.defaultLanguage ? `(${translate('default') || 'Default'})` : 
-                           lang === currentLanguage ? `(${translate('current') || 'Current'})` : ''}
-              />
-              <ListItemSecondaryAction>
-                <IconButton 
-                  edge="end" 
-                  disabled={lang === settings.defaultLanguage}
-                  onClick={() => handleRemoveLanguage(lang)}
-                  title={translate('removeLanguage') || "Remove Language"}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </ListItemSecondaryAction>
-            </ListItem>
-          ))}
-        </List>
-
-        <Box sx={{ display: 'flex', mt: 2, mb: 1 }}>
-          <FormControl fullWidth sx={{ mr: 1 }}>
-            <InputLabel id="add-language-label">{translate('addLanguage') || 'Add Language'}</InputLabel>
-            <Select
-              labelId="add-language-label"
-              value={selectedLanguage}
-              label={translate('addLanguage') || 'Add Language'}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-            >
-              {availableLanguages
-                .filter(lang => !settings?.availableLanguages.includes(lang.code))
-                .map((lang) => (
-                  <MenuItem key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </MenuItem>
-                ))}
-            </Select>
-          </FormControl>
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon />}
-            disabled={!selectedLanguage} 
-            onClick={() => handleAddLanguage(selectedLanguage)}
-          >
-            {translate('add') || 'Add'}
-          </Button>
-        </Box>
-      </Paper>
-
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      {renderContent(effectiveSettings)}
     </Box>
   );
 };

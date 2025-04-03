@@ -199,4 +199,17 @@ export interface ApiResponse<T = any> {
     message: string;
     details?: string[];
   };
+}
+
+export interface LanguageSettings {
+  id?: number;
+  defaultLanguage: string;
+  availableLanguages: string[];
+  translations: {
+    [key: string]: {
+      [language: string]: string;
+    };
+  };
+  updatedAt?: Date;
+  createdAt?: Date;
 } 

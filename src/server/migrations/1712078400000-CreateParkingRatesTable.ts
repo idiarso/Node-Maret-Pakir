@@ -33,7 +33,8 @@ export class CreateParkingRatesTable1712078400000 implements MigrationInterface 
                 "effective_from" timestamp NOT NULL DEFAULT now(),
                 "effective_to" timestamp,
                 "created_at" timestamp with time zone DEFAULT now(),
-                "updated_at" timestamp with time zone DEFAULT now()
+                "updated_at" timestamp with time zone DEFAULT now(),
+                "status" varchar(20) DEFAULT 'active'
             )
         `);
 

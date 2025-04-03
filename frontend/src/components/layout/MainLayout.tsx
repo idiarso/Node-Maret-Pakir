@@ -23,6 +23,7 @@ import {
   Assessment as ReportIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
+  MenuBook as MenuBookIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -63,6 +64,12 @@ const menuItems: MenuItem[] = [
     text: 'Pengaturan',
     icon: <SettingsIcon />,
     path: '/settings',
+    requiresAuth: true,
+  },
+  {
+    text: 'Buku Panduan',
+    icon: <MenuBookIcon />,
+    path: '/user-manual',
     requiresAuth: true,
   },
 ];
@@ -112,14 +119,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <Divider />
       <List>
         {isAuthenticated ? (
-          <ListItem disablePadding>
-            <ListItemButton onClick={logout}>
-              <ListItemIcon>
-                <LogoutIcon />
-              </ListItemIcon>
-              <ListItemText primary="Keluar" />
-            </ListItemButton>
-          </ListItem>
+          <>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => handleNavigation('/user-manual')}>
+                <ListItemIcon>
+                  <MenuBookIcon />
+                </ListItemIcon>
+                <ListItemText primary="Buku Panduan" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={logout}>
+                <ListItemIcon>
+                  <LogoutIcon />
+                </ListItemIcon>
+                <ListItemText primary="Keluar" />
+              </ListItemButton>
+            </ListItem>
+          </>
         ) : (
           <ListItem disablePadding>
             <ListItemButton onClick={() => handleNavigation('/login')}>

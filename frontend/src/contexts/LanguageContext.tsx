@@ -43,7 +43,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       
       // If there's no saved language preference, use the default
       if (!savedLanguage) {
-        setCurrentLanguage(settings.defaultLanguage || 'en');
+        setCurrentLanguage(settings.default_language || 'en');
       }
       
       // Set translations

@@ -2,20 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Typography, 
   Box, 
-  Paper, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow,
   Button,
-  Chip,
   IconButton,
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
   DialogTitle,
   TextField,
   MenuItem,
@@ -23,46 +14,38 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  CardActions,
   Snackbar,
   Alert,
-  Badge,
-  Tooltip
+  FormControl,
+  InputLabel,
+  Select,
+  SelectChangeEvent
 } from '@mui/material';
 import { 
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  LockOpen as OpenIcon,
-  Lock as CloseIcon,
-  Warning as WarningIcon
+  PowerSettingsNew as PowerIcon
 } from '@mui/icons-material';
-import { gateService } from '../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import gateService from '../services/gateService';
 import { Gate } from '../types';
 import logger from '../utils/logger';
 
-// Gate status constants
-const GATE_STATUS = {
-  ACTIVE: 'ACTIVE',
-  INACTIVE: 'INACTIVE',
-  MAINTENANCE: 'MAINTENANCE',
-  ERROR: 'ERROR',
-  OPEN: 'ACTIVE',
-  CLOSED: 'INACTIVE'
-};
+// Menggunakan tipe dari gateService untuk menghindari konflik
+import { GateFormData } from '../services/gateService';
 
 const GatesPage: React.FC = () => {
-  const [gates, setGates] = useState<Gate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [openDialog, setOpenDialog] = useState(false);
   const [editGate, setEditGate] = useState<Gate | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<GateFormData>({
     name: '',
+    gate_number: '',
     location: '',
-    deviceId: 0,
-    status: GATE_STATUS.CLOSED
+    type: 'ENTRY',
+    description: ''
   });
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -74,76 +57,152 @@ const GatesPage: React.FC = () => {
     severity: 'info'
   });
 
-  const fetchGates = async () => {
-    setLoading(true);
-    try {
-      logger.debug('Fetching gates', 'GatesPage');
-      const data = await gateService.getAll();
-      setGates(data);
-      setError(null);
-      logger.info(`Retrieved ${data.length} gates successfully`, 'GatesPage');
-    } catch (err) {
-      logger.error('Failed to load gates', err, 'GatesPage');
-      setError('Failed to load gates. Please try again later.');
-      // For development purposes, set dummy data when API fails
-      setGates([
-        {
-          id: 1,
-          name: 'Main Entrance Gate',
-          location: 'North Side',
-          deviceId: 1,
-          status: GATE_STATUS.CLOSED,
-          lastStatusChange: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: 2,
-          name: 'Exit Gate',
-          location: 'South Side',
-          deviceId: 2,
-          status: GATE_STATUS.OPEN,
-          lastStatusChange: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: 3,
-          name: 'VIP Entrance',
-          location: 'East Wing',
-          deviceId: 3,
-          status: GATE_STATUS.ERROR,
-          lastStatusChange: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ]);
-      logger.debug('Using fallback gate data for development', 'GatesPage');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch gates
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['gates'],
+    queryFn: async () => {
+      try {
+        logger.debug('GatesPage: Fetching gates from API...', 'GatesPage');
+        console.log('GatesPage: Fetching gates...');
+        
+        const response = await gateService.getAll();
+        logger.debug('GatesPage: Received gates data', 'GatesPage');
+        console.log('GatesPage: Gates response data:', response);
+        
+        // Debug data dari API
+        console.log('GatesPage: Data length:', response ? response.length : 0);
+        console.log('GatesPage: Verifikasi apakah data array:', Array.isArray(response));
+        console.log('GatesPage: Sample data (jika ada):', response?.[0]);
+        
+        return response || [];
+      } catch (error) {
+        logger.error('Failed to load gates', error, 'GatesPage');
+        console.error('GatesPage: Error fetching gates:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to load gates. Please try again.',
+          severity: 'error'
+        });
+        throw error;
+      }
+    },
+    // Refresh data setiap 10 detik
+    refetchInterval: 10000
+  });
+  
+  // Ensure gates is always an array
+  const gates: Gate[] = Array.isArray(data) ? data : [];
 
-  useEffect(() => {
-    fetchGates();
-  }, []);
+  // Create gate mutation
+  const createGateMutation = useMutation<Gate, Error, GateFormData>({
+    mutationFn: (data) => {
+      // Make sure all required fields are included
+      console.log('Creating gate with data:', data);
+      const gateData: GateFormData = {
+        name: data.name,
+        gate_number: data.gate_number || '0',
+        location: data.location || '',
+        type: data.type || 'ENTRY',
+        description: data.description || '',
+        status: 'INACTIVE' // Always start with INACTIVE for safety
+      };
+      return gateService.create(gateData);
+    },
+    onSuccess: (newGate) => {
+      queryClient.invalidateQueries({ queryKey: ['gates'] });
+      setSnackbar({
+        open: true,
+        message: `Gate "${newGate.name}" created successfully`,
+        severity: 'success'
+      });
+      setOpenDialog(false);
+    },
+    onError: (error: Error) => {
+      logger.error('Error creating gate', error, 'GatesPage');
+      console.error('GatesPage: Error creating gate:', error);
+      setSnackbar({
+        open: true,
+        message: `Error creating gate: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
+
+  // Update gate mutation
+  const updateGateMutation = useMutation<Gate, Error, { id: number; data: GateFormData }>({
+    mutationFn: ({ id, data }) => {
+      // Make sure all required fields are included
+      const gateData: GateFormData = {
+        name: data.name,
+        gate_number: data.gate_number || '0',
+        location: data.location || '',
+        type: data.type || 'ENTRY',
+        description: data.description || '',
+        status: data.status
+      };
+      return gateService.update(id, gateData);
+    },
+    onSuccess: (updatedGate) => {
+      queryClient.invalidateQueries({ queryKey: ['gates'] });
+      setSnackbar({
+        open: true,
+        message: `Gate "${updatedGate.name}" updated successfully`,
+        severity: 'success'
+      });
+      setOpenDialog(false);
+    },
+    onError: (error: Error) => {
+      logger.error('Error updating gate', error, 'GatesPage');
+      console.error('GatesPage: Error updating gate:', error);
+      setSnackbar({
+        open: true,
+        message: `Error updating gate: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
+
+  // Delete gate mutation
+  const deleteGateMutation = useMutation<void, Error, number>({
+    mutationFn: (id) => gateService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gates'] });
+      setSnackbar({
+        open: true,
+        message: 'Gate deleted successfully',
+        severity: 'success'
+      });
+    },
+    onError: (error: Error) => {
+      logger.error('Error deleting gate', error, 'GatesPage');
+      console.error('GatesPage: Error deleting gate:', error);
+      setSnackbar({
+        open: true,
+        message: `Error deleting gate: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
 
   const handleOpenDialog = (gate: Gate | null = null) => {
     if (gate) {
       setEditGate(gate);
       setFormData({
         name: gate.name,
+        gate_number: gate.gate_number,
         location: gate.location || '',
-        deviceId: gate.deviceId || 0,
+        type: gate.type as 'ENTRY' | 'EXIT',
+        description: gate.description || '',
         status: gate.status
       });
     } else {
       setEditGate(null);
       setFormData({
         name: '',
+        gate_number: '',
         location: '',
-        deviceId: 0,
-        status: GATE_STATUS.CLOSED
+        type: 'ENTRY',
+        description: ''
       });
     }
     setOpenDialog(true);
@@ -151,456 +210,306 @@ const GatesPage: React.FC = () => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setEditGate(null);
+    setFormData({
+      name: '',
+      gate_number: '',
+      location: '',
+      type: 'ENTRY',
+      description: ''
+    });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }> | SelectChangeEvent
+  ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      status: e.target.value
-    }));
-  };
-
-  const handleSaveGate = async () => {
-    try {
-      if (editGate) {
-        // Update existing gate
-        logger.debug(`Updating gate ${editGate.id}`, 'GatesPage', formData);
-        const updatedGate = await gateService.update(editGate.id, formData);
-        
-        // Handle optimistic UI updates
-        if (updatedGate._optimistic) {
-          setGates(prevGates => 
-            prevGates.map(gate => 
-              gate.id === editGate.id ? updatedGate : gate
-            )
-          );
-          
-          setSnackbar({
-            open: true,
-            message: `Gate "${updatedGate.name}" updated locally. Server error occurred.`,
-            severity: 'warning'
-          });
-          logger.warn(`Gate ${editGate.id} updated with optimistic data due to server error`, 'GatesPage', {
-            gate: updatedGate
-          });
-        } else {
-          // Normal update with server success
-          setGates(prevGates => 
-            prevGates.map(gate => 
-              gate.id === editGate.id ? updatedGate : gate
-            )
-          );
-          
-          setSnackbar({
-            open: true,
-            message: `Gate "${updatedGate.name}" updated successfully`,
-            severity: 'success'
-          });
-          logger.info(`Gate ${editGate.id} updated successfully`, 'GatesPage', {
-            gate: updatedGate
-          });
-        }
-      } else {
-        // Create new gate
-        logger.debug('Creating new gate', 'GatesPage', formData);
-        const newGate = await gateService.create(formData);
-        
-        // Handle optimistic UI updates
-        if (newGate._optimistic) {
-          setGates(prevGates => [...prevGates, newGate]);
-          
-          setSnackbar({
-            open: true,
-            message: `Gate "${newGate.name}" created locally. Server error occurred.`,
-            severity: 'warning'
-          });
-          logger.warn('Gate created with optimistic data due to server error', 'GatesPage', {
-            gate: newGate
-          });
-        } else {
-          // Normal creation with server success
-          setGates(prevGates => [...prevGates, newGate]);
-          
-          setSnackbar({
-            open: true,
-            message: `Gate "${newGate.name}" created successfully`,
-            severity: 'success'
-          });
-          logger.info('Gate created successfully', 'GatesPage', {
-            id: newGate.id,
-            name: newGate.name
-          });
-        }
-      }
-      
-      setOpenDialog(false);
-    } catch (err) {
-      logger.error('Error saving gate', err, 'GatesPage', { formData });
-      
+  const handleSaveGate = () => {
+    // Validation
+    if (!formData.name) {
       setSnackbar({
         open: true,
-        message: 'Error saving gate. Please try again.',
+        message: 'Gate name is required',
         severity: 'error'
       });
+      return;
     }
-  };
 
-  const handleDeleteGate = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this gate?')) {
-      try {
-        logger.debug(`Deleting gate ${id}`, 'GatesPage');
-        await gateService.delete(id);
-        
-        // Always update UI regardless of server response
-        setGates(gates.filter(gate => gate.id !== id));
-        
-        setSnackbar({
-          open: true,
-          message: 'Gate deleted successfully',
-          severity: 'success'
-        });
-        logger.info(`Gate ${id} deleted successfully`, 'GatesPage');
-      } catch (err) {
-        logger.error(`Error deleting gate ${id}`, err, 'GatesPage');
-        
-        // Still remove from UI even on error for better UX
-        setGates(gates.filter(gate => gate.id !== id));
-        
-        setSnackbar({
-          open: true,
-          message: 'Gate deleted from view. Server error occurred.',
-          severity: 'warning'
-        });
-      }
-    }
-  };
-
-  const handleChangeGateStatus = async (id: number, status: string) => {
-    try {
-      logger.debug(`Changing gate ${id} status to ${status}`, 'GatesPage');
-      const updatedGate = await gateService.changeStatus(id, status);
-      
-      // Handle optimistic UI updates
-      if (updatedGate._optimistic) {
-        setGates(prevGates => 
-          prevGates.map(gate => 
-            gate.id === id ? updatedGate : gate
-          )
-        );
-        
-        setSnackbar({
-          open: true,
-          message: `Gate status changed locally. Server error occurred.`,
-          severity: 'warning'
-        });
-        logger.warn(`Gate ${id} status changed to ${status} with optimistic data due to server error`, 'GatesPage');
-      } else {
-        // Normal update with server success
-        setGates(prevGates => 
-          prevGates.map(gate => 
-            gate.id === id ? updatedGate : gate
-          )
-        );
-        
-        setSnackbar({
-          open: true,
-          message: `Gate status changed successfully`,
-          severity: 'success'
-        });
-        logger.info(`Gate ${id} status changed to ${status} successfully`, 'GatesPage');
-      }
-    } catch (err) {
-      logger.error(`Error changing gate ${id} status to ${status}`, err, 'GatesPage');
-      
+    if (!formData.gate_number) {
       setSnackbar({
         open: true,
-        message: 'Error changing gate status. Please try again.',
+        message: 'Gate number is required',
         severity: 'error'
       });
+      return;
+    }
+
+    // Create or update gate
+    if (editGate) {
+      updateGateMutation.mutate({
+        id: editGate.id,
+        data: formData
+      });
+    } else {
+      createGateMutation.mutate(formData);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case GATE_STATUS.ACTIVE:
-      case GATE_STATUS.OPEN: // Handle both for backward compatibility
-        return 'success';
-      case GATE_STATUS.INACTIVE:
-      case GATE_STATUS.CLOSED: // Handle both for backward compatibility
-        return 'warning';
-      case GATE_STATUS.MAINTENANCE:
-        return 'info';
-      case GATE_STATUS.ERROR:
-        return 'error';
-      default:
-        return 'default';
-    }
+  const handleToggleStatus = (gate: Gate) => {
+    const newStatus = gate.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    gateService.changeStatus(gate.id, newStatus)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ['gates'] });
+        setSnackbar({
+          open: true,
+          message: `Gate "${gate.name}" is now ${newStatus}`,
+          severity: 'success'
+        });
+      })
+      .catch((error) => {
+        console.error('Error toggling gate status:', error);
+        setSnackbar({
+          open: true,
+          message: `Error toggling status: ${error.message}`,
+          severity: 'error'
+        });
+      });
   };
-  
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
-  const isOptimistic = (gate: Gate) => {
-    return gate._optimistic === true;
-  };
-
-  const renderGateName = (gate: Gate) => {
-    if (isOptimistic(gate)) {
-      return (
-        <Tooltip title={gate._error || 'This data is only stored locally'}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            {gate.name}
-            <WarningIcon color="warning" fontSize="small" sx={{ ml: 1 }} />
-          </Box>
-        </Tooltip>
-      );
-    }
-    return gate.name;
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Gates Management
-        </Typography>
+    <Box sx={{ p: 3 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h4">Gate Management</Typography>
         <Box>
-          <Button 
-            variant="outlined" 
-            startIcon={<RefreshIcon />} 
-            onClick={fetchGates}
-            sx={{ mr: 1 }}
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<RefreshIcon />}
+            onClick={() => refetch()}
+            sx={{ mr: 2 }}
           >
-            Refresh
+            REFRESH
           </Button>
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon />} 
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
           >
-            Add Gate
+            ADD GATE
           </Button>
         </Box>
       </Box>
-      
-      <Typography variant="body1" paragraph>
-        Monitor and control parking gates in the system.
-      </Typography>
 
-      {error && (
-        <Box sx={{ mb: 2 }}>
-          <Typography color="error">{error}</Typography>
+      {isLoading ? (
+        <Box display="flex" justifyContent="center" mt={4}>
+          <CircularProgress />
         </Box>
+      ) : error ? (
+        <Alert severity="error">Failed to load gates. Please try again.</Alert>
+      ) : gates.length === 0 ? (
+        <Alert severity="info" icon={false}>
+          <Box display="flex" flexDirection="column" alignItems="center" py={2}>
+            <Typography variant="h6" gutterBottom>No gates found</Typography>
+            <Typography variant="body2" color="textSecondary" mb={2}>
+              Create your first gate by clicking the "ADD GATE" button.
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+            >
+              ADD GATE
+            </Button>
+          </Box>
+        </Alert>
+      ) : (
+        <Grid container spacing={3}>
+          {gates.map((gate) => (
+            <Grid item xs={12} sm={6} md={4} key={gate.id}>
+              <Card>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Typography variant="h6">{gate.name}</Typography>
+                    <Box sx={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      bgcolor: gate.status === 'ACTIVE' ? 'success.light' : 'error.light',
+                      color: gate.status === 'ACTIVE' ? 'success.contrastText' : 'error.contrastText',
+                      borderRadius: 1,
+                      px: 1,
+                      py: 0.5
+                    }}>
+                      <Typography variant="caption">{gate.status}</Typography>
+                    </Box>
+                  </Box>
+                  <Typography variant="body2" color="textSecondary">
+                    Gate Number: {gate.gate_number}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Type: {gate.type}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Location: {gate.location || 'N/A'}
+                  </Typography>
+                  {gate.description && (
+                    <Typography variant="body2" color="textSecondary">
+                      Description: {gate.description}
+                    </Typography>
+                  )}
+                  <Box display="flex" justifyContent="flex-end" mt={2}>
+                    <IconButton 
+                      color={gate.status === 'ACTIVE' ? 'error' : 'success'}
+                      onClick={() => handleToggleStatus(gate)}
+                      title={gate.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                    >
+                      <PowerIcon />
+                    </IconButton>
+                    <IconButton 
+                      color="primary" 
+                      onClick={() => handleOpenDialog(gate)}
+                      title="Edit"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton 
+                      color="error" 
+                      onClick={() => deleteGateMutation.mutate(gate.id)}
+                      title="Delete"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       )}
-      
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {gates.map((gate) => (
-          <Grid item xs={12} md={4} key={gate.id}>
-            <Card sx={isOptimistic(gate) ? { border: '1px dashed orange' } : {}}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {renderGateName(gate)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Location: {gate.location || 'N/A'}
-                </Typography>
-                <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ mr: 1 }}>
-                    Status:
-                  </Typography>
-                  <Chip 
-                    label={gate.status} 
-                    color={getStatusColor(gate.status) as any}
-                    size="small"
-                  />
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Last Status Change: {gate.lastStatusChange ? new Date(gate.lastStatusChange).toLocaleString() : 'N/A'}
-                </Typography>
-                {isOptimistic(gate) && (
-                  <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                    {gate._error || 'This data is only stored locally'}
-                  </Typography>
-                )}
-              </CardContent>
-              <CardActions>
-                {gate.status !== GATE_STATUS.ACTIVE && (
-                  <Button 
-                    size="small" 
-                    startIcon={<OpenIcon />}
-                    onClick={() => handleChangeGateStatus(gate.id, GATE_STATUS.ACTIVE)}
-                  >
-                    Open
-                  </Button>
-                )}
-                {gate.status !== GATE_STATUS.INACTIVE && (
-                  <Button 
-                    size="small" 
-                    startIcon={<CloseIcon />}
-                    onClick={() => handleChangeGateStatus(gate.id, GATE_STATUS.INACTIVE)}
-                  >
-                    Close
-                  </Button>
-                )}
-                <Button 
-                  size="small" 
-                  startIcon={<EditIcon />}
-                  onClick={() => handleOpenDialog(gate)}
-                >
-                  Edit
-                </Button>
-                <Button 
-                  size="small" 
-                  color="error"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => handleDeleteGate(gate.id)}
-                >
-                  Delete
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
 
-      <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>
-        Gates List
-      </Typography>
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Location</TableCell>
-              <TableCell>Device ID</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Last Status Change</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {gates.map((gate) => (
-              <TableRow key={gate.id} sx={isOptimistic(gate) ? { backgroundColor: 'rgba(255, 152, 0, 0.1)' } : {}}>
-                <TableCell>{gate.id}</TableCell>
-                <TableCell>{renderGateName(gate)}</TableCell>
-                <TableCell>{gate.location}</TableCell>
-                <TableCell>{gate.deviceId || 'N/A'}</TableCell>
-                <TableCell>
-                  <Chip 
-                    label={gate.status} 
-                    color={getStatusColor(gate.status) as any}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {gate.lastStatusChange ? new Date(gate.lastStatusChange).toLocaleString() : 'N/A'}
-                </TableCell>
-                <TableCell>
-                  <IconButton size="small" onClick={() => handleOpenDialog(gate)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleDeleteGate(gate.id)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-            {gates.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  No gates found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Add/Edit Gate Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
+      {/* Create/Edit Dialog */}
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{editGate ? 'Edit Gate' : 'Add New Gate'}</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            name="name"
-            label="Gate Name"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={formData.name}
-            onChange={handleInputChange}
-            required
-          />
-          <TextField
-            margin="dense"
-            name="location"
-            label="Location"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={formData.location}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            name="deviceId"
-            label="Device ID"
-            type="number"
-            fullWidth
-            variant="outlined"
-            value={formData.deviceId}
-            onChange={handleInputChange}
-          />
-          <TextField
-            select
-            margin="dense"
-            name="status"
-            label="Status"
-            fullWidth
-            variant="outlined"
-            value={formData.status}
-            onChange={handleStatusChange}
-          >
-            <MenuItem value={GATE_STATUS.ACTIVE}>Active (Open)</MenuItem>
-            <MenuItem value={GATE_STATUS.INACTIVE}>Inactive (Closed)</MenuItem>
-            <MenuItem value={GATE_STATUS.MAINTENANCE}>Maintenance</MenuItem>
-            <MenuItem value={GATE_STATUS.ERROR}>Error</MenuItem>
-          </TextField>
+          <Box component="form" noValidate sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Gate Number"
+                  name="gate_number"
+                  value={formData.gate_number}
+                  onChange={handleInputChange}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Type</InputLabel>
+                  <Select
+                    name="type"
+                    value={formData.type}
+                    label="Type"
+                    onChange={handleInputChange}
+                  >
+                    <MenuItem value="ENTRY">ENTRY</MenuItem>
+                    <MenuItem value="EXIT">EXIT</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  margin="normal"
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+              {editGate && (
+                <Grid item xs={12}>
+                  <FormControl fullWidth margin="normal">
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      name="status"
+                      value={formData.status || 'INACTIVE'}
+                      label="Status"
+                      onChange={handleInputChange}
+                    >
+                      <MenuItem value="ACTIVE">ACTIVE</MenuItem>
+                      <MenuItem value="INACTIVE">INACTIVE</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSaveGate} variant="contained">Save</Button>
+          <Button onClick={handleCloseDialog} color="inherit">CANCEL</Button>
+          <Button 
+            onClick={handleSaveGate} 
+            color="primary" 
+            variant="contained"
+            disabled={createGateMutation.isPending || updateGateMutation.isPending}
+          >
+            {createGateMutation.isPending || updateGateMutation.isPending ? (
+              <>
+                <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
+                {editGate ? 'SAVING...' : 'CREATING...'}
+              </>
+            ) : (
+              editGate ? 'SAVE' : 'CREATE'
+            )}
+          </Button>
         </DialogActions>
       </Dialog>
-      
-      {/* Snackbar notifications */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

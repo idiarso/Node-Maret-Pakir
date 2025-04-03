@@ -41,14 +41,19 @@ export interface VehicleInput {
 // Parking session types
 export interface ParkingSession {
   id: number;
-  vehicle: Vehicle;
-  parkingArea: ParkingArea;
-  entry_time: Date;
-  exit_time?: Date;
+  vehicle?: Vehicle;
+  vehicle_id?: number;
+  parkingArea?: ParkingArea;
+  parking_area_id?: number;
+  entry_time: Date | string;
+  exit_time?: Date | string;
   status: string;
-  created_at: Date;
-  updated_at: Date;
+  created_at: Date | string;
+  updated_at: Date | string;
   ticket?: Ticket;
+  // Fields added for enhanced data in ParkingSessionsPage
+  vehicleImageUrl?: string;
+  barcodeImageUrl?: string;
 }
 
 export interface ParkingSessionInput {

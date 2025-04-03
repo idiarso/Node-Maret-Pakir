@@ -26,6 +26,7 @@ import {
   Tooltip,
   TooltipProps,
 } from 'recharts';
+import { adminDashboardService } from '../../services/api';
 
 interface DashboardStats {
   totalVehicles: number;
@@ -42,26 +43,14 @@ interface RevenueData {
 const DashboardPage: React.FC = () => {
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery<DashboardStats>({
     queryKey: ['dashboardStats'],
-    queryFn: async () => {
-      // TODO: Replace with actual API call
-      const response = await fetch('/api/dashboard/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard stats');
-      }
-      return response.json();
-    },
+    queryFn: () => adminDashboardService.getStats(),
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const { data: revenueData, isLoading: revenueLoading, error: revenueError } = useQuery<RevenueData[]>({
     queryKey: ['revenueData'],
-    queryFn: async () => {
-      // TODO: Replace with actual API call
-      const response = await fetch('/api/dashboard/revenue');
-      if (!response.ok) {
-        throw new Error('Failed to fetch revenue data');
-      }
-      return response.json();
-    },
+    queryFn: () => adminDashboardService.getRevenue(),
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   if (statsError || revenueError) {

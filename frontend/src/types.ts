@@ -2,23 +2,26 @@
 export interface Gate {
   id: number;
   name: string;
-  location?: string;
-  deviceId?: number;
-  status: string;
-  type?: string;
-  gate_number?: string;
+  type: 'ENTRY' | 'EXIT';
+  location: string;
   description?: string;
-  is_active?: boolean;
+  gate_number: string;
+  status: 'ACTIVE' | 'INACTIVE';
   hardware_config?: any;
   maintenance_schedule?: any;
   error_log?: any;
-  lastStatusChange?: Date;
-  createdAt?: Date;
-  updatedAt?: Date;
-  created_at?: Date;
-  updated_at?: Date;
-  _optimistic?: boolean;
-  _error?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GateFormData {
+  name: string;
+  type: 'ENTRY' | 'EXIT';
+  location: string;
+  description?: string;
+  gate_number: string;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 // Payment interfaces
@@ -76,9 +79,17 @@ export interface ParkingSession {
   id: number;
   entry_time: Date | string;
   exit_time?: Date | string;
-  vehicle_id?: number;
-  parking_area_id?: number;
-  ticket_id?: number;
+  
+  // Foreign keys
+  ticketId?: number;
+  vehicleId?: number;
+  parkingAreaId?: number;
+  
+  // Relations
+  ticket?: Ticket;
+  vehicle?: Vehicle;
+  parkingArea?: ParkingArea;
+  
   status: string;
   created_at: Date | string;
   updated_at: Date | string;
@@ -114,10 +125,15 @@ export interface Membership {
 export interface OperatorShift {
   id: number;
   operator_id: number;
+  operatorName?: string;
   start_time: Date | string;
   end_time?: Date | string;
   gate_id?: number;
   status: string;
+  total_transactions?: number;
+  total_amount?: number;
+  cash_amount?: number;
+  non_cash_amount?: number;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -157,4 +173,27 @@ export interface BackupSettings {
     size: string;
     type: string;
   }>;
+}
+
+// Vehicle interface
+export interface Vehicle {
+  id: number;
+  plate_number: string;
+  type: string;
+  owner_name?: string;
+  owner_contact?: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+// Parking Area interface
+export interface ParkingArea {
+  id: number;
+  name: string;
+  location: string;
+  capacity: number;
+  occupied: number;
+  status: string;
+  created_at: Date | string;
+  updated_at: Date | string;
 }

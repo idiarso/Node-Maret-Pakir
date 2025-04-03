@@ -16,6 +16,9 @@ import {
   useMediaQuery,
   Divider,
   Collapse,
+  Avatar,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -38,18 +41,20 @@ import {
   ExpandLess,
   ExpandMore,
   WorkHistory as ShiftsIcon,
+  Login as EntryIcon,
+  Logout as ExitIcon,
+  Help as HelpIcon,
 } from '@mui/icons-material';
 import { ROUTES } from '../utils/constants';
-import * as storage from '../utils/storage';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../hooks/useAuth';
 
 const drawerWidth = 240;
 
-// Define the types for menu items
 interface MenuItem {
   label: string;
   translationKey: string;
-  icon: React.ReactElement;
+  icon: JSX.Element;
   path: string;
   subItems?: MenuItem[];
 }
@@ -60,128 +65,201 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
-interface Props {
-  children?: React.ReactNode;
-}
-
-const Layout: React.FC<Props> = ({ children }) => {
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [openSettings, setOpenSettings] = React.useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { translate } = useLanguage();
-
-  // Buat kategori menu
-  const menuCategories: MenuCategory[] = [
+// Define menu categories based on role
+const getMenuCategories = (role: string): MenuCategory[] => {
+  // Base categories available to all authenticated users
+  const baseCategories: MenuCategory[] = [
     {
       title: 'Main',
       translationKey: 'main',
       items: [
         { label: 'Dashboard', translationKey: 'dashboard', icon: <DashboardIcon />, path: ROUTES.DASHBOARD },
       ]
-    },
-    {
-      title: 'Parking Management',
-      translationKey: 'parkingManagement',
-      items: [
-        { label: 'Parking Sessions', translationKey: 'parkingSessions', icon: <CarIcon />, path: ROUTES.PARKING_SESSIONS },
-        { label: 'Tickets', translationKey: 'tickets', icon: <TicketsIcon />, path: ROUTES.TICKETS },
-        { label: 'Parking Areas', translationKey: 'parkingAreas', icon: <ParkingAreaIcon />, path: ROUTES.PARKING_AREAS },
-        { label: 'Parking Rates', translationKey: 'parkingRates', icon: <ParkingRatesIcon />, path: ROUTES.PARKING_RATES },
-      ]
-    },
-    {
-      title: 'Customer Management',
-      translationKey: 'customerManagement',
-      items: [
-        { label: 'Vehicles', translationKey: 'vehicles', icon: <CarIcon />, path: ROUTES.VEHICLES },
-        { label: 'Memberships', translationKey: 'memberships', icon: <MembershipIcon />, path: ROUTES.MEMBERSHIPS },
-        { label: 'Payments', translationKey: 'payments', icon: <PaymentsIcon />, path: ROUTES.PAYMENTS },
-      ]
-    },
-    {
-      title: 'System',
-      translationKey: 'system',
-      items: [
-        { label: 'Users', translationKey: 'users', icon: <UsersIcon />, path: ROUTES.USERS },
-        { label: 'Devices', translationKey: 'devices', icon: <DevicesIcon />, path: ROUTES.DEVICES },
-        { label: 'Gates', translationKey: 'gates', icon: <GatesIcon />, path: ROUTES.GATES },
-        { label: 'Shifts', translationKey: 'shifts', icon: <ShiftsIcon />, path: ROUTES.SHIFTS },
-        { label: 'Reports', translationKey: 'reports', icon: <ReportIcon />, path: ROUTES.REPORTS },
-        { 
-          label: 'Settings', 
-          translationKey: 'settings',
-          icon: <SettingsIcon />, 
-          path: ROUTES.SETTINGS,
-          subItems: [
-            { label: 'Language', translationKey: 'language', icon: <LanguageIcon />, path: ROUTES.SETTINGS_LANGUAGE },
-            { label: 'Backup', translationKey: 'backup', icon: <BackupIcon />, path: ROUTES.SETTINGS_BACKUP },
-            { label: 'System', translationKey: 'systemSettings', icon: <BusinessIcon />, path: ROUTES.SETTINGS_SYSTEM },
-          ]
-        },
-      ]
     }
   ];
 
-  React.useEffect(() => {
-    // Open settings submenu if we are on a settings page
-    if (location.pathname.startsWith('/settings/')) {
-      setOpenSettings(true);
-    }
-  }, [location.pathname]);
+  // Menu items for operator role
+  if (role === 'operator') {
+    return [
+      {
+        title: 'Main',
+        translationKey: 'main',
+        items: [
+          { label: 'Dashboard', translationKey: 'dashboard', icon: <DashboardIcon />, path: ROUTES.DASHBOARD },
+        ]
+      },
+      {
+        title: 'Gate Operations',
+        translationKey: 'gateOperations',
+        items: [
+          { label: 'Entry Gate', translationKey: 'entryGate', icon: <EntryIcon />, path: ROUTES.ENTRY_GATE },
+          { label: 'Exit Gate', translationKey: 'exitGate', icon: <ExitIcon />, path: ROUTES.EXIT_GATE },
+        ]
+      },
+      {
+        title: 'Parking Management',
+        translationKey: 'parkingManagement',
+        items: [
+          { label: 'Parking Sessions', translationKey: 'parkingSessions', icon: <CarIcon />, path: ROUTES.PARKING_SESSIONS },
+          { label: 'Tickets', translationKey: 'tickets', icon: <TicketsIcon />, path: ROUTES.TICKETS },
+        ]
+      },
+      {
+        title: 'System',
+        translationKey: 'system',
+        items: [
+          { label: 'Shifts', translationKey: 'shifts', icon: <ShiftsIcon />, path: ROUTES.SHIFTS },
+        ]
+      }
+    ];
+  }
+
+  // Menu items for admin role
+  if (role === 'admin') {
+    return [
+      ...baseCategories,
+      {
+        title: 'Gate Operations',
+        translationKey: 'gateOperations',
+        items: [
+          { label: 'Entry Gate', translationKey: 'entryGate', icon: <EntryIcon />, path: ROUTES.ENTRY_GATE },
+          { label: 'Exit Gate', translationKey: 'exitGate', icon: <ExitIcon />, path: ROUTES.EXIT_GATE },
+        ]
+      },
+      {
+        title: 'Parking Management',
+        translationKey: 'parkingManagement',
+        items: [
+          { label: 'Parking Sessions', translationKey: 'parkingSessions', icon: <CarIcon />, path: ROUTES.PARKING_SESSIONS },
+          { label: 'Tickets', translationKey: 'tickets', icon: <TicketsIcon />, path: ROUTES.TICKETS },
+          { label: 'Parking Areas', translationKey: 'parkingAreas', icon: <ParkingAreaIcon />, path: ROUTES.PARKING_AREAS },
+          { label: 'Parking Rates', translationKey: 'parkingRates', icon: <ParkingRatesIcon />, path: ROUTES.PARKING_RATES },
+        ]
+      },
+      {
+        title: 'Customer Management',
+        translationKey: 'customerManagement',
+        items: [
+          { label: 'Vehicles', translationKey: 'vehicles', icon: <CarIcon />, path: ROUTES.VEHICLES },
+          { label: 'Memberships', translationKey: 'memberships', icon: <MembershipIcon />, path: ROUTES.MEMBERSHIPS },
+          { label: 'Payments', translationKey: 'payments', icon: <PaymentsIcon />, path: ROUTES.PAYMENTS },
+        ]
+      },
+      {
+        title: 'System',
+        translationKey: 'system',
+        items: [
+          { label: 'Users', translationKey: 'users', icon: <UsersIcon />, path: ROUTES.USERS },
+          { label: 'Devices', translationKey: 'devices', icon: <DevicesIcon />, path: ROUTES.DEVICES },
+          { label: 'Gates', translationKey: 'gates', icon: <GatesIcon />, path: ROUTES.GATES },
+          { label: 'Shifts', translationKey: 'shifts', icon: <ShiftsIcon />, path: ROUTES.SHIFTS },
+          { label: 'Reports', translationKey: 'reports', icon: <ReportIcon />, path: ROUTES.REPORTS },
+          { 
+            label: 'Settings', 
+            translationKey: 'settings',
+            icon: <SettingsIcon />, 
+            path: ROUTES.SETTINGS,
+            subItems: [
+              { label: 'Language', translationKey: 'language', icon: <LanguageIcon />, path: ROUTES.SETTINGS_LANGUAGE },
+              { label: 'Backup', translationKey: 'backup', icon: <BackupIcon />, path: ROUTES.SETTINGS_BACKUP },
+              { label: 'System', translationKey: 'systemSettings', icon: <BusinessIcon />, path: ROUTES.SETTINGS_SYSTEM },
+            ]
+          },
+          { label: 'Manual Book', translationKey: 'manualBook', icon: <HelpIcon />, path: ROUTES.MANUAL_BOOK },
+        ]
+      }
+    ];
+  }
+
+  // Default menu for unknown roles - only show dashboard
+  return baseCategories;
+};
+
+const Layout: React.FC = () => {
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [openSettings, setOpenSettings] = React.useState(false);
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { translate } = useLanguage();
+  const { user, logout } = useAuth();
+
+  const menuCategories = React.useMemo(() => getMenuCategories(user?.role || ''), [user?.role]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
-  };
-
-  const handleLogout = () => {
-    storage.removeToken();
-    storage.removeUser();
-    navigate(ROUTES.LOGIN);
   };
 
   const handleSettingsClick = () => {
     setOpenSettings(!openSettings);
   };
 
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogoutClick = async () => {
+    handleProfileMenuClose();
+    await logout();
+    navigate(ROUTES.LOGIN);
+  };
+
   const drawer = (
-    <Box>
+    <div>
       <Toolbar>
-        <Typography variant="h6" noWrap>
-          {translate('parkingSystem')}
+        <Typography variant="h6" noWrap component="div">
+          Parking System
         </Typography>
       </Toolbar>
+      <Divider />
       <List>
-        {menuCategories.map((category, index) => (
+        {menuCategories.map((category) => (
           <React.Fragment key={category.title}>
-            {index > 0 && <Divider sx={{ my: 1 }} />}
             <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ px: 3, py: 1, display: 'block' }}
+              variant="subtitle2"
+              sx={{ px: 3, py: 1, color: 'text.secondary' }}
             >
-              {translate(category.translationKey) || category.title}
+              {translate(category.translationKey)}
             </Typography>
-            
-            {category.items.map((item) => (
-              <React.Fragment key={item.path}>
-                {item.subItems ? (
-                  <>
-                    <ListItemButton
-                      onClick={handleSettingsClick}
-                      selected={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)}
-                    >
-                      <ListItemIcon>{item.icon}</ListItemIcon>
-                      <ListItemText primary={translate(item.translationKey) || item.label} />
-                      {openSettings ? <ExpandLess /> : <ExpandMore />}
-                    </ListItemButton>
+            {category.items.map((item) => {
+              const isSettingsItem = item.label === 'Settings';
+              const isSelected = isSettingsItem 
+                ? location.pathname.startsWith(item.path)
+                : location.pathname === item.path;
+
+              return (
+                <React.Fragment key={item.label}>
+                  <ListItemButton
+                    selected={isSelected}
+                    onClick={() => {
+                      if (isSettingsItem) {
+                        handleSettingsClick();
+                      } else {
+                        navigate(item.path);
+                        if (isMobile) {
+                          handleDrawerToggle();
+                        }
+                      }
+                    }}
+                  >
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText primary={translate(item.translationKey)} />
+                    {isSettingsItem && (
+                      openSettings ? <ExpandLess /> : <ExpandMore />
+                    )}
+                  </ListItemButton>
+                  {isSettingsItem && item.subItems && (
                     <Collapse in={openSettings} timeout="auto" unmountOnExit>
                       <List component="div" disablePadding>
                         {item.subItems.map((subItem) => (
-                          <ListItemButton 
-                            key={subItem.path} 
+                          <ListItemButton
+                            key={subItem.label}
                             sx={{ pl: 4 }}
                             selected={location.pathname === subItem.path}
                             onClick={() => {
@@ -192,60 +270,27 @@ const Layout: React.FC<Props> = ({ children }) => {
                             }}
                           >
                             <ListItemIcon>{subItem.icon}</ListItemIcon>
-                            <ListItemText primary={translate(subItem.translationKey) || subItem.label} />
+                            <ListItemText primary={translate(subItem.translationKey)} />
                           </ListItemButton>
                         ))}
                       </List>
                     </Collapse>
-                  </>
-                ) : (
-                  <ListItemButton
-                    selected={location.pathname === item.path}
-                    onClick={() => {
-                      navigate(item.path);
-                      if (isMobile) {
-                        handleDrawerToggle();
-                      }
-                    }}
-                  >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={translate(item.translationKey) || item.label} />
-                  </ListItemButton>
-                )}
-              </React.Fragment>
-            ))}
+                  )}
+                </React.Fragment>
+              );
+            })}
           </React.Fragment>
         ))}
-        
         <Divider sx={{ my: 1 }} />
-        <ListItemButton onClick={handleLogout}>
+        <ListItemButton onClick={handleLogoutClick}>
           <ListItemIcon>
             <LogoutIcon />
           </ListItemIcon>
           <ListItemText primary={translate('logout')} />
         </ListItemButton>
       </List>
-    </Box>
+    </div>
   );
-
-  // Find current page title
-  const getCurrentPageTitle = () => {
-    for (const category of menuCategories) {
-      for (const item of category.items) {
-        if (item.path === location.pathname) {
-          return translate(item.translationKey) || item.label;
-        }
-        if (item.subItems) {
-          for (const subItem of item.subItems) {
-            if (subItem.path === location.pathname) {
-              return translate(subItem.translationKey) || subItem.label;
-            }
-          }
-        }
-      }
-    }
-    return '';
-  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -257,37 +302,101 @@ const Layout: React.FC<Props> = ({ children }) => {
           ml: { sm: `${drawerWidth}px` },
         }}
       >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            {getCurrentPageTitle()}
-          </Typography>
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" noWrap component="div">
+              {translate('parkingSystem')}
+            </Typography>
+          </Box>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
+              size="large"
+              edge="end"
+              aria-label="account of current user"
+              aria-controls="menu-appbar"
+              aria-haspopup="true"
+              onClick={handleProfileMenuOpen}
+              color="inherit"
+            >
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                {user?.username?.charAt(0).toUpperCase()}
+              </Avatar>
+            </IconButton>
+          </Box>
         </Toolbar>
       </AppBar>
+
+      <Menu
+        id="menu-appbar"
+        anchorEl={anchorEl}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        keepMounted
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        open={Boolean(anchorEl)}
+        onClose={handleProfileMenuClose}
+      >
+        <Box sx={{ py: 1, px: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Avatar sx={{ width: 60, height: 60, mb: 1, bgcolor: 'secondary.main' }}>
+            {user?.username?.charAt(0).toUpperCase()}
+          </Avatar>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+            {user?.username}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {user?.role}
+          </Typography>
+        </Box>
+        <Divider />
+        <MenuItem onClick={handleLogoutClick}>
+          <ListItemIcon>
+            <LogoutIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary={translate('logout')} />
+        </MenuItem>
+      </Menu>
+
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        aria-label="mailbox folders"
       >
         <Drawer
-          variant={isMobile ? 'temporary' : 'permanent'}
+          variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true,
           }}
           sx={{
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
           }}
+        >
+          {drawer}
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+          open
         >
           {drawer}
         </Drawer>
@@ -301,7 +410,7 @@ const Layout: React.FC<Props> = ({ children }) => {
         }}
       >
         <Toolbar />
-        {children || <Outlet />}
+        <Outlet />
       </Box>
     </Box>
   );
