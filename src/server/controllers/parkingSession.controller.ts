@@ -7,6 +7,7 @@ import { ParkingArea } from '../entities/ParkingArea';
 import { getRepository } from 'typeorm';
 import { Payment } from '../entities/Payment';
 import { PaymentStatus, PaymentMethod } from '../../shared/types';
+import { Ticket } from '../entities/Ticket';
 
 const logger = Logger.getInstance();
 
@@ -277,28 +278,43 @@ export class ParkingSessionController {
             const { barcode } = req.query;
 
             if (!barcode || typeof barcode !== 'string') {
-                return res.status(400).json({ message: 'Barcode is required' });
+                return res.status(400).json({ message: 'Nomor tiket atau nomor plat diperlukan' });
             }
 
             const parkingSessionRepository = AppDataSource.getRepository(ParkingSession);
             
-            // Find parking session through ticket's barcode
+            // Try to find active parking session by ID or plate number
             const parkingSession = await parkingSessionRepository
                 .createQueryBuilder('session')
-                .leftJoinAndSelect('session.ticket', 'ticket')
                 .leftJoinAndSelect('session.vehicle', 'vehicle')
                 .leftJoinAndSelect('session.parkingArea', 'parkingArea')
-                .where('ticket.barcode = :barcode', { barcode })
+                .where('session.status = :status', { status: 'ACTIVE' })
+                .andWhere(
+                    'vehicle.plate_number ILIKE :searchLike',
+                    { searchLike: `%${barcode}%` }
+                )
                 .getOne();
 
             if (!parkingSession) {
-                return res.status(404).json({ message: 'Parking session not found' });
+                // If not found by plate number, try by session ID
+                const sessionById = await parkingSessionRepository
+                    .createQueryBuilder('session')
+                    .leftJoinAndSelect('session.vehicle', 'vehicle')
+                    .leftJoinAndSelect('session.parkingArea', 'parkingArea')
+                    .where('session.status = :status', { status: 'ACTIVE' })
+                    .andWhere('session.id = :id', { id: parseInt(barcode) || 0 })
+                    .getOne();
+
+                if (!sessionById) {
+                    return res.status(404).json({ message: 'Sesi parkir aktif tidak ditemukan' });
+                }
+                return res.status(200).json(sessionById);
             }
 
             return res.status(200).json(parkingSession);
         } catch (error) {
-            logger.error('Error searching parking session by barcode:', error);
-            return res.status(500).json({ message: 'Error searching parking session' });
+            logger.error('Error searching parking session:', error);
+            return res.status(500).json({ message: 'Error mencari sesi parkir' });
         }
     }
 

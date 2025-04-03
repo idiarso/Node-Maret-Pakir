@@ -17,7 +17,7 @@ router.get('/', ParkingSessionController.getAllParkingSessions);
 // Get active parking sessions
 router.get('/active', ParkingSessionController.getActiveParkingSessions);
 
-// Search parking session by barcode
+// Search by barcode
 router.get('/search', ParkingSessionController.searchByBarcode);
 
 // Get parking session by ID

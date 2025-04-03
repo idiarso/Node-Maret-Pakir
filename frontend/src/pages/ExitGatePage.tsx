@@ -25,7 +25,10 @@ import {
   Stack,
   IconButton,
   InputAdornment,
-  useTheme
+  useTheme,
+  FormControl,
+  Select,
+  InputLabel
 } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { parkingSessionService, gateService } from '../services/api';
@@ -52,10 +55,10 @@ import { keyframes } from '@mui/system';
 
 interface ActiveSession {
   id: number;
-  vehicle: {
-  id: number;
-  plate_number: string;
-  type: string;
+  vehicle?: {
+    id: number;
+    plate_number: string;
+    type: string;
   };
   entry_time: string;
   exit_time?: string;
@@ -114,6 +117,7 @@ const ExitGatePage: React.FC = () => {
   const [scanMode, setScanMode] = useState<'camera' | 'manual'>('camera');
   const [manualInput, setManualInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [vehicleType, setVehicleType] = useState('');
 
   // Helper functions for parking calculations
   const calculateParkingDuration = (entryTime: Date, exitTime: Date): number => {
@@ -148,7 +152,7 @@ const ExitGatePage: React.FC = () => {
 
   // Calculate derived values
   const duration = activeSession ? calculateParkingDuration(new Date(activeSession.entry_time), new Date()) : 0;
-  const parkingFee = activeSession ? calculateParkingFee(activeSession.vehicle.type, duration) : 0;
+  const parkingFee = activeSession ? calculateParkingFee(activeSession.vehicle?.type || 'MOTOR', duration) : 0;
   const taxAmount = parkingFee * 0.1;
   const totalAmount = parkingFee + taxAmount;
 
@@ -245,9 +249,79 @@ const ExitGatePage: React.FC = () => {
     setError(null);
     
     try {
-      await getSessionMutation.mutateAsync(barcodeData);
+      // Clean the input from any special characters
+      const searchQuery = barcodeData.trim();
+      
+      const session = await getSessionMutation.mutateAsync(searchQuery);
+      if (session) {
+        setActiveSession(session);
+        // Set vehicle type when session is found
+        if (session.vehicle?.type) {
+          setVehicleType(session.vehicle.type);
+        }
+        setError(null);
+      }
     } catch (error) {
       console.error('Error processing barcode:', error);
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          setError('Sesi login telah berakhir. Silakan login kembali.');
+        } else if (error.message.includes('404')) {
+          setError('Sesi parkir aktif tidak ditemukan');
+        } else {
+          setError('Terjadi kesalahan saat mencari sesi parkir');
+        }
+      }
+      setActiveSession(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualSearch = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const searchValue = formData.get('searchInput')?.toString() || '';
+    
+    if (!searchValue) return;
+    
+    await processBarcode(searchValue);
+  };
+
+  const handleVehicleTypeChange = async (newType: string) => {
+    if (!activeSession?.id) return;
+    
+    try {
+      setLoading(true);
+      const updatedSession = await parkingSessionService.update(activeSession.id, {
+        vehicle_type: newType
+      });
+      
+      // Update local state with the response
+      setActiveSession(prevSession => {
+        if (!prevSession) return null;
+        return {
+          ...prevSession,
+          vehicle: {
+            ...prevSession.vehicle,
+            type: newType
+          }
+        };
+      });
+      
+      setVehicleType(newType);
+      setSnackbar({
+        open: true,
+        message: 'Jenis kendaraan berhasil diubah',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error updating vehicle type:', error);
+      setSnackbar({
+        open: true,
+        message: 'Gagal mengubah jenis kendaraan',
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -327,15 +401,22 @@ const ExitGatePage: React.FC = () => {
           <CardHeader
             title="Informasi Kendaraan"
             action={
-              <Chip
-                label={activeSession.vehicle.type === 'CAR' ? 'Mobil' : 
-                       activeSession.vehicle.type === 'MOTORCYCLE' ? 'Motor' : 
-                       activeSession.vehicle.type === 'TRUCK' ? 'Truk' : 
-                       activeSession.vehicle.type}
-                color="primary"
-                icon={<CarIcon />}
-                sx={{ fontWeight: 'bold' }}
-              />
+              <FormControl sx={{ minWidth: 120 }}>
+                <InputLabel>Jenis Kendaraan</InputLabel>
+                <Select
+                  value={activeSession.vehicle?.type || ''}
+                  onChange={(e) => handleVehicleTypeChange(e.target.value)}
+                  label="Jenis Kendaraan"
+                  size="small"
+                  disabled={loading}
+                >
+                  <MenuItem value="MOTOR">Motor</MenuItem>
+                  <MenuItem value="MOBIL">Mobil</MenuItem>
+                  <MenuItem value="TRUK">Truk</MenuItem>
+                  <MenuItem value="BUS">Bus</MenuItem>
+                  <MenuItem value="VAN">Van</MenuItem>
+                </Select>
+              </FormControl>
             }
           />
           <Divider />
@@ -345,7 +426,7 @@ const ExitGatePage: React.FC = () => {
                 <Stack spacing={2}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Nomor Plat</Typography>
-                    <Typography variant="h5" fontWeight="bold">{activeSession.vehicle.plate_number}</Typography>
+                    <Typography variant="h5" fontWeight="bold">{activeSession.vehicle?.plate_number}</Typography>
                   </Box>
                   
                   <Box>
@@ -542,41 +623,43 @@ const ExitGatePage: React.FC = () => {
               </Box>
             </Box>
           ) : (
-            <Box component="form" onSubmit={handleManualSubmit}>
+            <form onSubmit={handleManualSearch}>
               <TextField
-                inputRef={inputRef}
                 fullWidth
-                label="Masukkan ID Tiket / Nomor Barcode"
-                variant="outlined"
+                name="searchInput"
+                placeholder="Masukkan nomor tiket atau barcode"
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
-                placeholder="Contoh: T12345 atau nomor barcode"
-                disabled={loading}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (manualInput.trim()) {
+                      processBarcode(manualInput.trim());
+                    }
+                  }
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon color="primary" />
+                      <SearchIcon color="action" />
                     </InputAdornment>
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton 
-                        color="primary" 
-                        onClick={handleManualSubmit}
-                        disabled={!manualInput.trim() || loading}
+                        onClick={() => {
+                          if (manualInput.trim()) {
+                            processBarcode(manualInput.trim());
+                          }
+                        }}
                       >
                         <SendIcon />
                       </IconButton>
                     </InputAdornment>
                   )
                 }}
-                sx={{ mb: 2 }}
               />
-              
-              <Typography variant="caption" color="text.secondary">
-                Masukkan nomor tiket atau ID barcode dan tekan Enter untuk mencari
-              </Typography>
-            </Box>
+            </form>
           )}
           
           {loading && (
@@ -590,181 +673,180 @@ const ExitGatePage: React.FC = () => {
               {error}
             </Alert>
           )}
-        </Paper>
-        
-        {renderVehicleDetails()}
-        
-        {/* Exit Confirmation Dialog */}
-        <Dialog open={exitDialogOpen} onClose={handleCloseExitDialog}>
-          <DialogTitle>Konfirmasi Keluar</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              Apakah Anda yakin ingin memproses keluar kendaraan ini?
-            </DialogContentText>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2">Nomor Plat:</Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {activeSession?.vehicle.plate_number}
-              </Typography>
-            </Box>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2">Total Biaya:</Typography>
-              <Typography variant="h6" color="primary" fontWeight="bold">
-                {formatCurrency(totalAmount)}
-              </Typography>
-            </Box>
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle2">Pilih Gerbang:</Typography>
-              <TextField
-                select
-                fullWidth
-                label="Gerbang Keluar"
-                value={selectedGate || ''}
-                onChange={(e) => setSelectedGate(Number(e.target.value))}
-                variant="outlined"
-                sx={{ mt: 1 }}
+          
+          {/* Vehicle Details Card */}
+          {renderVehicleDetails()}
+          
+          {/* Exit Dialog */}
+          <Dialog open={exitDialogOpen} onClose={handleCloseExitDialog}>
+            <DialogTitle>Konfirmasi Keluar</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                Apakah Anda yakin ingin memproses keluar kendaraan ini?
+              </DialogContentText>
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2">Nomor Plat:</Typography>
+                <Typography variant="body1" fontWeight="bold">
+                  {activeSession?.vehicle?.plate_number}
+                </Typography>
+              </Box>
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2">Total Biaya:</Typography>
+                <Typography variant="h6" color="primary" fontWeight="bold">
+                  {formatCurrency(totalAmount)}
+                </Typography>
+              </Box>
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2">Pilih Gerbang:</Typography>
+                <TextField
+                  select
+                  fullWidth
+                  label="Gerbang Keluar"
+                  value={selectedGate || ''}
+                  onChange={(e) => setSelectedGate(Number(e.target.value))}
+                  variant="outlined"
+                  sx={{ mt: 1 }}
+                >
+                  {gates.map((gate) => (
+                    <MenuItem key={gate.id} value={gate.id}>
+                      {gate.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseExitDialog} color="inherit">
+                Batal
+              </Button>
+              <Button 
+                onClick={handleProcessExit} 
+                variant="contained" 
+                color="primary"
+                disabled={!selectedGate || processExitMutation.isPending}
+                startIcon={processExitMutation.isPending ? <CircularProgress size={20} /> : <SuccessIcon />}
               >
-                {gates.map((gate) => (
-                  <MenuItem key={gate.id} value={gate.id}>
-                    {gate.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseExitDialog} color="inherit">
-              Batal
-            </Button>
-            <Button 
-              onClick={handleProcessExit} 
-              variant="contained" 
-              color="primary"
-              disabled={!selectedGate || processExitMutation.isPending}
-              startIcon={processExitMutation.isPending ? <CircularProgress size={20} /> : <SuccessIcon />}
-            >
-              Konfirmasi
-            </Button>
-          </DialogActions>
-        </Dialog>
-        
-        {/* Receipt Dialog */}
-        <Dialog open={receiptDialogOpen} onClose={handleCloseReceiptDialog} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
-            <ReceiptIcon sx={{ mr: 1 }} /> 
-            Struk Pembayaran
-            <IconButton
-              onClick={handleCloseReceiptDialog}
-              sx={{ position: 'absolute', right: 8, top: 8 }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ p: 2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, mb: 3 }}>
-              <Typography variant="h6" align="center" gutterBottom>
-                Pembayaran Berhasil
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                <SuccessIcon color="success" sx={{ fontSize: 64 }} />
+                Konfirmasi
+              </Button>
+            </DialogActions>
+          </Dialog>
+          
+          {/* Receipt Dialog */}
+          <Dialog open={receiptDialogOpen} onClose={handleCloseReceiptDialog} maxWidth="sm" fullWidth>
+            <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
+              <ReceiptIcon sx={{ mr: 1 }} /> 
+              Struk Pembayaran
+              <IconButton
+                onClick={handleCloseReceiptDialog}
+                sx={{ position: 'absolute', right: 8, top: 8 }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ p: 2 }}>
+                {activeSession && (
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="body2">Nomor Plat</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" align="right">
+                        {activeSession.vehicle?.plate_number}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2">Waktu Masuk</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" align="right">
+                        {formatDateTime(new Date(activeSession.entry_time))}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2">Waktu Keluar</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" align="right">
+                        {formatDateTime(new Date())}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2">Durasi</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" align="right">
+                        {`${Math.floor(duration)}h ${Math.round((duration % 1) * 60)}m`}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2">Biaya Parkir</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" align="right">
+                        {formatCurrency(parkingFee)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2">Pajak (10%)</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" align="right">
+                        {formatCurrency(taxAmount)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body1" fontWeight="bold">Total</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body1" fontWeight="bold" align="right">
+                        {formatCurrency(totalAmount)}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                )}
               </Box>
               
-              {activeSession && (
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Nomor Plat</Typography>
-                    <Typography variant="body1" fontWeight="bold">
-                      {activeSession.vehicle.plate_number}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Jenis Kendaraan</Typography>
-                    <Typography variant="body1">
-                      {activeSession.vehicle.type === 'CAR' ? 'Mobil' : 
-                       activeSession.vehicle.type === 'MOTORCYCLE' ? 'Motor' : 
-                       activeSession.vehicle.type === 'TRUCK' ? 'Truk' : 
-                       activeSession.vehicle.type}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Waktu Masuk</Typography>
-                    <Typography variant="body2">
-                      {formatDateTime(new Date(activeSession.entry_time))}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Waktu Keluar</Typography>
-                    <Typography variant="body2">
-                      {formatDateTime(new Date())}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Divider sx={{ my: 1 }} />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2">Biaya Parkir</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" align="right">
-                      {formatCurrency(parkingFee)}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2">Pajak (10%)</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" align="right">
-                      {formatCurrency(taxAmount)}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Divider sx={{ my: 1 }} />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body1" fontWeight="bold">Total</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body1" fontWeight="bold" align="right">
-                      {formatCurrency(totalAmount)}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              )}
-            </Box>
-            
-            <Typography variant="body2" align="center" gutterBottom>
-              Silakan membuka gerbang untuk mengizinkan kendaraan keluar
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleOpenGate}
-              size="large"
-              disabled={!selectedGate}
-              sx={{ borderRadius: 8, px: 4 }}
-            >
-              Buka Gerbang
-            </Button>
-          </DialogActions>
-        </Dialog>
-        
-        <Snackbar 
-          open={snackbar.open} 
-          autoHideDuration={6000} 
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert 
-            onClose={handleCloseSnackbar} 
-            severity={snackbar.severity} 
-            variant="filled"
-            sx={{ width: '100%' }}
+              <Typography variant="body2" align="center" gutterBottom>
+                Silakan membuka gerbang untuk mengizinkan kendaraan keluar
+              </Typography>
+            </DialogContent>
+            <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleOpenGate}
+                size="large"
+                disabled={!selectedGate}
+                sx={{ borderRadius: 8, px: 4 }}
+              >
+                Buka Gerbang
+              </Button>
+            </DialogActions>
+          </Dialog>
+          
+          <Snackbar 
+            open={snackbar.open} 
+            autoHideDuration={6000} 
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+            <Alert 
+              onClose={handleCloseSnackbar} 
+              severity={snackbar.severity} 
+              variant="filled"
+              sx={{ width: '100%' }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Paper>
       </Container>
     </PageWrapper>
   );
