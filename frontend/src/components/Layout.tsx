@@ -49,11 +49,10 @@ import { useAuth } from '../hooks/useAuth';
 
 const drawerWidth = 240;
 
-// Define the types for menu items
 interface MenuItem {
   label: string;
   translationKey: string;
-  icon: React.ReactElement;
+  icon: JSX.Element;
   path: string;
   subItems?: MenuItem[];
 }
@@ -64,13 +63,13 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
-interface Props {
+interface LayoutProps {
   children?: React.ReactNode;
 }
 
 // Define menu categories based on role
-const getMenuCategories = (role: string) => {
-  const baseCategories = [
+const getMenuCategories = (role: string): MenuCategory[] => {
+  const baseCategories: MenuCategory[] = [
     {
       title: 'Main',
       translationKey: 'main',
@@ -151,7 +150,7 @@ const getMenuCategories = (role: string) => {
   ];
 };
 
-const Layout: React.FC<Props> = ({ children }) => {
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openSettings, setOpenSettings] = React.useState(false);
   const navigate = useNavigate();
@@ -159,67 +158,73 @@ const Layout: React.FC<Props> = ({ children }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { translate } = useLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const menuCategories = React.useMemo(() => getMenuCategories(user?.role || ''), [user?.role]);
 
-  React.useEffect(() => {
-    // Open settings submenu if we are on a settings page
-    if (location.pathname.startsWith('/settings/')) {
-      setOpenSettings(true);
-    }
-  }, [location.pathname]);
-
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
-  };
-
-  const handleLogout = () => {
-    storage.removeToken();
-    storage.removeUser();
-    navigate(ROUTES.LOGIN);
   };
 
   const handleSettingsClick = () => {
     setOpenSettings(!openSettings);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate(ROUTES.LOGIN);
+  };
+
   const drawer = (
-    <Box>
+    <div>
       <Toolbar>
-        <Typography variant="h6" noWrap>
-          {translate('parkingSystem')}
+        <Typography variant="h6" noWrap component="div">
+          Parking System
         </Typography>
       </Toolbar>
+      <Divider />
       <List>
-        {menuCategories.map((category, index) => (
+        {menuCategories.map((category) => (
           <React.Fragment key={category.title}>
-            {index > 0 && <Divider sx={{ my: 1 }} />}
             <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ px: 3, py: 1, display: 'block' }}
+              variant="subtitle2"
+              sx={{ px: 3, py: 1, color: 'text.secondary' }}
             >
-              {translate(category.translationKey) || category.title}
+              {translate(category.translationKey)}
             </Typography>
-            
-            {category.items.map((item) => (
-              <React.Fragment key={item.path}>
-                {item.subItems ? (
-                  <>
-                    <ListItemButton
-                      onClick={handleSettingsClick}
-                      selected={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)}
-                    >
-                      <ListItemIcon>{item.icon}</ListItemIcon>
-                      <ListItemText primary={translate(item.translationKey) || item.label} />
-                      {openSettings ? <ExpandLess /> : <ExpandMore />}
-                    </ListItemButton>
+            {category.items.map((item) => {
+              const isSettingsItem = item.label === 'Settings';
+              const isSelected = isSettingsItem 
+                ? location.pathname.startsWith(item.path)
+                : location.pathname === item.path;
+
+              return (
+                <React.Fragment key={item.label}>
+                  <ListItemButton
+                    selected={isSelected}
+                    onClick={() => {
+                      if (isSettingsItem) {
+                        handleSettingsClick();
+                      } else {
+                        navigate(item.path);
+                        if (isMobile) {
+                          handleDrawerToggle();
+                        }
+                      }
+                    }}
+                  >
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText primary={translate(item.translationKey)} />
+                    {isSettingsItem && (
+                      openSettings ? <ExpandLess /> : <ExpandMore />
+                    )}
+                  </ListItemButton>
+                  {isSettingsItem && item.subItems && (
                     <Collapse in={openSettings} timeout="auto" unmountOnExit>
                       <List component="div" disablePadding>
                         {item.subItems.map((subItem) => (
-                          <ListItemButton 
-                            key={subItem.path} 
+                          <ListItemButton
+                            key={subItem.label}
                             sx={{ pl: 4 }}
                             selected={location.pathname === subItem.path}
                             onClick={() => {
@@ -230,31 +235,17 @@ const Layout: React.FC<Props> = ({ children }) => {
                             }}
                           >
                             <ListItemIcon>{subItem.icon}</ListItemIcon>
-                            <ListItemText primary={translate(subItem.translationKey) || subItem.label} />
+                            <ListItemText primary={translate(subItem.translationKey)} />
                           </ListItemButton>
                         ))}
                       </List>
                     </Collapse>
-                  </>
-                ) : (
-                  <ListItemButton
-                    selected={location.pathname === item.path}
-                    onClick={() => {
-                      navigate(item.path);
-                      if (isMobile) {
-                        handleDrawerToggle();
-                      }
-                    }}
-                  >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={translate(item.translationKey) || item.label} />
-                  </ListItemButton>
-                )}
-              </React.Fragment>
-            ))}
+                  )}
+                </React.Fragment>
+              );
+            })}
           </React.Fragment>
         ))}
-        
         <Divider sx={{ my: 1 }} />
         <ListItemButton onClick={handleLogout}>
           <ListItemIcon>
@@ -263,27 +254,8 @@ const Layout: React.FC<Props> = ({ children }) => {
           <ListItemText primary={translate('logout')} />
         </ListItemButton>
       </List>
-    </Box>
+    </div>
   );
-
-  // Find current page title
-  const getCurrentPageTitle = () => {
-    for (const category of menuCategories) {
-      for (const item of category.items) {
-        if (item.path === location.pathname) {
-          return translate(item.translationKey) || item.label;
-        }
-        if (item.subItems) {
-          for (const subItem of item.subItems) {
-            if (subItem.path === location.pathname) {
-              return translate(subItem.translationKey) || subItem.label;
-            }
-          }
-        }
-      }
-    }
-    return '';
-  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -298,6 +270,7 @@ const Layout: React.FC<Props> = ({ children }) => {
         <Toolbar>
           <IconButton
             color="inherit"
+            aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { sm: 'none' } }}
@@ -305,27 +278,36 @@ const Layout: React.FC<Props> = ({ children }) => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div">
-            {getCurrentPageTitle()}
+            {user?.username} - {user?.role}
           </Typography>
         </Toolbar>
       </AppBar>
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        aria-label="mailbox folders"
       >
         <Drawer
-          variant={isMobile ? 'temporary' : 'permanent'}
+          variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true,
           }}
           sx={{
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
           }}
+        >
+          {drawer}
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+          open
         >
           {drawer}
         </Drawer>
@@ -339,7 +321,7 @@ const Layout: React.FC<Props> = ({ children }) => {
         }}
       >
         <Toolbar />
-        {children || <Outlet />}
+        <Outlet />
       </Box>
     </Box>
   );
