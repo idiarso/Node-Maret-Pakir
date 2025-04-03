@@ -32,8 +32,6 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  ComposedChart,
-  Scatter,
 } from 'recharts';
 import {
   Download as DownloadIcon,
@@ -42,27 +40,26 @@ import {
 } from '@mui/icons-material';
 import PageHeader from '../components/PageHeader';
 import Breadcrumbs from '../components/Breadcrumbs';
-import reportService, {
-  RevenueData,
-  OccupancyData,
-  VehicleTypeData,
-  PeakHoursData,
-  PaymentMethodData,
-} from '../services/reportService';
+import reportService from '../services/reportService';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-const ReportsPage: React.FC = () => {
+interface ChartData {
+  name: string;
+  value: number;
+}
+
+const ReportsPage = () => {
   const [reportType, setReportType] = useState('revenue');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<any>(null);
+  const [displayedData, setDisplayedData] = useState<ChartData[]>([]);
 
   const fetchData = async () => {
     if (!startDate || !endDate) {
-      setError('Please select both start and end dates');
+      setError('Silakan pilih tanggal awal dan akhir');
       return;
     }
 
@@ -80,28 +77,61 @@ const ReportsPage: React.FC = () => {
       switch (reportType) {
         case 'revenue':
           response = await reportService.getRevenueReport(params);
+          setDisplayedData(formatRevenueData(response));
           break;
         case 'occupancy':
           response = await reportService.getOccupancyReport(params);
+          setDisplayedData(formatOccupancyData(response));
           break;
         case 'vehicleTypes':
           response = await reportService.getVehicleTypeReport(params);
+          setDisplayedData(formatVehicleTypeData(response));
           break;
         case 'peakHours':
           response = await reportService.getPeakHoursReport(params);
-          break;
-        case 'paymentMethods':
-          response = await reportService.getPaymentMethodReport(params);
+          setDisplayedData(formatPeakHoursData(response));
           break;
         default:
-          throw new Error('Invalid report type');
+          throw new Error('Tipe laporan tidak valid');
       }
-      setData(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch report data');
+      setError(err instanceof Error ? err.message : 'Gagal mengambil data laporan');
+      setDisplayedData([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatRevenueData = (data: any[]): ChartData[] => {
+    if (!Array.isArray(data)) return [];
+    return data.map(item => ({
+      name: item.date,
+      value: item.amount
+    }));
+  };
+
+  const formatOccupancyData = (data: any[]): ChartData[] => {
+    if (!Array.isArray(data)) return [];
+    return data.map(item => ({
+      name: item.time,
+      value: item.percentage
+    }));
+  };
+
+  const formatVehicleTypeData = (data: any[]): ChartData[] => {
+    if (!Array.isArray(data)) return [];
+    return data.map(item => ({
+      name: item.type,
+      value: item.count
+    }));
+  };
+
+  const formatPeakHoursData = (data: any[]): ChartData[] => {
+    if (!Array.isArray(data)) return [];
+    return data.map(item => ({
+      name: item.hour,
+      value: item.count
+    }));
   };
 
   useEffect(() => {
@@ -127,7 +157,7 @@ const ReportsPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export report');
+      setError(err instanceof Error ? err.message : 'Gagal mengekspor laporan');
     }
   };
 
@@ -148,10 +178,10 @@ const ReportsPage: React.FC = () => {
       );
     }
 
-    if (!data) {
+    if (!displayedData || displayedData.length === 0) {
       return (
         <Alert severity="info" sx={{ m: 2 }}>
-          Select date range to view report
+          Pilih rentang tanggal untuk melihat laporan
         </Alert>
       );
     }
@@ -160,13 +190,13 @@ const ReportsPage: React.FC = () => {
       case 'revenue':
         return (
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={displayedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
               <RechartsTooltip />
               <Legend />
-              <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
+              <Bar dataKey="value" fill="#8884d8" name="Pendapatan" />
             </BarChart>
           </ResponsiveContainer>
         );
@@ -174,7 +204,7 @@ const ReportsPage: React.FC = () => {
       case 'occupancy':
         return (
           <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <AreaChart data={displayedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis domain={[0, 100]} />
@@ -182,11 +212,11 @@ const ReportsPage: React.FC = () => {
               <Legend />
               <Area
                 type="monotone"
-                dataKey="occupancy"
+                dataKey="value"
                 stroke="#8884d8"
                 fill="#8884d8"
                 fillOpacity={0.3}
-                name="Occupancy Rate (%)"
+                name="Tingkat Okupansi (%)"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -197,16 +227,17 @@ const ReportsPage: React.FC = () => {
           <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
-                data={data}
+                data={displayedData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
                 outerRadius={150}
                 fill="#8884d8"
                 dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                nameKey="name"
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
               >
-                {data.map((entry: any, index: number) => (
+                {displayedData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -219,42 +250,19 @@ const ReportsPage: React.FC = () => {
       case 'peakHours':
         return (
           <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <LineChart data={displayedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour" />
+              <XAxis dataKey="name" />
               <YAxis />
               <RechartsTooltip />
               <Legend />
-              <Bar dataKey="count" fill="#8884d8" name="Number of Vehicles" />
-              <Scatter dataKey="count" fill="#ff7300" name="Peak Hours" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        );
-
-      case 'paymentMethods':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="method" />
-              <YAxis yAxisId="left" />
-              <YAxis yAxisId="right" orientation="right" />
-              <RechartsTooltip />
-              <Legend />
-              <Bar
-                yAxisId="left"
-                dataKey="count"
-                fill="#8884d8"
-                name="Number of Transactions"
-              />
               <Line
-                yAxisId="right"
                 type="monotone"
-                dataKey="total"
-                stroke="#ff7300"
-                name="Total Amount"
+                dataKey="value"
+                stroke="#8884d8"
+                name="Jumlah Kendaraan"
               />
-            </ComposedChart>
+            </LineChart>
           </ResponsiveContainer>
         );
 
@@ -264,100 +272,90 @@ const ReportsPage: React.FC = () => {
   };
 
   return (
-    <Box>
-      <Breadcrumbs
-        items={[
-          { label: 'Dashboard', path: '/dashboard' },
-          { label: 'Reports' },
-        ]}
-      />
-      <PageHeader
-        title="Reports & Analytics"
-        subtitle="View and analyze parking system data"
-        actions={[
-          {
-            label: 'Refresh',
-            onClick: fetchData,
-            icon: <RefreshIcon />,
-            variant: 'outlined',
-          },
-        ]}
-      />
+    <Box p={3}>
+      <Breadcrumbs items={[{ label: 'Dashboard', path: '/dashboard' }, { label: 'Laporan' }]} />
+      <PageHeader title="Laporan" subtitle="Lihat statistik dan analisis data parkir" />
 
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
-                <Grid item xs={12} md={3}>
-                  <FormControl fullWidth>
-                    <InputLabel>Report Type</InputLabel>
-                    <Select
-                      value={reportType}
-                      label="Report Type"
-                      onChange={(e) => setReportType(e.target.value)}
-                    >
-                      <MenuItem value="revenue">Revenue Report</MenuItem>
-                      <MenuItem value="occupancy">Occupancy Report</MenuItem>
-                      <MenuItem value="vehicleTypes">Vehicle Types</MenuItem>
-                      <MenuItem value="peakHours">Peak Hours Analysis</MenuItem>
-                      <MenuItem value="paymentMethods">Payment Methods</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    label="Start Date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    label="End Date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    fullWidth
-                    onClick={handleExport}
-                    startIcon={<DownloadIcon />}
-                  >
-                    Export Report
-                  </Button>
-                </Grid>
-              </Grid>
-
-              <Box sx={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
-                {renderChart()}
-                <Tooltip title="Click on chart elements to see detailed information">
-                  <IconButton
-                    sx={{
-                      position: 'absolute',
-                      top: 10,
-                      right: 10,
-                      backgroundColor: 'background.paper',
-                      '&:hover': { backgroundColor: 'action.hover' },
-                    }}
-                  >
-                    <InfoIcon />
-                  </IconButton>
-                </Tooltip>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Tipe Laporan</InputLabel>
+                <Select
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                  label="Tipe Laporan"
+                >
+                  <MenuItem value="revenue">Pendapatan</MenuItem>
+                  <MenuItem value="occupancy">Okupansi</MenuItem>
+                  <MenuItem value="vehicleTypes">Tipe Kendaraan</MenuItem>
+                  <MenuItem value="peakHours">Jam Sibuk</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                label="Tanggal Mulai"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                label="Tanggal Akhir"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  onClick={fetchData}
+                  startIcon={<RefreshIcon />}
+                  disabled={loading}
+                >
+                  Refresh
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleExport}
+                  startIcon={<DownloadIcon />}
+                  disabled={loading || !displayedData.length}
+                >
+                  Export
+                </Button>
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              {reportType === 'revenue' && 'Grafik Pendapatan'}
+              {reportType === 'occupancy' && 'Grafik Okupansi'}
+              {reportType === 'vehicleTypes' && 'Distribusi Tipe Kendaraan'}
+              {reportType === 'peakHours' && 'Analisis Jam Sibuk'}
+            </Typography>
+            <Tooltip title="Klik untuk melihat detail">
+              <IconButton size="small">
+                <InfoIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          {renderChart()}
+        </CardContent>
+      </Card>
     </Box>
   );
 };

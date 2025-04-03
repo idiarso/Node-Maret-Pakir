@@ -45,6 +45,7 @@ import {
 import { ROUTES } from '../utils/constants';
 import * as storage from '../utils/storage';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../hooks/useAuth';
 
 const drawerWidth = 240;
 
@@ -67,17 +68,9 @@ interface Props {
   children?: React.ReactNode;
 }
 
-const Layout: React.FC<Props> = ({ children }) => {
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [openSettings, setOpenSettings] = React.useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { translate } = useLanguage();
-
-  // Buat kategori menu
-  const menuCategories: MenuCategory[] = [
+// Define menu categories based on role
+const getMenuCategories = (role: string) => {
+  const baseCategories = [
     {
       title: 'Main',
       translationKey: 'main',
@@ -92,7 +85,27 @@ const Layout: React.FC<Props> = ({ children }) => {
         { label: 'Entry Gate', translationKey: 'entryGate', icon: <EntryIcon />, path: ROUTES.ENTRY_GATE },
         { label: 'Exit Gate', translationKey: 'exitGate', icon: <ExitIcon />, path: ROUTES.EXIT_GATE },
       ]
-    },
+    }
+  ];
+
+  // Menu items for operator role
+  if (role === 'operator') {
+    return [
+      ...baseCategories,
+      {
+        title: 'Parking Management',
+        translationKey: 'parkingManagement',
+        items: [
+          { label: 'Parking Sessions', translationKey: 'parkingSessions', icon: <CarIcon />, path: ROUTES.PARKING_SESSIONS },
+          { label: 'Tickets', translationKey: 'tickets', icon: <TicketsIcon />, path: ROUTES.TICKETS },
+        ]
+      }
+    ];
+  }
+
+  // Menu items for admin role
+  return [
+    ...baseCategories,
     {
       title: 'Parking Management',
       translationKey: 'parkingManagement',
@@ -136,6 +149,19 @@ const Layout: React.FC<Props> = ({ children }) => {
       ]
     }
   ];
+};
+
+const Layout: React.FC<Props> = ({ children }) => {
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [openSettings, setOpenSettings] = React.useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { translate } = useLanguage();
+  const { user } = useAuth();
+
+  const menuCategories = React.useMemo(() => getMenuCategories(user?.role || ''), [user?.role]);
 
   React.useEffect(() => {
     // Open settings submenu if we are on a settings page
