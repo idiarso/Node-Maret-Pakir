@@ -3,37 +3,16 @@ import { Payment, PaymentFormData, Ticket, Device, ParkingSession, ParkingRate, 
 import logger from '../utils/logger';
 import { API_BASE_URL } from '../config';
 
+// Log API base URL for debugging
+console.log('Using API base URL:', API_BASE_URL);
+
 // Dashboard data interface
 export interface DashboardData {
-  activeTickets: number;
-  totalTickets: number;
-  availableSpots: number;
-  totalCapacity: number;
-  occupancyRate: number;
-  todayRevenue: number;
-  weeklyRevenue: number;
-  monthlyRevenue: number;
-  averageDuration: string;
-  peakHours: string[];
+  activeSessionsCount: number;
+  completedSessionsCount: number;
   totalVehicles: number;
-  vehicleTypes: {
-    car: number;
-    motorcycle: number;
-    truck: number;
-  };
-  deviceStatus: {
-    online: number;
-    offline: number;
-    maintenance: number;
-  };
-  recentTransactions: Array<{
-    id: number;
-    licensePlate: string;
-    amount: number;
-    vehicleType: string;
-    timestamp: string;
-    duration: string;
-  }>;
+  totalRevenue: number;
+  recentSessions: any[];
 }
 
 export interface DashboardResponse {
@@ -54,12 +33,19 @@ let isServerConnected = true;
 let lastConnectionCheck = 0;
 const CONNECTION_CHECK_INTERVAL = 10000; // 10 seconds between connection checks
 
+// Specify API URL explicitly for clarity
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 10000, // Add timeout to avoid hanging requests
+});
+
+// Log semua request
+api.interceptors.request.use((config) => {
+  logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`);
+  return config;
 });
 
 // Request interceptor to add the auth token and check server status
@@ -192,9 +178,37 @@ export const dashboardService = {
 };
 
 // Payment API functions
-export const getPayments = async (): Promise<Payment[]> => {
-  const response = await api.get<Payment[]>('/payments');
-  return response.data as Payment[];
+export const getPayments = async (): Promise<any> => {
+  console.log('Fetching payments from database...');
+  try {
+    // Get token from localStorage
+    const token = localStorage.getItem('token');
+    
+    // Menggunakan fetch langsung untuk menghindari masalah CORS dan routing
+    const response = await fetch('http://localhost:3000/api/payments', {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Raw payment response:', data);
+    
+    // Backend sudah mengembalikan data dengan format yang benar
+    // sehingga tidak perlu transformasi yang kompleks
+    return { data };
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    return { 
+      data: [], 
+      error: error instanceof Error ? error.message : 'Unknown error fetching payments'
+    };
+  }
 };
 
 export const createPayment = async (data: PaymentFormData): Promise<Payment> => {
@@ -250,52 +264,63 @@ export const deviceService = {
 // Parking Sessions API
 export const parkingSessionService = {
   getAll: async (): Promise<ParkingSession[]> => {
-    console.log('Fetching all parking sessions...');
+    const response = await api.get<ParkingSession[]>('/parking-sessions');
+    return response.data;
+  },
+  
+  createEntry: async (data: CreateParkingSessionRequest): Promise<ParkingSessionResponse> => {
+    console.log('Creating parking session entry with data:', data);
     try {
-      // Menghilangkan /api karena sudah ada di API_BASE_URL
-      const response = await api.get<ParkingSession[]>('/parking-sessions');
-      console.log('Successfully fetched parking sessions:', response.data);
+      const url = getApiUrl('parking-sessions/entry');
+      console.log(`Sending POST request to ${url}`);
       
-      if (!response.data) {
-        console.error('Empty response data from parkingSessionService.getAll');
-        return [];
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to create entry: ${errorText}`);
       }
       
-      if (!Array.isArray(response.data)) {
-        console.error('Invalid response format from parkingSessionService.getAll, expected array but got:', response.data);
-        return [];
-      }
-      
-      // Return the data
-      return response.data;
+      const result = await response.json();
+      console.log('Entry created successfully:', result);
+      return result;
     } catch (error) {
-      console.error('Error in parkingSessionService.getAll:', error);
-      // Instead of throwing, return empty array for better fault tolerance
-      return [];
+      console.error('Error creating parking session entry:', error);
+      throw error;
     }
   },
-  getById: async (id: number): Promise<ParkingSession> => {
-    const response = await api.get<ParkingSession>(`/parking-sessions/${id}`);
-    return response.data;
+  
+  update: async (id: number, data: Partial<ParkingSession> & { license_plate?: string, vehicle_type?: string }): Promise<ParkingSession> => {
+    try {
+      console.log(`Updating parking session ${id} with data:`, data);
+      
+      const response = await api.put<ParkingSession>(`/parking-sessions/${id}`, data);
+      
+      if (response.status === 200) {
+        console.log(`Successfully updated parking session ${id}:`, response.data);
+        return response.data;
+      } else {
+        throw new Error(`Failed to update parking session: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error(`Error updating parking session ${id}:`, error);
+      throw error;
+    }
   },
-  getSession: async (id: string): Promise<ParkingSessionResponse> => {
-    const response = await api.get<ParkingSessionResponse>(`/parking-sessions/${id}`);
-    return response.data;
-  },
-  createEntry: async (data: CreateParkingSessionRequest): Promise<ParkingSessionResponse> => {
-    const response = await api.post<ParkingSessionResponse>('/parking-sessions/entry', data);
-    return response.data;
-  },
+  
   processExit: async (data: ExitParkingSessionRequest): Promise<ParkingSessionResponse> => {
     const response = await api.post<ParkingSessionResponse>('/parking-sessions/exit', data);
-    return response.data;
-  },
-  update: async (id: number, data: Partial<ParkingSession>): Promise<ParkingSession> => {
-    const response = await api.patch<ParkingSession>(`/parking-sessions/${id}`, data);
-    return response.data;
-  },
-  complete: async (id: number): Promise<ParkingSession> => {
-    const response = await api.post<ParkingSession>(`/parking-sessions/${id}/complete`);
     return response.data;
   }
 };
@@ -335,13 +360,41 @@ export interface GateFormData {
 export const gateService = {
   getAll: async (): Promise<Gate[]> => {
     try {
-      const response = await api.get<Gate[]>('/gates');
-      console.log('Fetching gates from:', '/gates');
-      console.log('Gates response:', response.data);
-      return response.data;
+      console.log('Fetching gates...');
+      const url = getApiUrl('gates');
+      console.log('Gates API URL:', url);
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to fetch gates: ${errorText || response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Gates fetched successfully:', data);
+      
+      // Ensure we return an array even if server response is invalid
+      if (!Array.isArray(data)) {
+        console.warn('Gates API returned non-array data:', data);
+        return [];
+      }
+      
+      return data;
     } catch (error) {
-      logger.error('Error fetching gates:', error);
-      throw error;
+      console.error('Error fetching gates:', error);
+      // Return empty array instead of throwing to avoid crashing UI
+      return [];
     }
   },
 
@@ -386,10 +439,35 @@ export const gateService = {
 
   changeStatus: async (id: number, status: string): Promise<Gate> => {
     try {
-      const response = await api.put<Gate>(`/gates/${id}/status`, { status });
-      return response.data;
+      console.log(`Changing gate ${id} status to ${status}`);
+      
+      // Map open/close to database status if needed
+      let dbStatus = status;
+      if (status === 'OPEN') dbStatus = 'ACTIVE';
+      if (status === 'CLOSE') dbStatus = 'INACTIVE';
+      
+      const url = getApiUrl(`gates/${id}/status`);
+      console.log(`Sending PUT request to ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: dbStatus }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to change gate status: ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Gate status changed successfully:', result);
+      return result;
     } catch (error) {
-      logger.error(`Error changing gate ${id} status:`, error);
+      console.error(`Error changing gate ${id} status:`, error);
       throw error;
     }
   }
@@ -999,6 +1077,8 @@ export interface ParkingSessionResponse {
 export interface CreateParkingSessionRequest {
   plate_number: string;
   type: string;
+  gate_id?: number;
+  photo_data?: string;
 }
 
 export interface ExitParkingSessionRequest {
@@ -1039,4 +1119,15 @@ export const adminDashboardService = {
   }
 };
 
-export default api; 
+export default api;
+
+// Helper to get the full API URL for direct fetch calls
+export const getApiUrl = (path: string): string => {
+  // Remove leading slash if present on path and API_BASE_URL already has trailing slash
+  const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  // Ensure base URL ends with a slash if path doesn't start with one
+  const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
+  
+  return `${baseUrl}${normalizedPath}`;
+}; 

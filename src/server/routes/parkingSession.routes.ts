@@ -27,6 +27,6 @@ router.post('/', ParkingSessionController.createParkingSession);
 router.put('/:id', ParkingSessionController.updateParkingSession);
 
 // Complete parking session
-router.put('/:id/complete', ParkingSessionController.completeParkingSession);
+router.post('/:id/complete', ParkingSessionController.completeParkingSession);
 
 export default router; 

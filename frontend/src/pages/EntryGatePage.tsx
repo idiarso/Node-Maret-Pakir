@@ -17,17 +17,21 @@ import {
   CircularProgress,
   Paper,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Tooltip,
+  IconButton
 } from '@mui/material';
 import {
   Camera as CameraIcon,
   Print as PrintIcon,
   DirectionsCar as CarIcon,
   Clear as ClearIcon,
-  ErrorOutline as ErrorIcon
+  ErrorOutline as ErrorIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { parkingSessionService, gateService } from '../services/api';
+import { parkingSessionService } from '../services/api';
+import gateService from '../services/gateService';
 import PageWrapper from '../components/PageWrapper';
 import Webcam from 'react-webcam';
 import { useAuth } from '../contexts/AuthContext';
@@ -49,7 +53,7 @@ const EntryGatePage: React.FC = () => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ticketPrinted, setTicketPrinted] = useState(false);
-  const [selectedGate, setSelectedGate] = useState<number | null>(null);
+  const [selectedGate, setSelectedGate] = useState<string>('');
   const [isCameraConnected, setIsCameraConnected] = useState(true);
   const [emergencyMode, setEmergencyMode] = useState(false);
   const [isPushButtonPressed, setIsPushButtonPressed] = useState(false);
@@ -62,9 +66,11 @@ const EntryGatePage: React.FC = () => {
     message: '',
     severity: 'info'
   });
+  const [gates, setGates] = useState<any[]>([]);
+  const [gatesLoading, setGatesLoading] = useState(true);
 
   // Get all gates
-  const { data: gates } = useQuery({
+  const { data: gatesData } = useQuery({
     queryKey: ['entry-gates'],
     queryFn: async () => {
       const allGates = await gateService.getAll();
@@ -78,6 +84,7 @@ const EntryGatePage: React.FC = () => {
       plate_number: string;
       type: string;
       photo_data?: string;
+      gate_id?: number;
     }) => {
       return parkingSessionService.createEntry(data);
     },
@@ -108,18 +115,19 @@ const EntryGatePage: React.FC = () => {
 
   // Mutation for opening gate
   const openGateMutation = useMutation({
-    mutationFn: (gateId: number) => gateService.changeStatus(gateId, 'OPEN'),
+    mutationFn: (gateId: string) => gateService.changeStatus(parseInt(gateId), 'OPEN'),
     onSuccess: () => {
       setSnackbar({
         open: true,
-        message: 'Gate opened!',
-        severity: 'info'
+        message: 'Gate opened successfully',
+        severity: 'success'
       });
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      console.error('Error opening gate:', error);
       setSnackbar({
         open: true,
-        message: `Error opening gate: ${error.message || 'Unknown error'}`,
+        message: 'Failed to open gate',
         severity: 'error'
       });
     }
@@ -247,16 +255,17 @@ const EntryGatePage: React.FC = () => {
       return;
     }
     
-    if (!emergencyMode && !photo) {
-      setError('Please take a photo of the vehicle or enable emergency mode');
+    if (!emergencyMode && !selectedGate) {
+      setError('Please select an entry gate');
       return;
     }
 
-    // Submit entry
+    // Submit entry data
     submitEntry.mutate({
       plate_number: plateNumber,
       type: vehicleType,
-      photo_data: photo || undefined
+      photo_data: photo || undefined,
+      gate_id: selectedGate ? parseInt(selectedGate) : undefined
     });
   };
 
@@ -264,8 +273,8 @@ const EntryGatePage: React.FC = () => {
     setPlateNumber('');
     setVehicleType('CAR');
     setPhoto(null);
-    setError(null);
     setTicketPrinted(false);
+    setError(null);
     setIsPushButtonPressed(false);
   };
 
@@ -283,6 +292,56 @@ const EntryGatePage: React.FC = () => {
         message: 'Emergency mode disabled',
         severity: 'info'
       });
+    }
+  };
+
+  // Ambil daftar gate saat komponen dimuat
+  useEffect(() => {
+    fetchGates();
+  }, []);
+
+  // Fungsi untuk mengambil daftar gate dari API
+  const fetchGates = async () => {
+    setGatesLoading(true);
+    try {
+      console.log('EntryGatePage: Fetching gates...');
+      const gatesList = await gateService.getAll();
+      console.log('EntryGatePage: Gates fetched:', gatesList);
+      
+      if (gatesList.length === 0) {
+        console.log('EntryGatePage: No gates found or error fetching gates');
+        setError('Tidak ada gate entry yang tersedia. Silakan buat gate terlebih dahulu di menu Gate Management.');
+        setGates([]);
+      } else {
+        // Filter hanya gate ENTRY
+        const entryGates = gatesList.filter(gate => 
+          gate.type === 'ENTRY' && gate.status === 'ACTIVE'
+        );
+        
+        console.log('EntryGatePage: Filtered entry gates:', entryGates);
+        
+        if (entryGates.length === 0) {
+          setError('Tidak ada gate ENTRY yang aktif. Silakan aktifkan gate di menu Gate Management.');
+        } else {
+          setError(null);
+        }
+        
+        setGates(entryGates);
+        
+        // Atur gate default jika ada
+        if (entryGates.length > 0) {
+          setSelectedGate(entryGates[0].id.toString());
+          console.log('EntryGatePage: Set default gate:', entryGates[0].id.toString());
+        } else {
+          setSelectedGate('');
+        }
+      }
+    } catch (err) {
+      console.error('EntryGatePage: Error fetching gates:', err);
+      setError('Gagal memuat daftar gate. Silakan refresh halaman atau periksa koneksi server.');
+      setGates([]);
+    } finally {
+      setGatesLoading(false);
     }
   };
 
@@ -398,16 +457,23 @@ const EntryGatePage: React.FC = () => {
                   )}
                   
                   {/* Push button simulator for testing */}
-                  <Button 
-                    variant="outlined"
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    size="large"
                     onClick={() => {
                       setIsPushButtonPressed(true);
-                      if (isCameraConnected && !emergencyMode) {
-                        capturePhoto();
-                      }
+                      setSnackbar({
+                        open: true,
+                        message: "Push button triggered! Please enter details manually.",
+                        severity: "info"
+                      });
                     }}
+                    id="simulatePushButton"
+                    sx={{ mt: 2, mb: 2, height: '60px' }}
                   >
-                    Simulate Push Button
+                    SIMULATE PUSH BUTTON
                   </Button>
                 </Box>
               </CardContent>
@@ -440,27 +506,52 @@ const EntryGatePage: React.FC = () => {
                       label="Vehicle Type"
                       onChange={(e) => setVehicleType(e.target.value)}
                     >
-                      <MenuItem value="CAR">Car</MenuItem>
-                      <MenuItem value="MOTORCYCLE">Motorcycle</MenuItem>
-                      <MenuItem value="TRUCK">Truck</MenuItem>
+                      <MenuItem value="MOBIL">Mobil</MenuItem>
+                      <MenuItem value="MOTOR">Motor</MenuItem>
+                      <MenuItem value="TRUK">Truk</MenuItem>
                       <MenuItem value="BUS">Bus</MenuItem>
+                      <MenuItem value="VAN">Van</MenuItem>
                     </Select>
                   </FormControl>
-                  <FormControl fullWidth>
-                    <InputLabel>Select Gate</InputLabel>
+                  <FormControl fullWidth margin="normal">
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <InputLabel id="gate-select-label">Select Gate</InputLabel>
+                      <Box sx={{ ml: 'auto' }}>
+                        <Tooltip title="Refresh Gates List">
+                          <IconButton 
+                            size="small" 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              fetchGates();
+                            }}
+                            color="primary"
+                            disabled={gatesLoading}
+                          >
+                            {gatesLoading ? <CircularProgress size={20} /> : <RefreshIcon fontSize="small" />}
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
                     <Select
-                      value={selectedGate || ''}
+                      labelId="gate-select-label"
+                      value={selectedGate}
                       label="Select Gate"
-                      onChange={(e) => setSelectedGate(e.target.value as number)}
+                      onChange={(e) => setSelectedGate(e.target.value)}
                     >
                       <MenuItem value="">
                         <em>None</em>
                       </MenuItem>
-                      {gates?.map((gate) => (
-                        <MenuItem key={gate.id} value={gate.id}>
-                          {gate.name}
-                        </MenuItem>
-                      ))}
+                      {gatesLoading ? (
+                        <MenuItem disabled>Loading gates...</MenuItem>
+                      ) : gates.length === 0 ? (
+                        <MenuItem disabled>No gates available</MenuItem>
+                      ) : (
+                        gates.map((gate) => (
+                          <MenuItem key={gate.id} value={gate.id.toString()}>
+                            {gate.name} - {gate.location}
+                          </MenuItem>
+                        ))
+                      )}
                     </Select>
                   </FormControl>
                   {error && (

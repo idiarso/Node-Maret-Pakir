@@ -39,16 +39,49 @@ import { useLanguage } from '../contexts/LanguageContext';
 import PageWrapper from '../components/PageWrapper';
 import { VehicleType } from '../utils/constants';
 
+// Database menggunakan tipe kendaraan ini
+enum DatabaseVehicleType {
+  MOBIL = 'MOBIL',
+  MOTOR = 'MOTOR',
+  TRUK = 'TRUK',
+  VAN = 'VAN',
+  BUS = 'BUS',
+  CAR = 'CAR',               // Untuk kompatibilitas dengan data lama
+  MOTORCYCLE = 'MOTORCYCLE', // Untuk kompatibilitas dengan data lama
+  TRUCK = 'TRUCK'            // Untuk kompatibilitas dengan data lama
+}
+
+// Definisikan mapping dari enum VehicleType ke DatabaseVehicleType
+const vehicleTypeMapping: Record<VehicleType, DatabaseVehicleType> = {
+  [VehicleType.CAR]: DatabaseVehicleType.MOBIL,
+  [VehicleType.MOTORCYCLE]: DatabaseVehicleType.MOTOR,
+  [VehicleType.TRUCK]: DatabaseVehicleType.TRUK,
+  [VehicleType.VAN]: DatabaseVehicleType.VAN,
+  [VehicleType.BUS]: DatabaseVehicleType.BUS
+};
+
+// Mapping balik dari DatabaseVehicleType ke VehicleType
+const reverseVehicleTypeMapping: Record<string, VehicleType> = {
+  [DatabaseVehicleType.MOBIL]: VehicleType.CAR,
+  [DatabaseVehicleType.MOTOR]: VehicleType.MOTORCYCLE,
+  [DatabaseVehicleType.TRUK]: VehicleType.TRUCK,
+  [DatabaseVehicleType.VAN]: VehicleType.VAN,
+  [DatabaseVehicleType.BUS]: VehicleType.BUS,
+  [DatabaseVehicleType.CAR]: VehicleType.CAR,
+  [DatabaseVehicleType.MOTORCYCLE]: VehicleType.MOTORCYCLE,
+  [DatabaseVehicleType.TRUCK]: VehicleType.TRUCK
+};
+
 const vehicleTypeTranslations = {
-  [VehicleType.MOBIL]: {
+  [VehicleType.CAR]: {
     'en': 'Car',
     'id': 'Mobil'
   },
-  [VehicleType.MOTOR]: {
+  [VehicleType.MOTORCYCLE]: {
     'en': 'Motorcycle',
     'id': 'Motor'
   },
-  [VehicleType.TRUK]: {
+  [VehicleType.TRUCK]: {
     'en': 'Truck',
     'id': 'Truk'
   },
@@ -62,14 +95,12 @@ const vehicleTypeTranslations = {
   }
 };
 
-const vehicleTypes = Object.values(VehicleType);
-
 const ParkingRatesPageContent: FC = () => {
   const { translate, currentLanguage } = useLanguage();
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedRate, setSelectedRate] = useState<ParkingRate | null>(null);
   const [formData, setFormData] = useState<Partial<ParkingRate>>({
-    vehicle_type: VehicleType.MOBIL,
+    vehicle_type: VehicleType.CAR,
     base_rate: 0,
     status: 'active'
   });
@@ -99,22 +130,27 @@ const ParkingRatesPageContent: FC = () => {
     queryFn: parkingRateService.getAll
   });
 
-  // Fix out-of-range values for vehicle_type that might be using the old enum
-  const fixedRates = rates.map(rate => {
-    // Check if the vehicle_type is using old enum values in a type-safe way
-    const currentType = String(rate.vehicle_type);
-    if (currentType === 'CAR') {
-      return { ...rate, vehicle_type: VehicleType.MOBIL };
-    } else if (currentType === 'MOTORCYCLE') {
-      return { ...rate, vehicle_type: VehicleType.MOTOR };
-    } else if (currentType === 'TRUCK') {
-      return { ...rate, vehicle_type: VehicleType.TRUK };
-    }
-    return rate;
+  // Konversikan format kendaraan dari database ke format UI
+  const normalizedRates = rates.map(rate => {
+    const vehicleTypeStr = String(rate.vehicle_type);
+    // Ambil VehicleType yang sesuai berdasarkan mapping
+    const normalizedType = reverseVehicleTypeMapping[vehicleTypeStr] || vehicleTypeStr as VehicleType;
+    
+    return {
+      ...rate,
+      vehicle_type: normalizedType
+    };
   });
 
   const createRateMutation = useMutation({
-    mutationFn: (data: Partial<ParkingRate>) => parkingRateService.create(data),
+    mutationFn: (data: Partial<ParkingRate>) => {
+      // Konversikan ke format database sebelum mengirim
+      const mappedData = {
+        ...data,
+        vehicle_type: vehicleTypeMapping[data.vehicle_type as VehicleType] || data.vehicle_type
+      };
+      return parkingRateService.create(mappedData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parkingRates'] });
       handleCloseDialog();
@@ -159,8 +195,14 @@ const ParkingRatesPageContent: FC = () => {
   });
 
   const updateRateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: Partial<ParkingRate> }) => 
-      parkingRateService.update(id, data),
+    mutationFn: ({ id, data }: { id: number, data: Partial<ParkingRate> }) => {
+      // Konversikan ke format database sebelum mengirim
+      const mappedData = {
+        ...data,
+        vehicle_type: vehicleTypeMapping[data.vehicle_type as VehicleType] || data.vehicle_type
+      };
+      return parkingRateService.update(id, mappedData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parkingRates'] });
       handleCloseDialog();
@@ -265,14 +307,19 @@ const ParkingRatesPageContent: FC = () => {
 
   const handleOpenDialog = (rate?: ParkingRate) => {
     if (rate) {
+      // Konversikan format kendaraan dari database ke format UI
+      const vehicleTypeStr = String(rate.vehicle_type);
+      const normalizedType = reverseVehicleTypeMapping[vehicleTypeStr] || vehicleTypeStr as VehicleType;
+      
       setSelectedRate(rate);
       setFormData({
-        ...rate
+        ...rate,
+        vehicle_type: normalizedType
       });
     } else {
       setSelectedRate(null);
       setFormData({
-        vehicle_type: VehicleType.MOBIL,
+        vehicle_type: VehicleType.CAR,
         base_rate: 0,
         status: 'active'
       });
@@ -412,7 +459,10 @@ const ParkingRatesPageContent: FC = () => {
 
   // Translate vehicle type
   const getVehicleTypeTranslation = (type: string) => {
-    const typeTranslation = vehicleTypeTranslations[type as keyof typeof vehicleTypeTranslations];
+    // Konversi tipe ke VehicleType agar bisa digunakan dengan vehicleTypeTranslations
+    const vehicleTypeKey = reverseVehicleTypeMapping[type] || type as VehicleType;
+    const typeTranslation = vehicleTypeTranslations[vehicleTypeKey];
+    
     if (!typeTranslation) return type;
     
     return typeTranslation[currentLanguage as keyof typeof typeTranslation] || 
@@ -460,7 +510,7 @@ const ParkingRatesPageContent: FC = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
           </Box>
-        ) : !Array.isArray(fixedRates) || fixedRates.length === 0 ? (
+        ) : !Array.isArray(normalizedRates) || normalizedRates.length === 0 ? (
           <Typography>{translate('noRatesFound')}</Typography>
         ) : (
           <TableContainer>
@@ -474,7 +524,7 @@ const ParkingRatesPageContent: FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {fixedRates.map((rate) => (
+                {normalizedRates.map((rate) => (
                   <TableRow key={`parking-rate-${rate.id}`}>
                     <TableCell>{getVehicleTypeTranslation(rate.vehicle_type)}</TableCell>
                     <TableCell>Rp {rate.base_rate ? rate.base_rate.toLocaleString() : '0'}</TableCell>
@@ -520,7 +570,7 @@ const ParkingRatesPageContent: FC = () => {
               <Select
                 labelId="vehicle-type-label"
                 name="vehicle_type"
-                value={formData.vehicle_type || VehicleType.MOBIL}
+                value={formData.vehicle_type as VehicleType || VehicleType.CAR}
                 label={translate('vehicleType')}
                 onChange={handleSelectChange}
               >

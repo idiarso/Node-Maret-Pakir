@@ -558,25 +558,47 @@ app.get('/health', (req, res) => {
 // Initialize database and start server
 const startServer = async () => {
   try {
+    // Initialize database first
+    logger.info('Initializing database connection...');
     const dataSource = await initializeDatabase();
-    console.log('Database connection established');
     
-    app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
+    if (!dataSource.isInitialized) {
+      throw new Error('Failed to initialize database connection');
+    }
+    
+    logger.info('Database connection established successfully');
+    
+    // Start server only after database is initialized
+    const server = app.listen(port, () => {
+      logger.info(`Server is running on port ${port}`);
     });
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      logger.info('SIGTERM received. Closing HTTP server and database connection...');
+      server.close(async () => {
+        if (dataSource.isInitialized) {
+          await dataSource.destroy();
+          logger.info('Database connection closed');
+        }
+        process.exit(0);
+      });
+    });
+
   } catch (error) {
-    console.error('Error starting server:', error);
+    logger.error('Error starting server:', error);
+    if (error instanceof Error) {
+      logger.error('Error details:', error.message);
+      logger.error('Stack trace:', error.stack);
+    }
     process.exit(1);
   }
 };
 
-startServer();
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received. Closing HTTP server and database connection...');
-  await AppDataSource.destroy();
-  process.exit(0);
+// Start the server
+startServer().catch(error => {
+  logger.error('Failed to start server:', error);
+  process.exit(1);
 });
 
 export default app; 

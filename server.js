@@ -1,14 +1,43 @@
 const express = require('express');
 const cors = require('cors');
-const { initDatabase, getParkingTickets, createParkingTicket, updateParkingTicket, getParkingRates, createParkingRate, updateParkingRate, deleteParkingRate, authenticateUser, getDashboardStats } = require('./db');
+const { 
+    initDatabase, 
+    getParkingTickets, 
+    createParkingTicket, 
+    updateParkingTicket, 
+    getParkingRates, 
+    createParkingRate, 
+    updateParkingRate, 
+    deleteParkingRate, 
+    authenticateUser, 
+    getDashboardStats,
+    getPayments,
+    createPayment,
+    getPaymentById,
+    updatePayment,
+    deletePayment 
+} = require('./db');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = 'your-secret-key'; // In production, use environment variable
 
 const app = express();
-app.use(cors());
+
+// Konfigurasi CORS yang lebih spesifik untuk menghindari masalah
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
+}));
+
 app.use(express.json());
-app.use(express.static('.');
+app.use(express.static('.'));
+
+// Logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
 
 // Middleware untuk verifikasi token JWT
 const authenticateToken = (req, res, next) => {
@@ -25,7 +54,14 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Initialize database
-initDatabase().catch(console.error);
+initDatabase().catch(error => {
+    console.error('Database initialization error:', error);
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
 
 // Get all parking tickets
 app.get('/api/tickets', async (req, res) => {
@@ -98,6 +134,22 @@ app.post('/api/rates', authenticateToken, async (req, res) => {
 // Update parking rate (protected)
 app.put('/api/rates/:id', authenticateToken, async (req, res) => {
     try {
+        const rate = await updateParkingRate(req.params.id, req.body);
+        res.json(rate);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete parking rate (protected)
+app.delete('/api/rates/:id', authenticateToken, async (req, res) => {
+    try {
+        await deleteParkingRate(req.params.id);
+        res.json({ message: 'Tarif parkir berhasil dihapus' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Get dashboard statistics
 app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
@@ -131,26 +183,104 @@ app.get('/api/reports/monthly-income', authenticateToken, async (req, res) => {
     }
 });
 
-
-        const rate = await updateParkingRate(req.params.id, req.body);
-        res.json(rate);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Delete parking rate (protected)
-app.delete('/api/rates/:id', authenticateToken, async (req, res) => {
+// Get all payments - public endpoint tanpa auth
+app.get('/api/payments', async (req, res) => {
     try {
-        await deleteParkingRate(req.params.id);
-        res.json({ message: 'Tarif parkir berhasil dihapus' });
+        console.log('API: Fetching payments from database...');
+        const payments = await getPayments();
+        console.log('API: Retrieved payments count:', payments.length);
+        
+        if (payments.length === 0) {
+            console.log('API: No payments found in database');
+        } else {
+            console.log('API: Sample payment:', JSON.stringify(payments[0]));
+        }
+        
+        // Set header untuk menghindari caching
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        
+        // Kirim data apa adanya tanpa manipulasi tambahan
+        res.json(payments);
     } catch (err) {
+        console.error('Error fetching payments:', err);
+        // Kirim pesan error yang lebih detail
+        res.status(500).json({ 
+            error: err.message,
+            detail: 'Error while retrieving payments from database',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Get payment by ID
+app.get('/api/payments/:id', async (req, res) => {
+    try {
+        const payment = await getPaymentById(req.params.id);
+        if (!payment) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+        res.json(payment);
+    } catch (err) {
+        console.error('Error fetching payment:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
+// Create new payment
+app.post('/api/payments', async (req, res) => {
+    try {
+        const payment = await createPayment(req.body);
+        res.status(201).json(payment);
+    } catch (err) {
+        console.error('Error creating payment:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update payment
+app.put('/api/payments/:id', async (req, res) => {
+    try {
+        const payment = await updatePayment(req.params.id, req.body);
+        if (!payment) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+        res.json(payment);
+    } catch (err) {
+        console.error('Error updating payment:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete payment
+app.delete('/api/payments/:id', async (req, res) => {
+    try {
+        await deletePayment(req.params.id);
+        res.json({ message: 'Payment successfully deleted' });
+    } catch (err) {
+        console.error('Error deleting payment:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Catch-all route untuk menangani 404
+app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found', path: req.url });
+});
+
+// Error handler untuk menangani exception yang tidak tertangkap
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({ 
+        error: 'Internal server error', 
+        message: err.message,
+        timestamp: new Date().toISOString()
+    });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server berjalan di port ${PORT}`);
+    console.log(`Database URL: ${process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/parking_system1'}`);
 });

@@ -79,9 +79,17 @@ export interface ParkingSession {
   id: number;
   entry_time: Date | string;
   exit_time?: Date | string;
-  vehicle_id?: number;
-  parking_area_id?: number;
-  ticket_id?: number;
+  
+  // Foreign keys
+  ticketId?: number;
+  vehicleId?: number;
+  parkingAreaId?: number;
+  
+  // Relations
+  ticket?: Ticket;
+  vehicle?: Vehicle;
+  parkingArea?: ParkingArea;
+  
   status: string;
   created_at: Date | string;
   updated_at: Date | string;
@@ -165,4 +173,27 @@ export interface BackupSettings {
     size: string;
     type: string;
   }>;
+}
+
+// Vehicle interface
+export interface Vehicle {
+  id: number;
+  plate_number: string;
+  type: string;
+  owner_name?: string;
+  owner_contact?: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+// Parking Area interface
+export interface ParkingArea {
+  id: number;
+  name: string;
+  location: string;
+  capacity: number;
+  occupied: number;
+  status: string;
+  created_at: Date | string;
+  updated_at: Date | string;
 }

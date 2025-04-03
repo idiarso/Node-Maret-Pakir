@@ -12,11 +12,11 @@ export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 // Vehicle Types
 export enum VehicleType {
-  CAR = 'CAR',
-  MOTORCYCLE = 'MOTORCYCLE',
-  TRUCK = 'TRUCK',
-  VAN = 'VAN',
-  BUS = 'BUS'
+  MOBIL = 'MOBIL',
+  MOTOR = 'MOTOR',
+  TRUK = 'TRUK',
+  BUS = 'BUS',
+  VAN = 'VAN'
 }
 
 // Payment Status
