@@ -19,6 +19,9 @@ import {
   Avatar,
   Menu,
   MenuItem,
+  Badge,
+  Tooltip,
+  Popover,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -44,10 +47,16 @@ import {
   Login as EntryIcon,
   Logout as ExitIcon,
   Help as HelpIcon,
+  History as HistoryIcon,
+  Notifications as NotificationsIcon,
+  Person as PersonIcon,
+  MeetingRoom as GateIcon,
 } from '@mui/icons-material';
-import { ROUTES } from '../utils/constants';
+import { ROUTES, UserRole } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../contexts/NotificationContext';
+import { NotificationList } from './notification/NotificationList';
 
 const drawerWidth = 240;
 
@@ -67,19 +76,79 @@ interface MenuCategory {
 
 // Define menu categories based on role
 const getMenuCategories = (role: string): MenuCategory[] => {
-  // Base categories available to all authenticated users
-  const baseCategories: MenuCategory[] = [
-    {
-      title: 'Main',
-      translationKey: 'main',
-      items: [
-        { label: 'Dashboard', translationKey: 'dashboard', icon: <DashboardIcon />, path: ROUTES.DASHBOARD },
-      ]
-    }
-  ];
+  // Menu items for admin role
+  if (role === UserRole.ADMIN) {
+    return [
+      {
+        title: 'Main',
+        translationKey: 'main',
+        items: [
+          { label: 'Dashboard', translationKey: 'dashboard', icon: <DashboardIcon />, path: ROUTES.DASHBOARD },
+        ]
+      },
+      {
+        title: 'Gate Operations',
+        translationKey: 'gateOperations',
+        items: [
+          { label: 'Entry Gate', translationKey: 'entryGate', icon: <EntryIcon />, path: ROUTES.ENTRY_GATE },
+          { label: 'Exit Gate', translationKey: 'exitGate', icon: <ExitIcon />, path: ROUTES.EXIT_GATE },
+        ]
+      },
+      {
+        title: 'Parking Management',
+        translationKey: 'parkingManagement',
+        items: [
+          { label: 'Parking Sessions', translationKey: 'parkingSessions', icon: <CarIcon />, path: ROUTES.PARKING_SESSIONS },
+          { label: 'Tickets', translationKey: 'tickets', icon: <TicketsIcon />, path: ROUTES.TICKETS },
+          { label: 'Parking Areas', translationKey: 'parkingAreas', icon: <ParkingAreaIcon />, path: ROUTES.PARKING_AREAS },
+          { label: 'Parking Rates', translationKey: 'parkingRates', icon: <ParkingRatesIcon />, path: ROUTES.PARKING_RATES },
+          { label: 'Vehicles', translationKey: 'vehicles', icon: <CarIcon />, path: ROUTES.VEHICLES },
+        ]
+      },
+      {
+        title: 'Customer Management',
+        translationKey: 'customerManagement',
+        items: [
+          { label: 'Members', translationKey: 'members', icon: <MembershipIcon />, path: ROUTES.MEMBERSHIPS },
+          { label: 'Payments', translationKey: 'payments', icon: <PaymentsIcon />, path: ROUTES.PAYMENTS },
+        ]
+      },
+      {
+        title: 'Reports',
+        translationKey: 'reports',
+        items: [
+          { label: 'Financial Reports', translationKey: 'financialReports', icon: <ReportIcon />, path: ROUTES.REPORTS },
+          { label: 'Activity Logs', translationKey: 'activityLogs', icon: <HistoryIcon />, path: ROUTES.LOGS },
+          { label: 'Statistics', translationKey: 'statistics', icon: <ReportIcon />, path: ROUTES.STATISTICS },
+        ]
+      },
+      {
+        title: 'System',
+        translationKey: 'system',
+        items: [
+          { label: 'Users', translationKey: 'users', icon: <UsersIcon />, path: ROUTES.USERS },
+          { label: 'Devices', translationKey: 'devices', icon: <DevicesIcon />, path: ROUTES.DEVICES },
+          { label: 'Gates', translationKey: 'gates', icon: <GatesIcon />, path: ROUTES.GATES },
+          { label: 'Shifts', translationKey: 'shifts', icon: <ShiftsIcon />, path: ROUTES.SHIFTS },
+          { 
+            label: 'Settings', 
+            translationKey: 'settings',
+            icon: <SettingsIcon />, 
+            path: ROUTES.SETTINGS,
+            subItems: [
+              { label: 'Language', translationKey: 'language', icon: <LanguageIcon />, path: ROUTES.SETTINGS_LANGUAGE },
+              { label: 'Backup', translationKey: 'backup', icon: <BackupIcon />, path: ROUTES.SETTINGS_BACKUP },
+              { label: 'System', translationKey: 'systemSettings', icon: <BusinessIcon />, path: ROUTES.SETTINGS_SYSTEM },
+            ]
+          },
+          { label: 'Manual Book', translationKey: 'manualBook', icon: <HelpIcon />, path: ROUTES.MANUAL_BOOK },
+        ]
+      }
+    ];
+  }
 
   // Menu items for operator role
-  if (role === 'operator') {
+  if (role === UserRole.OPERATOR) {
     return [
       {
         title: 'Main',
@@ -114,77 +183,30 @@ const getMenuCategories = (role: string): MenuCategory[] => {
     ];
   }
 
-  // Menu items for admin role
-  if (role === 'admin') {
-    return [
-      ...baseCategories,
-      {
-        title: 'Gate Operations',
-        translationKey: 'gateOperations',
-        items: [
-          { label: 'Entry Gate', translationKey: 'entryGate', icon: <EntryIcon />, path: ROUTES.ENTRY_GATE },
-          { label: 'Exit Gate', translationKey: 'exitGate', icon: <ExitIcon />, path: ROUTES.EXIT_GATE },
-        ]
-      },
-      {
-        title: 'Parking Management',
-        translationKey: 'parkingManagement',
-        items: [
-          { label: 'Parking Sessions', translationKey: 'parkingSessions', icon: <CarIcon />, path: ROUTES.PARKING_SESSIONS },
-          { label: 'Tickets', translationKey: 'tickets', icon: <TicketsIcon />, path: ROUTES.TICKETS },
-          { label: 'Parking Areas', translationKey: 'parkingAreas', icon: <ParkingAreaIcon />, path: ROUTES.PARKING_AREAS },
-          { label: 'Parking Rates', translationKey: 'parkingRates', icon: <ParkingRatesIcon />, path: ROUTES.PARKING_RATES },
-        ]
-      },
-      {
-        title: 'Customer Management',
-        translationKey: 'customerManagement',
-        items: [
-          { label: 'Vehicles', translationKey: 'vehicles', icon: <CarIcon />, path: ROUTES.VEHICLES },
-          { label: 'Memberships', translationKey: 'memberships', icon: <MembershipIcon />, path: ROUTES.MEMBERSHIPS },
-          { label: 'Payments', translationKey: 'payments', icon: <PaymentsIcon />, path: ROUTES.PAYMENTS },
-        ]
-      },
-      {
-        title: 'System',
-        translationKey: 'system',
-        items: [
-          { label: 'Users', translationKey: 'users', icon: <UsersIcon />, path: ROUTES.USERS },
-          { label: 'Devices', translationKey: 'devices', icon: <DevicesIcon />, path: ROUTES.DEVICES },
-          { label: 'Gates', translationKey: 'gates', icon: <GatesIcon />, path: ROUTES.GATES },
-          { label: 'Shifts', translationKey: 'shifts', icon: <ShiftsIcon />, path: ROUTES.SHIFTS },
-          { label: 'Reports', translationKey: 'reports', icon: <ReportIcon />, path: ROUTES.REPORTS },
-          { 
-            label: 'Settings', 
-            translationKey: 'settings',
-            icon: <SettingsIcon />, 
-            path: ROUTES.SETTINGS,
-            subItems: [
-              { label: 'Language', translationKey: 'language', icon: <LanguageIcon />, path: ROUTES.SETTINGS_LANGUAGE },
-              { label: 'Backup', translationKey: 'backup', icon: <BackupIcon />, path: ROUTES.SETTINGS_BACKUP },
-              { label: 'System', translationKey: 'systemSettings', icon: <BusinessIcon />, path: ROUTES.SETTINGS_SYSTEM },
-            ]
-          },
-          { label: 'Manual Book', translationKey: 'manualBook', icon: <HelpIcon />, path: ROUTES.MANUAL_BOOK },
-        ]
-      }
-    ];
-  }
-
   // Default menu for unknown roles - only show dashboard
-  return baseCategories;
+  return [
+    {
+      title: 'Main',
+      translationKey: 'main',
+      items: [
+        { label: 'Dashboard', translationKey: 'dashboard', icon: <DashboardIcon />, path: ROUTES.DASHBOARD },
+      ]
+    }
+  ];
 };
 
 const Layout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openSettings, setOpenSettings] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [notificationAnchor, setNotificationAnchor] = React.useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { translate } = useLanguage();
   const { user, logout } = useAuth();
+  const { notifications } = useNotifications();
 
   const menuCategories = React.useMemo(() => getMenuCategories(user?.role || ''), [user?.role]);
 
@@ -202,6 +224,14 @@ const Layout: React.FC = () => {
 
   const handleProfileMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchor(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchor(null);
   };
 
   const handleLogoutClick = async () => {
@@ -281,13 +311,6 @@ const Layout: React.FC = () => {
             })}
           </React.Fragment>
         ))}
-        <Divider sx={{ my: 1 }} />
-        <ListItemButton onClick={handleLogoutClick}>
-          <ListItemIcon>
-            <LogoutIcon />
-          </ListItemIcon>
-          <ListItemText primary={translate('logout')} />
-        </ListItemButton>
       </List>
     </div>
   );
@@ -319,6 +342,16 @@ const Layout: React.FC = () => {
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title="Notifications">
+              <IconButton
+                color="inherit"
+                onClick={handleNotificationOpen}
+              >
+                <Badge badgeContent={notifications.length} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
             <IconButton
               size="large"
               edge="end"
@@ -412,8 +445,23 @@ const Layout: React.FC = () => {
         <Toolbar />
         <Outlet />
       </Box>
+      <Popover
+        open={Boolean(notificationAnchor)}
+        anchorEl={notificationAnchor}
+        onClose={handleNotificationClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <NotificationList />
+      </Popover>
     </Box>
   );
 };
 
-export default Layout; 
+export default Layout;

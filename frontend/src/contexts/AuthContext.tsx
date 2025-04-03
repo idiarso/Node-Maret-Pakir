@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback, useContext } fr
 import { User } from '../types';
 import { api } from '../utils/api';
 import { LoginCredentials } from '../hooks/useAuth';
+import { UserRole } from '../utils/constants';
 
 interface AuthContextType {
   user: User | null;
@@ -30,7 +31,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const response = await api.get<User>('/api/auth/me');
-      setUser(response.data);
+      setUser({
+        ...response.data,
+        role: response.data.role as UserRole
+      });
       setError(null);
     } catch (err) {
       console.error('Auth check failed:', err);
@@ -54,7 +58,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const { token, user: userData } = response.data;
       localStorage.setItem('token', token);
-      setUser(userData);
+      setUser({
+        ...userData,
+        role: userData.role as UserRole
+      });
     } catch (err: any) {
       console.error('Login failed:', err);
       setError(err.response?.data?.message || 'Login failed');

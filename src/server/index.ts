@@ -38,13 +38,27 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
+// CORS configuration
+app.use(cors({
+  origin: ['http://localhost:3001', 'http://localhost:3001'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 // Middleware
 app.use(helmet()); // Security headers
 app.use(compression()); // Compress responses
-app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../../public')));
 app.use(limiter); // Apply rate limiting
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Static files should be served after API routes
+app.use(express.static(path.join(__dirname, '../../public')));
 
 // Routes - ensure all are properly imported as router functions
 app.use('/api/tickets', ticketRoutes);

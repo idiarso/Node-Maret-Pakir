@@ -2,177 +2,123 @@ import React from 'react';
 import {
   List,
   ListItem,
-  ListItemAvatar,
   ListItemText,
+  ListItemIcon,
   Typography,
-  Avatar,
-  Box,
-  IconButton,
   Divider,
-  Button,
+  Box,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
-  Settings as SystemIcon,
   Warning as WarningIcon,
-  Clear as ClearIcon,
 } from '@mui/icons-material';
-import { formatDistanceToNow } from 'date-fns';
-import { id } from 'date-fns/locale';
-import { NotificationType } from '../../types';
 
-interface Notification {
-  id: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  createdAt: Date;
-  read: boolean;
-}
+// Dummy notifications for now
+const notifications = [
+  {
+    id: 1,
+    type: 'error',
+    message: 'Gate 1 is not responding',
+    time: '5 minutes ago'
+  },
+  {
+    id: 2,
+    type: 'warning',
+    message: 'Parking area A is almost full',
+    time: '10 minutes ago'
+  },
+  {
+    id: 3,
+    type: 'info',
+    message: 'New member registration',
+    time: '30 minutes ago'
+  },
+  {
+    id: 4,
+    type: 'info',
+    message: 'System backup completed',
+    time: '1 hour ago'
+  }
+];
 
-const getNotificationIcon = (type: NotificationType) => {
+const getIcon = (type: string) => {
   switch (type) {
-    case 'ERROR':
+    case 'error':
       return <ErrorIcon color="error" />;
-    case 'SYSTEM':
-      return <SystemIcon color="primary" />;
-    case 'WARNING':
+    case 'warning':
       return <WarningIcon color="warning" />;
-    case 'INFO':
-    default:
+    case 'info':
       return <InfoIcon color="info" />;
+    default:
+      return <NotificationsIcon />;
   }
 };
 
 export const NotificationList: React.FC = () => {
-  const [notifications, setNotifications] = React.useState<Notification[]>([
-    {
-      id: '1',
-      type: 'WARNING',
-      title: 'Kapasitas Parkir',
-      message: 'Area parkir A hampir penuh (90% terisi)',
-      createdAt: new Date(),
-      read: false,
-    },
-    {
-      id: '2',
-      type: 'ERROR',
-      title: 'Kegagalan Perangkat',
-      message: 'Gate B1 tidak merespon',
-      createdAt: new Date(Date.now() - 3600000),
-      read: false,
-    },
-    {
-      id: '3',
-      type: 'SYSTEM',
-      title: 'Backup Berhasil',
-      message: 'Backup data harian telah selesai',
-      createdAt: new Date(Date.now() - 7200000),
-      read: true,
-    },
-    {
-      id: '4',
-      type: 'INFO',
-      title: 'Pembaruan Sistem',
-      message: 'Pembaruan sistem akan dilakukan malam ini',
-      createdAt: new Date(Date.now() - 86400000),
-      read: true,
-    },
-  ]);
-
-  const handleMarkAsRead = (notificationId: string) => {
-    setNotifications(notifications.map(notification =>
-      notification.id === notificationId
-        ? { ...notification, read: true }
-        : notification
-    ));
-  };
-
-  const handleClearAll = () => {
-    setNotifications([]);
-  };
-
   return (
-    <Box>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6" component="div">
-          Notifikasi
-        </Typography>
-        <Button
-          size="small"
-          onClick={handleClearAll}
-          disabled={notifications.length === 0}
-        >
-          Hapus Semua
-        </Button>
-      </Box>
+    <List sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
+      <ListItem>
+        <ListItemText
+          primary={
+            <Typography variant="h6">
+              Notifications
+            </Typography>
+          }
+        />
+      </ListItem>
       <Divider />
       {notifications.length === 0 ? (
+        <ListItem>
+          <ListItemText
+            primary="No notifications"
+            secondary="You're all caught up!"
+          />
+        </ListItem>
+      ) : (
+        notifications.map((notification) => (
+          <React.Fragment key={notification.id}>
+            <ListItem alignItems="flex-start">
+              <ListItemIcon>
+                {getIcon(notification.type)}
+              </ListItemIcon>
+              <ListItemText
+                primary={notification.message}
+                secondary={
+                  <Typography
+                    sx={{ display: 'inline' }}
+                    component="span"
+                    variant="body2"
+                    color="text.secondary"
+                  >
+                    {notification.time}
+                  </Typography>
+                }
+              />
+            </ListItem>
+            <Divider variant="inset" component="li" />
+          </React.Fragment>
+        ))
+      )}
+      {notifications.length > 0 && (
         <Box sx={{ p: 2, textAlign: 'center' }}>
-          <NotificationsIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-          <Typography color="text.secondary">
-            Tidak ada notifikasi
+          <Typography
+            component="a"
+            variant="body2"
+            sx={{
+              color: 'primary.main',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            View all notifications
           </Typography>
         </Box>
-      ) : (
-        <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-          {notifications.map((notification) => (
-            <React.Fragment key={notification.id}>
-              <ListItem
-                alignItems="flex-start"
-                secondaryAction={
-                  !notification.read && (
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => handleMarkAsRead(notification.id)}
-                    >
-                      <ClearIcon />
-                    </IconButton>
-                  )
-                }
-                sx={{
-                  bgcolor: notification.read ? 'transparent' : 'action.hover',
-                }}
-              >
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: 'background.paper' }}>
-                    {getNotificationIcon(notification.type)}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={notification.title}
-                  secondary={
-                    <React.Fragment>
-                      <Typography
-                        component="span"
-                        variant="body2"
-                        color="text.primary"
-                      >
-                        {notification.message}
-                      </Typography>
-                      <Typography
-                        component="span"
-                        variant="caption"
-                        display="block"
-                        color="text.secondary"
-                      >
-                        {formatDistanceToNow(notification.createdAt, {
-                          addSuffix: true,
-                          locale: id,
-                        })}
-                      </Typography>
-                    </React.Fragment>
-                  }
-                />
-              </ListItem>
-              <Divider variant="inset" component="li" />
-            </React.Fragment>
-          ))}
-        </List>
       )}
-    </Box>
+    </List>
   );
 }; 

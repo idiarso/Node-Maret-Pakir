@@ -4,10 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { blue, orange } from '@mui/material/colors';
+import { BrowserRouter } from 'react-router-dom';
 
 // Context Providers
 import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Error Handling
 import ErrorBoundary from './components/ErrorBoundary';
@@ -79,52 +81,54 @@ function App() {
           <CssBaseline />
           <ErrorBoundary>
             <AuthProvider>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/unauthorized" element={<UnauthorizedPage />} />
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Layout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="dashboard" element={<DashboardPage />} />
-                  
-                  {/* Parking Management */}
-                  <Route path="parking-sessions" element={<ParkingSessionsPage />} />
-                  <Route path="tickets" element={<TicketsPage />} />
-                  <Route path="parking-areas" element={<ParkingAreasPage />} />
-                  <Route path="parking-rates" element={<ParkingRatesPage />} />
-                  
-                  {/* Customer Management */}
-                  <Route path="vehicles" element={<VehiclesPage />} />
-                  <Route path="memberships" element={<MembershipsPage />} />
-                  <Route path="payments" element={<PaymentsPage />} />
-                  
-                  {/* System */}
-                  <Route path="users" element={<UsersPage />} />
-                  <Route path="devices" element={<DevicesPage />} />
-                  <Route path="gates" element={<GatesPage />} />
-                  <Route path="shifts" element={<ShiftsPage />} />
-                  <Route path="reports" element={<ReportsPage />} />
-                  <Route path="settings" element={<SettingsPage />} />
-                  <Route path="settings/language" element={<LanguageSettingsPage />} />
-                  <Route path="settings/backup" element={<BackupSettingsPage />} />
-                  <Route path="settings/system" element={<SystemSettingsPage />} />
-                  <Route path="manual-book" element={<ManualBookPage />} />
-                  
-                  {/* Legacy routes */}
-                  <Route path="parking" element={<ParkingPage />} />
-                  <Route path="help" element={<HelpPage />} />
-                  <Route path="gates" element={<GatePageNew />} />
-                  <Route path="entry-gate" element={<EntryGatePage />} />
-                  <Route path="exit-gate" element={<ExitGatePage />} />
-                </Route>
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
+              <NotificationProvider>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <Layout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<Navigate to="/dashboard" replace />} />
+                    <Route path="dashboard" element={<DashboardPage />} />
+                    
+                    {/* Parking Management */}
+                    <Route path="parking-sessions" element={<ParkingSessionsPage />} />
+                    <Route path="tickets" element={<TicketsPage />} />
+                    <Route path="parking-areas" element={<ParkingAreasPage />} />
+                    <Route path="parking-rates" element={<ParkingRatesPage />} />
+                    
+                    {/* Customer Management */}
+                    <Route path="vehicles" element={<VehiclesPage />} />
+                    <Route path="memberships" element={<MembershipsPage />} />
+                    <Route path="payments" element={<PaymentsPage />} />
+                    
+                    {/* System */}
+                    <Route path="users" element={<UsersPage />} />
+                    <Route path="devices" element={<DevicesPage />} />
+                    <Route path="gates" element={<GatesPage />} />
+                    <Route path="shifts" element={<ShiftsPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
+                    <Route path="settings/language" element={<LanguageSettingsPage />} />
+                    <Route path="settings/backup" element={<BackupSettingsPage />} />
+                    <Route path="settings/system" element={<SystemSettingsPage />} />
+                    <Route path="manual-book" element={<ManualBookPage />} />
+                    
+                    {/* Legacy routes */}
+                    <Route path="parking" element={<ParkingPage />} />
+                    <Route path="help" element={<HelpPage />} />
+                    <Route path="gates" element={<GatePageNew />} />
+                    <Route path="entry-gate" element={<EntryGatePage />} />
+                    <Route path="exit-gate" element={<ExitGatePage />} />
+                  </Route>
+                  <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+              </NotificationProvider>
             </AuthProvider>
           </ErrorBoundary>
         </ThemeProvider>

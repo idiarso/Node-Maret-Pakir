@@ -2,6 +2,24 @@
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 export const API_TIMEOUT = 30000;
 
+// Camera Configuration
+export const CAMERA_CONFIG = {
+  ENTRY_CAMERA: {
+    ip: '192.168.2.20',
+    username: 'admin',
+    password: '@dminparkir',
+    port: 80,
+    type: 'IP_CAMERA'
+  }
+} as const;
+
+// Client Configuration
+export const CLIENT_CONFIG = {
+  ENTRY_GATE: '192.168.2.5',
+  SERVER: '192.168.2.6',
+  EXIT_GATE: '192.168.2.7'
+} as const;
+
 // Authentication
 export const TOKEN_KEY = 'token';
 export const AUTH_HEADER = 'Authorization';
@@ -24,8 +42,11 @@ export const PAYMENT_STATUS = ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'] as 
 export type PaymentStatus = typeof PAYMENT_STATUS[number];
 
 // User Roles
-export const USER_ROLES = ['ADMIN', 'OPERATOR', 'USER'] as const;
-export type UserRole = typeof USER_ROLES[number];
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  OPERATOR = 'OPERATOR',
+  USER = 'USER'
+}
 
 // Device Status
 export const DEVICE_STATUS = ['ONLINE', 'OFFLINE', 'MAINTENANCE', 'ERROR'] as const;
@@ -51,6 +72,8 @@ export const ROUTES = {
   DEVICES: '/devices',
   GATES: '/gates',
   REPORTS: '/reports',
+  STATISTICS: '/statistics',
+  LOGS: '/logs',
   SHIFTS: '/shifts',
   SETTINGS: '/settings',
   SETTINGS_LANGUAGE: '/settings/language',
@@ -72,6 +95,6 @@ export default {
   PAGE_SIZE_OPTIONS,
   VEHICLE_TYPES: VehicleType,
   PAYMENT_STATUS,
-  USER_ROLES,
+  USER_ROLES: UserRole,
   ROUTES,
 }; 

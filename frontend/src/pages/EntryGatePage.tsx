@@ -36,6 +36,9 @@ import PageWrapper from '../components/PageWrapper';
 import Webcam from 'react-webcam';
 import { useAuth } from '../contexts/AuthContext';
 import WebcamCapture from '../components/WebcamCapture';
+import { CameraView } from '../components/camera/CameraView';
+import { VehicleType } from '../utils/constants';
+import { useNotifications } from '../contexts/NotificationContext';
 
 // Camera configuration for Dahua IP camera
 const DAHUA_CAMERA_CONFIG = {
@@ -49,7 +52,7 @@ const EntryGatePage: React.FC = () => {
   const webcamRef = useRef<Webcam>(null);
   const { user } = useAuth();
   const [plateNumber, setPlateNumber] = useState('');
-  const [vehicleType, setVehicleType] = useState('CAR');
+  const [vehicleType, setVehicleType] = useState<VehicleType>(VehicleType.MOTOR);
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ticketPrinted, setTicketPrinted] = useState(false);
@@ -68,6 +71,8 @@ const EntryGatePage: React.FC = () => {
   });
   const [gates, setGates] = useState<any[]>([]);
   const [gatesLoading, setGatesLoading] = useState(true);
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const { addNotification } = useNotifications();
 
   // Get all gates
   const { data: gatesData } = useQuery({
@@ -241,7 +246,16 @@ const EntryGatePage: React.FC = () => {
     setPhoto(null);
   };
 
-  const handleSubmit = () => {
+  const handleSnapshot = (imageUrl: string) => {
+    setSnapshotUrl(imageUrl);
+    addNotification({
+      type: 'info',
+      message: 'Vehicle snapshot captured'
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
     
     // Validation
@@ -271,7 +285,7 @@ const EntryGatePage: React.FC = () => {
 
   const handleReset = () => {
     setPlateNumber('');
-    setVehicleType('CAR');
+    setVehicleType(VehicleType.MOTOR);
     setPhoto(null);
     setTicketPrinted(false);
     setError(null);
@@ -391,209 +405,77 @@ const EntryGatePage: React.FC = () => {
 
         <Grid container spacing={3}>
           {/* Left side - Camera */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Vehicle Camera {emergencyMode && '(Disabled in Emergency Mode)'}
-                </Typography>
-                <Paper 
-                  elevation={3} 
-                  sx={{ 
-                    position: 'relative', 
-                    height: 300, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    bgcolor: emergencyMode ? 'grey.200' : 'inherit'
-                  }}
-                >
-                  {emergencyMode ? (
-                    <Box sx={{ textAlign: 'center', p: 2 }}>
-                      <ErrorIcon sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
-                      <Typography>Camera disabled in emergency mode</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Manual entry mode active
-                      </Typography>
-                    </Box>
-                  ) : photo ? (
-                    <Box component="img" src={photo} alt="Captured" sx={{ maxWidth: '100%', maxHeight: '100%' }} />
-                  ) : (
-                    <WebcamCapture
-                      audio={false}
-                      ref={webcamRef}
-                      screenshotFormat="image/jpeg"
-                      videoConstraints={{
-                        width: 640,
-                        height: 480,
-                        facingMode: 'environment'
-                      }}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  )}
-                </Paper>
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 2 }}>
-                  {!emergencyMode && (
-                    photo ? (
-                      <Button 
-                        variant="contained" 
-                        color="secondary" 
-                        startIcon={<ClearIcon />}
-                        onClick={handleClearPhoto}
-                      >
-                        Clear Photo
-                      </Button>
-                    ) : (
-                      <Button 
-                        variant="contained" 
-                        color="primary" 
-                        startIcon={<CameraIcon />} 
-                        onClick={capturePhoto}
-                      >
-                        Capture Photo
-                      </Button>
-                    )
-                  )}
-                  
-                  {/* Push button simulator for testing */}
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    fullWidth
-                    size="large"
-                    onClick={() => {
-                      setIsPushButtonPressed(true);
-                      setSnackbar({
-                        open: true,
-                        message: "Push button triggered! Please enter details manually.",
-                        severity: "info"
-                      });
-                    }}
-                    id="simulatePushButton"
-                    sx={{ mt: 2, mb: 2, height: '60px' }}
-                  >
-                    SIMULATE PUSH BUTTON
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
+          <Grid item xs={12} md={8}>
+            <CameraView
+              width={800}
+              height={600}
+              onSnapshot={handleSnapshot}
+            />
           </Grid>
 
           {/* Right side - Vehicle Info */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
+          <Grid item xs={12} md={4}>
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <form onSubmit={handleSubmit}>
                 <Typography variant="h6" gutterBottom>
                   Vehicle Information
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+
+                <Box sx={{ mb: 2 }}>
                   <TextField
-                    label="License Plate"
-                    value={plateNumber}
-                    onChange={(e) => setPlateNumber(e.target.value.toUpperCase())}
                     fullWidth
+                    label="Plate Number"
+                    value={plateNumber}
+                    onChange={(e) => setPlateNumber(e.target.value)}
                     required
-                    placeholder="e.g. AB123CD"
-                    InputProps={{
-                      startAdornment: <CarIcon sx={{ mr: 1 }} />
-                    }}
+                    sx={{ mb: 2 }}
                   />
-                  <FormControl fullWidth required>
+
+                  <FormControl fullWidth>
                     <InputLabel>Vehicle Type</InputLabel>
                     <Select
                       value={vehicleType}
                       label="Vehicle Type"
-                      onChange={(e) => setVehicleType(e.target.value)}
+                      onChange={(e) => setVehicleType(e.target.value as VehicleType)}
+                      required
                     >
-                      <MenuItem value="MOBIL">Mobil</MenuItem>
-                      <MenuItem value="MOTOR">Motor</MenuItem>
-                      <MenuItem value="TRUK">Truk</MenuItem>
-                      <MenuItem value="BUS">Bus</MenuItem>
-                      <MenuItem value="VAN">Van</MenuItem>
+                      {Object.values(VehicleType).map((type) => (
+                        <MenuItem key={type} value={type}>
+                          {type}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
-                  <FormControl fullWidth margin="normal">
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <InputLabel id="gate-select-label">Select Gate</InputLabel>
-                      <Box sx={{ ml: 'auto' }}>
-                        <Tooltip title="Refresh Gates List">
-                          <IconButton 
-                            size="small" 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              fetchGates();
-                            }}
-                            color="primary"
-                            disabled={gatesLoading}
-                          >
-                            {gatesLoading ? <CircularProgress size={20} /> : <RefreshIcon fontSize="small" />}
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </Box>
-                    <Select
-                      labelId="gate-select-label"
-                      value={selectedGate}
-                      label="Select Gate"
-                      onChange={(e) => setSelectedGate(e.target.value)}
-                    >
-                      <MenuItem value="">
-                        <em>None</em>
-                      </MenuItem>
-                      {gatesLoading ? (
-                        <MenuItem disabled>Loading gates...</MenuItem>
-                      ) : gates.length === 0 ? (
-                        <MenuItem disabled>No gates available</MenuItem>
-                      ) : (
-                        gates.map((gate) => (
-                          <MenuItem key={gate.id} value={gate.id.toString()}>
-                            {gate.name} - {gate.location}
-                          </MenuItem>
-                        ))
-                      )}
-                    </Select>
-                  </FormControl>
-                  {error && (
-                    <Alert severity="error" sx={{ mt: 2 }}>
-                      {error}
-                    </Alert>
-                  )}
                 </Box>
-              </CardContent>
-              <CardActions sx={{ p: 2, justifyContent: 'space-between' }}>
-                <Button 
-                  variant="outlined" 
-                  color="secondary" 
-                  onClick={handleReset}
-                >
-                  Reset
-                </Button>
+
+                {snapshotUrl && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Vehicle Snapshot
+                    </Typography>
+                    <img
+                      src={snapshotUrl}
+                      alt="Vehicle snapshot"
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        borderRadius: 4
+                      }}
+                    />
+                  </Box>
+                )}
+
                 <Button
+                  type="submit"
                   variant="contained"
                   color="primary"
-                  startIcon={<PrintIcon />}
-                  onClick={handleSubmit}
-                  disabled={
-                    submitEntry.isPending || 
-                    !plateNumber || 
-                    !vehicleType || 
-                    (!photo && !emergencyMode)
-                  }
+                  fullWidth
+                  size="large"
                 >
-                  {submitEntry.isPending ? (
-                    <>
-                      <CircularProgress size={24} sx={{ mr: 1 }} />
-                      Processing...
-                    </>
-                  ) : ticketPrinted ? (
-                    'Print Again'
-                  ) : (
-                    'Print Ticket'
-                  )}
+                  Open Gate
                 </Button>
-              </CardActions>
-            </Card>
+              </form>
+            </Paper>
           </Grid>
         </Grid>
 

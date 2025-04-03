@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       'window.__VITE_API_URL__': JSON.stringify(env.VITE_API_URL),
     },
     server: {
-      port: 5173,
+      port: 3001,
       proxy: {
         '/api': {
           target: 'http://localhost:3000',

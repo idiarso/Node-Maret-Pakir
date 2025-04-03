@@ -33,6 +33,9 @@ import {
   ExitToApp as LogoutIcon,
   Notifications as NotificationsIcon,
   Help as HelpIcon,
+  Login as EntryIcon,
+  Logout as ExitIcon,
+  CardMembership as MembershipIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { NotificationList } from '../notification/NotificationList';
@@ -41,7 +44,11 @@ const drawerWidth = 240;
 
 const menuItems = [
   { label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+  { label: 'Gerbang Masuk', icon: <EntryIcon />, path: '/entry-gate' },
+  { label: 'Gerbang Keluar', icon: <ExitIcon />, path: '/exit-gate' },
   { label: 'Manajemen Tiket', icon: <CarIcon />, path: '/tickets' },
+  { label: 'Manajemen Kendaraan', icon: <CarIcon />, path: '/vehicles' },
+  { label: 'Manajemen Member', icon: <MembershipIcon />, path: '/members' },
   { label: 'Laporan Keuangan', icon: <PaymentIcon />, path: '/finance' },
   { label: 'Manajemen Pengguna', icon: <PeopleIcon />, path: '/users' },
   { label: 'Konfigurasi Tarif', icon: <SettingsIcon />, path: '/rates' },
