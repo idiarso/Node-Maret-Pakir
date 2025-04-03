@@ -268,6 +268,18 @@ export const parkingSessionService = {
     return response.data;
   },
   
+  getSession: async (barcode: string): Promise<ParkingSession> => {
+    console.log('Searching for parking session with barcode:', barcode);
+    try {
+      const response = await api.get<ParkingSession>(`/parking-sessions/search?barcode=${encodeURIComponent(barcode)}`);
+      console.log('Found parking session:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error searching for parking session:', error);
+      throw error;
+    }
+  },
+  
   createEntry: async (data: CreateParkingSessionRequest): Promise<ParkingSessionResponse> => {
     console.log('Creating parking session entry with data:', data);
     try {
@@ -477,141 +489,67 @@ export const gateService = {
 export const parkingRateService = {
   getAll: async (): Promise<ParkingRate[]> => {
     const response = await api.get<ParkingRate[]>('/parking-rates');
-    return response.data as ParkingRate[];
+    return response.data;
   },
+  
   getById: async (id: number): Promise<ParkingRate> => {
     const response = await api.get<ParkingRate>(`/parking-rates/${id}`);
-    return response.data as ParkingRate;
+    return response.data;
   },
+  
   create: async (rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      // Format data to match backend expectations using a simpler approach
-      const dataToCreate = {
-        vehicle_type: rate.vehicle_type,
-        base_rate: Number(rate.base_rate || 0),
-        status: rate.status || 'active',
-        hourly_rate: Number(rate.hourly_rate || 0),
-        daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
-        grace_period: 15,
-        is_weekend_rate: false,
-        is_holiday_rate: false
+      // Map vehicle type to enum value
+      const mappedRate = {
+        ...rate,
+        vehicle_type: mapVehicleTypeToDbFormat(rate.vehicle_type)
       };
-      
-      console.log('Sending to backend for create with simplified format:', dataToCreate);
-      
-      try {
-        // Try to create on the backend
-        const response = await api.post<ParkingRate>('/parking-rates', dataToCreate);
-        console.log('Create successful:', response.data);
-        return response.data as ParkingRate;
-      } catch (apiError: any) {
-        console.error('Error in API call for create:', apiError);
-        
-        // If server returns 500 error, implement client-side fallback
-        if (apiError.response && apiError.response.status === 500) {
-          console.warn('Using optimistic create fallback due to server error');
-          
-          // Create an optimistic response with temporary ID
-          const optimisticResponse: ParkingRate = {
-            id: Math.floor(Math.random() * -1000), // Temporary negative ID
-            ...dataToCreate,
-            created_at: new Date(),
-            updated_at: new Date(),
-            status: rate.status || 'active'
-          } as ParkingRate;
-          
-          // Log warning about offline mode
-          console.warn('Operating in offline mode. New item will be visible in UI but not saved to database.');
-          
-          // Show a specific error about server error but return optimistic data
-          const serverError = new Error('Server error occurred. New item displayed locally only.');
-          (serverError as any).fallbackData = optimisticResponse;
-          (serverError as any).isServerError = true;
-          throw serverError;
-        }
-        
-        throw apiError;
-      }
-    } catch (error: any) {
-      // Check if this is our optimistic update error with fallback data
-      if (error.fallbackData && error.isServerError) {
-        // Rethrow this special error so we can handle it in the mutation
-        throw error;
-      }
-      
+      console.log('Creating parking rate with data:', mappedRate);
+      const response = await api.post<ParkingRate>('/parking-rates', mappedRate);
+      return response.data;
+    } catch (error) {
       console.error('Error creating parking rate:', error);
       throw error;
     }
   },
+  
   update: async (id: number, rate: Partial<ParkingRate>): Promise<ParkingRate> => {
     try {
-      // Format data to match backend expectations using a simpler, previously working approach
-      const dataToUpdate = {
-        vehicle_type: rate.vehicle_type,
-        base_rate: Number(rate.base_rate || 0),
-        status: rate.status || 'active',
-        hourly_rate: Number(rate.hourly_rate || 0),
-        daily_rate: Number(rate.daily_rate || (rate.base_rate ? Number(rate.base_rate) * 8 : 0)),
-        grace_period: 15,
-        is_weekend_rate: false,
-        is_holiday_rate: false
+      console.log('Updating parking rate with data:', { id, rate });
+      
+      // Map vehicle type to enum value
+      const mappedRate = {
+        ...rate,
+        vehicle_type: rate.vehicle_type ? mapVehicleTypeToDbFormat(rate.vehicle_type) : undefined,
+        base_rate: Number(rate.base_rate),
+        hourly_rate: rate.hourly_rate ? Number(rate.hourly_rate) : undefined,
+        daily_rate: rate.daily_rate ? Number(rate.daily_rate) : undefined,
+        status: rate.status || 'active'
       };
       
-      console.log('Sending to backend with simplified format:', dataToUpdate);
+      console.log('Formatted update data:', mappedRate);
       
-      try {
-        // Try to update on the backend
-        const response = await api.put<ParkingRate>(`/parking-rates/${id}`, dataToUpdate);
-        console.log('Update successful:', response.data);
-        return response.data as ParkingRate;
-      } catch (apiError: any) {
-        console.error('Error in API call:', apiError);
-        
-        // If server returns 500 error, implement client-side fallback
-        if (apiError.response && apiError.response.status === 500) {
-          console.warn('Using optimistic update fallback due to server error');
-          
-          // Create an optimistic response based on the submitted data
-          const optimisticResponse: ParkingRate = {
-            id,
-            ...dataToUpdate,
-            created_at: new Date(),
-            updated_at: new Date(),
-            status: rate.status || 'active'
-          } as ParkingRate;
-          
-          // Log warning about offline mode
-          console.warn('Operating in offline mode. Changes will be visible in UI but not saved to database.');
-          
-          // Show a specific error about server error but return optimistic data
-          // so UI can continue to function
-          const serverError = new Error('Server error occurred. Changes displayed locally only.');
-          (serverError as any).fallbackData = optimisticResponse;
-          (serverError as any).isServerError = true;
-          throw serverError;
-        }
-        
-        throw apiError;
-      }
-    } catch (error: any) {
-      // Check if this is our optimistic update error with fallback data
-      if (error.fallbackData && error.isServerError) {
-        // Rethrow this special error so we can handle it in the mutation
-        throw error;
-      }
+      const response = await api.put<ParkingRate>(`/parking-rates/${id}`, mappedRate);
+      console.log('Update response:', response.data);
       
+      return response.data;
+    } catch (error) {
       console.error('Error updating parking rate:', error);
       throw error;
     }
   },
+  
   delete: async (id: number): Promise<void> => {
-    try {
-      await api.delete(`/parking-rates/${id}`);
-    } catch (error) {
-      console.error('Error deleting parking rate:', error);
-      throw error;
-    }
+    await api.delete(`/parking-rates/${id}`);
   }
+};
+
+// Helper function to map frontend vehicle types to database enum values
+const mapVehicleTypeToDbFormat = (type: string | undefined): string | undefined => {
+  if (!type) return undefined;
+  
+  // Return the type as is since we're now using the same values as in the database
+  return type;
 };
 
 // Memberships API

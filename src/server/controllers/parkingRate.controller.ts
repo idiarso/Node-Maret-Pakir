@@ -70,14 +70,44 @@ export class ParkingRateController {
     async updateRate(req: Request, res: Response) {
         try {
             const { id } = req.params;
+            const updateData = req.body;
+            
+            logger.info(`Updating parking rate ${id} with data:`, updateData);
+            
+            // Find existing rate
             const rate = await parkingRateRepository.findOneBy({ id: parseInt(id) });
 
             if (!rate) {
                 return res.status(404).json({ message: 'Parking rate not found' });
             }
 
-            parkingRateRepository.merge(rate, req.body);
+            // Validate vehicle type if provided
+            if (updateData.vehicle_type && !Object.values(VehicleType).includes(updateData.vehicle_type)) {
+                return res.status(400).json({ 
+                    message: `Invalid vehicle type. Must be one of: ${Object.values(VehicleType).join(', ')}` 
+                });
+            }
+
+            // Convert numeric strings to numbers
+            if (updateData.base_rate) {
+                updateData.base_rate = Number(updateData.base_rate);
+            }
+            if (updateData.hourly_rate) {
+                updateData.hourly_rate = Number(updateData.hourly_rate);
+            }
+            if (updateData.daily_rate) {
+                updateData.daily_rate = Number(updateData.daily_rate);
+            }
+
+            // Merge and validate the data
+            parkingRateRepository.merge(rate, {
+                ...updateData,
+                updated_at: new Date()
+            });
+
+            // Save the updated rate
             const updatedRate = await parkingRateRepository.save(rate);
+            logger.info(`Successfully updated parking rate ${id}`);
 
             // Invalidate cache
             await cacheService.invalidatePattern('parking_rates:*');
@@ -85,7 +115,10 @@ export class ParkingRateController {
             res.json(updatedRate);
         } catch (error) {
             logger.error('Error updating parking rate:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            res.status(500).json({ 
+                message: 'Error updating parking rate',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
         }
     }
 

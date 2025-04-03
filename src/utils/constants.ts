@@ -1,6 +1,6 @@
 export enum VehicleType {
-    MOBIL = 'MOBIL',
     MOTOR = 'MOTOR',
+    MOBIL = 'MOBIL',
     TRUK = 'TRUK',
     BUS = 'BUS',
     VAN = 'VAN'

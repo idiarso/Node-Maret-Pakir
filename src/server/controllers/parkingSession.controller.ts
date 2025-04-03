@@ -272,6 +272,36 @@ export class ParkingSessionController {
         }
     }
 
+    static async searchByBarcode(req: Request, res: Response) {
+        try {
+            const { barcode } = req.query;
+
+            if (!barcode || typeof barcode !== 'string') {
+                return res.status(400).json({ message: 'Barcode is required' });
+            }
+
+            const parkingSessionRepository = AppDataSource.getRepository(ParkingSession);
+            
+            // Find parking session through ticket's barcode
+            const parkingSession = await parkingSessionRepository
+                .createQueryBuilder('session')
+                .leftJoinAndSelect('session.ticket', 'ticket')
+                .leftJoinAndSelect('session.vehicle', 'vehicle')
+                .leftJoinAndSelect('session.parkingArea', 'parkingArea')
+                .where('ticket.barcode = :barcode', { barcode })
+                .getOne();
+
+            if (!parkingSession) {
+                return res.status(404).json({ message: 'Parking session not found' });
+            }
+
+            return res.status(200).json(parkingSession);
+        } catch (error) {
+            logger.error('Error searching parking session by barcode:', error);
+            return res.status(500).json({ message: 'Error searching parking session' });
+        }
+    }
+
     static async handleVehicleEntry(req: Request, res: Response) {
         try {
             const { plate_number, type } = req.body;
