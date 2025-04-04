@@ -1,7 +1,6 @@
 // Export middleware
-export { authMiddleware } from './auth.middleware';
-export { errorHandler as errorMiddleware } from './error.middleware';
-export { validateRequest } from './validate.middleware';
-export * from './admin';
-export * from './audit';
-export * from './error'; 
+export * from './auth.middleware';
+export * from './audit.middleware';
+export * from './error.middleware';
+export * from './admin.middleware';
+export * from './role.middleware'; 

@@ -1,38 +1,46 @@
 import { Request, Response } from "express";
-import AppDataSource from "../config/ormconfig";
+import { AppDataSource } from "../config/database";
 import { Device, DeviceType, DeviceStatus } from "../entities/Device";
 import { DeviceHealthCheck } from "../entities/DeviceHealthCheck";
 import { DeviceLog, LogType } from "../entities/DeviceLog";
 import { DeepPartial } from "typeorm";
+import { Logger } from "../../shared/services/Logger";
+
+const logger = Logger.getInstance();
 
 export class DeviceController {
-    private static getRepositories() {
-        return {
-            deviceRepository: AppDataSource.getRepository(Device),
-            healthCheckRepository: AppDataSource.getRepository(DeviceHealthCheck),
-            deviceLogRepository: AppDataSource.getRepository(DeviceLog)
-        };
+    private static instance: DeviceController;
+    private deviceRepository = AppDataSource.getRepository(Device);
+    private healthCheckRepository = AppDataSource.getRepository(DeviceHealthCheck);
+    private deviceLogRepository = AppDataSource.getRepository(DeviceLog);
+
+    private constructor() {}
+
+    public static getInstance(): DeviceController {
+        if (!DeviceController.instance) {
+            DeviceController.instance = new DeviceController();
+        }
+        return DeviceController.instance;
     }
 
     // Get all devices
-    static async getAllDevices(req: Request, res: Response) {
+    public async getAllDevices(req: Request, res: Response) {
         try {
-            const { deviceRepository } = DeviceController.getRepositories();
-            const devices = await deviceRepository.find({
+            const devices = await this.deviceRepository.find({
                 relations: ["healthChecks", "logs"]
             });
             res.json(devices);
         } catch (error) {
+            logger.error("Error fetching devices:", error);
             res.status(500).json({ message: "Error fetching devices", error });
         }
     }
 
     // Get device by ID
-    static async getDeviceById(req: Request, res: Response) {
+    public async getDeviceById(req: Request, res: Response) {
         try {
-            const { deviceRepository } = DeviceController.getRepositories();
-            const id = parseInt(req.params.id);
-            const device = await deviceRepository.findOne({
+            const id = req.params.id;
+            const device = await this.deviceRepository.findOne({
                 where: { id },
                 relations: ["healthChecks", "logs"]
             });
@@ -43,46 +51,49 @@ export class DeviceController {
             
             res.json(device);
         } catch (error) {
+            logger.error("Error fetching device:", error);
             res.status(500).json({ message: "Error fetching device", error });
         }
     }
 
     // Create new device
-    static async createDevice(req: Request, res: Response) {
+    public async createDevice(req: Request, res: Response) {
         try {
-            const { deviceRepository } = DeviceController.getRepositories();
-            const { name, type, location } = req.body;
+            const { name, type, location, macAddress, parkingAreaId } = req.body;
             
-            if (!name || !type) {
-                return res.status(400).json({ message: "Name and type are required" });
+            if (!name || !type || !macAddress || !parkingAreaId) {
+                return res.status(400).json({ message: "Name, type, MAC address, and parking area ID are required" });
             }
 
             if (!Object.values(DeviceType).includes(type)) {
                 return res.status(400).json({ message: "Invalid device type" });
             }
 
-            const device = deviceRepository.create({
+            const deviceData: DeepPartial<Device> = {
                 name,
                 type,
                 location,
-                status: DeviceStatus.ACTIVE
-            });
+                macAddress,
+                parkingAreaId,
+                isActive: true
+            };
 
-            await deviceRepository.save(device);
+            const device = this.deviceRepository.create(deviceData);
+            await this.deviceRepository.save(device);
             res.status(201).json(device);
         } catch (error) {
+            logger.error("Error creating device:", error);
             res.status(500).json({ message: "Error creating device", error });
         }
     }
 
     // Update device
-    static async updateDevice(req: Request, res: Response) {
+    public async updateDevice(req: Request, res: Response) {
         try {
-            const { deviceRepository } = DeviceController.getRepositories();
-            const id = parseInt(req.params.id);
-            const { name, type, location, status } = req.body;
+            const id = req.params.id;
+            const { name, type, location, isActive, macAddress, parkingAreaId } = req.body;
 
-            const device = await deviceRepository.findOne({ where: { id } });
+            const device = await this.deviceRepository.findOne({ where: { id } });
             
             if (!device) {
                 return res.status(404).json({ message: "Device not found" });
@@ -91,39 +102,41 @@ export class DeviceController {
             if (name) device.name = name;
             if (type && Object.values(DeviceType).includes(type)) device.type = type;
             if (location) device.location = location;
-            if (status && Object.values(DeviceStatus).includes(status)) device.status = status;
+            if (typeof isActive === 'boolean') device.isActive = isActive;
+            if (macAddress) device.macAddress = macAddress;
+            if (parkingAreaId) device.parkingAreaId = parkingAreaId;
 
-            await deviceRepository.save(device);
+            await this.deviceRepository.save(device);
             res.json(device);
         } catch (error) {
+            logger.error("Error updating device:", error);
             res.status(500).json({ message: "Error updating device", error });
         }
     }
 
     // Delete device
-    static async deleteDevice(req: Request, res: Response) {
+    public async deleteDevice(req: Request, res: Response) {
         try {
-            const { deviceRepository } = DeviceController.getRepositories();
-            const id = parseInt(req.params.id);
-            const device = await deviceRepository.findOne({ where: { id } });
+            const id = req.params.id;
+            const device = await this.deviceRepository.findOne({ where: { id } });
             
             if (!device) {
                 return res.status(404).json({ message: "Device not found" });
             }
 
-            await deviceRepository.remove(device);
+            await this.deviceRepository.remove(device);
             res.json({ message: "Device deleted successfully" });
         } catch (error) {
+            logger.error("Error deleting device:", error);
             res.status(500).json({ message: "Error deleting device", error });
         }
     }
 
     // Perform health check
-    static async performHealthCheck(req: Request, res: Response) {
+    public async performHealthCheck(req: Request, res: Response) {
         try {
-            const { deviceRepository, healthCheckRepository, deviceLogRepository } = DeviceController.getRepositories();
-            const id = parseInt(req.params.id);
-            const device = await deviceRepository.findOne({ where: { id } });
+            const id = req.params.id;
+            const device = await this.deviceRepository.findOne({ where: { id } });
             
             if (!device) {
                 return res.status(404).json({ message: "Device not found" });
@@ -131,28 +144,29 @@ export class DeviceController {
 
             // Simulate health check (in real implementation, this would check actual device status)
             const isHealthy = Math.random() > 0.1; // 90% chance of being healthy
-            const status = isHealthy ? DeviceStatus.ACTIVE : DeviceStatus.ERROR;
-            const errorMessage = isHealthy ? undefined : "Device reported error during health check";
-
-            // Update device status
-            device.status = status;
-            await deviceRepository.save(device);
+            device.isActive = isHealthy;
+            device.lastSeenAt = new Date();
+            await this.deviceRepository.save(device);
 
             // Create health check record
-            const healthCheck = healthCheckRepository.create({
-                device,
-                status,
-                error_message: errorMessage
-            } as DeepPartial<DeviceHealthCheck>);
-            await healthCheckRepository.save(healthCheck);
+            const healthCheck = this.healthCheckRepository.create({
+                deviceId: device.id,
+                status: isHealthy ? "HEALTHY" : "UNHEALTHY",
+                message: isHealthy ? "Device is healthy" : "Device reported error",
+                metrics: {
+                    isActive: isHealthy,
+                    lastChecked: new Date()
+                }
+            });
+            await this.healthCheckRepository.save(healthCheck);
 
             // Create log entry
-            const log = deviceLogRepository.create({
+            const log = this.deviceLogRepository.create({
                 device,
                 type: isHealthy ? LogType.INFO : LogType.ERROR,
                 message: isHealthy ? "Health check passed" : "Health check failed"
             });
-            await deviceLogRepository.save(log);
+            await this.deviceLogRepository.save(log);
 
             res.json({
                 device,
@@ -160,50 +174,51 @@ export class DeviceController {
                 log
             });
         } catch (error) {
+            logger.error("Error performing health check:", error);
             res.status(500).json({ message: "Error performing health check", error });
         }
     }
 
     // Get device logs
-    static async getDeviceLogs(req: Request, res: Response) {
+    public async getDeviceLogs(req: Request, res: Response) {
         try {
-            const { deviceRepository, deviceLogRepository } = DeviceController.getRepositories();
-            const id = parseInt(req.params.id);
-            const device = await deviceRepository.findOne({ where: { id } });
+            const id = req.params.id;
+            const device = await this.deviceRepository.findOne({ where: { id } });
             
             if (!device) {
                 return res.status(404).json({ message: "Device not found" });
             }
 
-            const logs = await deviceLogRepository.find({
+            const logs = await this.deviceLogRepository.find({
                 where: { device: { id } },
                 order: { created_at: "DESC" }
             });
 
             res.json(logs);
         } catch (error) {
+            logger.error("Error fetching device logs:", error);
             res.status(500).json({ message: "Error fetching device logs", error });
         }
     }
 
     // Get device health checks
-    static async getDeviceHealthChecks(req: Request, res: Response) {
+    public async getDeviceHealthChecks(req: Request, res: Response) {
         try {
-            const { deviceRepository, healthCheckRepository } = DeviceController.getRepositories();
-            const id = parseInt(req.params.id);
-            const device = await deviceRepository.findOne({ where: { id } });
+            const id = req.params.id;
+            const device = await this.deviceRepository.findOne({ where: { id } });
             
             if (!device) {
                 return res.status(404).json({ message: "Device not found" });
             }
 
-            const healthChecks = await healthCheckRepository.find({
+            const healthChecks = await this.healthCheckRepository.find({
                 where: { device: { id } },
-                order: { checked_at: "DESC" }
+                order: { createdAt: "DESC" }
             });
 
             res.json(healthChecks);
         } catch (error) {
+            logger.error("Error fetching device health checks:", error);
             res.status(500).json({ message: "Error fetching device health checks", error });
         }
     }

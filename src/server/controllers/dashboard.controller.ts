@@ -7,13 +7,58 @@ import { Payment } from '../entities/Payment';
 import { LoggerService } from '../services/logger.service';
 import { ApiError } from '../middleware/error.middleware';
 import { TicketStatus, PaymentStatus } from '../../shared/types';
+import { DashboardService } from '../services/dashboard.service';
 
 export class DashboardController {
-    private static ticketService = new DatabaseService(Ticket);
-    private static vehicleTypeService = new DatabaseService(VehicleType);
-    private static paymentService = new DatabaseService(Payment);
+    private static instance: DashboardController;
+    private readonly ticketService: DatabaseService<Ticket>;
+    private readonly vehicleTypeService: DatabaseService<VehicleType>;
+    private readonly paymentService: DatabaseService<Payment>;
+    private readonly dashboardService: DashboardService;
 
-    static async getDashboardStats(req: Request, res: Response) {
+    private constructor() {
+        this.ticketService = new DatabaseService(Ticket);
+        this.vehicleTypeService = new DatabaseService(VehicleType);
+        this.paymentService = new DatabaseService(Payment);
+        this.dashboardService = DashboardService.getInstance();
+    }
+
+    public static getInstance(): DashboardController {
+        if (!DashboardController.instance) {
+            DashboardController.instance = new DashboardController();
+        }
+        return DashboardController.instance;
+    }
+
+    public async getDashboardData(req: Request, res: Response) {
+        try {
+            const data = await this.dashboardService.getDashboardData();
+            res.json(data);
+        } catch (error) {
+            console.error('Error in getDashboardData:', error);
+            res.status(500).json({
+                error: 'Failed to get dashboard data'
+            });
+        }
+    }
+
+    public async resetDashboardData(req: Request, res: Response) {
+        try {
+            const data = await this.dashboardService.resetDashboardData();
+            res.json({
+                success: true,
+                message: 'Dashboard data has been reset',
+                data
+            });
+        } catch (error) {
+            console.error('Error in resetDashboardData:', error);
+            res.status(500).json({
+                error: 'Failed to reset dashboard data'
+            });
+        }
+    }
+
+    public async getDashboardStats(req: Request, res: Response) {
         try {
             const today = new Date();
             const todayStart = new Date(today.setHours(0, 0, 0, 0));
@@ -27,25 +72,25 @@ export class DashboardController {
                 vehicleTypes
             ] = await Promise.all([
                 // Current active tickets
-                DashboardController.ticketService.count({
+                this.ticketService.count({
                     status: TicketStatus.ACTIVE
                 }),
                 // Today's tickets
-                DashboardController.ticketService.findAll({
+                this.ticketService.findAll({
                     where: {
                         entryTime: Between(todayStart, todayEnd)
                     },
                     relations: ['vehicleType']
                 }),
                 // Today's revenue
-                DashboardController.paymentService.findAll({
+                this.paymentService.findAll({
                     where: {
                         createdAt: Between(todayStart, todayEnd),
                         status: PaymentStatus.COMPLETED
                     }
                 }),
                 // All vehicle types
-                DashboardController.vehicleTypeService.findAll({
+                this.vehicleTypeService.findAll({
                     where: { isActive: true }
                 })
             ]);
@@ -70,7 +115,7 @@ export class DashboardController {
             // Get weekly trend
             const weekStart = new Date();
             weekStart.setDate(weekStart.getDate() - 7);
-            const weeklyTickets = await DashboardController.ticketService.findAll({
+            const weeklyTickets = await this.ticketService.findAll({
                 where: {
                     entryTime: MoreThanOrEqual(weekStart)
                 }
@@ -101,7 +146,7 @@ export class DashboardController {
         }
     }
 
-    static async getRevenueReport(req: Request, res: Response) {
+    public async getRevenueReport(req: Request, res: Response) {
         try {
             const { startDate, endDate } = req.query;
             const start = startDate ? new Date(startDate as string) : new Date();
@@ -111,14 +156,14 @@ export class DashboardController {
             end.setHours(23, 59, 59, 999);
 
             const [payments, vehicleTypes] = await Promise.all([
-                DashboardController.paymentService.findAll({
+                this.paymentService.findAll({
                     where: {
                         createdAt: Between(start, end),
                         status: PaymentStatus.COMPLETED
                     },
                     relations: ['ticket', 'ticket.vehicleType']
                 }),
-                DashboardController.vehicleTypeService.findAll()
+                this.vehicleTypeService.findAll()
             ]);
 
             // Calculate revenue by vehicle type
@@ -147,16 +192,16 @@ export class DashboardController {
         }
     }
 
-    static async getOccupancyReport(req: Request, res: Response) {
+    public async getOccupancyReport(req: Request, res: Response) {
         try {
-            const activeTickets = await DashboardController.ticketService.findAll({
+            const activeTickets = await this.ticketService.findAll({
                 where: {
                     status: TicketStatus.ACTIVE
                 },
                 relations: ['vehicleType']
             });
 
-            const vehicleTypes = await DashboardController.vehicleTypeService.findAll({
+            const vehicleTypes = await this.vehicleTypeService.findAll({
                 where: { isActive: true }
             });
 

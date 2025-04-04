@@ -6,7 +6,17 @@ import { Logger } from '../../shared/services/Logger';
 const logger = Logger.getInstance();
 
 export class GateController {
+    private static instance: GateController;
     private gateRepository = AppDataSource.getRepository(Gate);
+
+    private constructor() {}
+
+    public static getInstance(): GateController {
+        if (!GateController.instance) {
+            GateController.instance = new GateController();
+        }
+        return GateController.instance;
+    }
 
     /**
      * Get all gates

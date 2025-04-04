@@ -18,33 +18,32 @@ export enum DeviceStatus {
 
 @Entity("devices")
 export class Device {
-    @PrimaryGeneratedColumn()
-    id!: number;
+    @PrimaryGeneratedColumn("uuid")
+    id!: string;
 
     @Column()
     name!: string;
 
-    @Column({
-        type: "enum",
-        enum: DeviceType
-    })
-    type!: DeviceType;
+    @Column()
+    type!: string;
+
+    @Column()
+    location!: string;
+
+    @Column({ default: true })
+    isActive!: boolean;
 
     @Column({ nullable: true })
-    location?: string;
+    lastSeenAt?: Date;
 
-    @Column({
-        type: "enum",
-        enum: DeviceStatus,
-        default: DeviceStatus.ACTIVE
-    })
-    status!: DeviceStatus;
+    @Column({ length: 255 })
+    macAddress!: string;
 
-    @Column({ nullable: true })
-    last_maintenance?: Date;
+    @Column()
+    parkingAreaId!: string;
 
-    @Column({ nullable: true })
-    next_maintenance?: Date;
+    @Column({ type: 'jsonb', nullable: true })
+    configuration?: any;
 
     @OneToMany(() => DeviceHealthCheck, healthCheck => healthCheck.device)
     healthChecks!: DeviceHealthCheck[];
@@ -53,8 +52,8 @@ export class Device {
     logs!: DeviceLog[];
 
     @CreateDateColumn()
-    created_at!: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updated_at!: Date;
+    updatedAt!: Date;
 } 

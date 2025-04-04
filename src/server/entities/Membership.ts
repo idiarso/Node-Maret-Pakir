@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
 import { Vehicle } from "./Vehicle";
 
 @Entity("memberships")
@@ -6,7 +6,11 @@ export class Membership {
     @PrimaryGeneratedColumn()
     id!: number;
 
+    @Column({ name: "vehicleId" })
+    vehicleId!: number;
+
     @ManyToOne(() => Vehicle, vehicle => vehicle.memberships)
+    @JoinColumn({ name: "vehicleId" })
     vehicle!: Vehicle;
 
     @Column()
@@ -15,11 +19,11 @@ export class Membership {
     @Column()
     start_date!: Date;
 
-    @Column({ nullable: true })
-    end_date?: Date;
+    @Column()
+    end_date!: Date;
 
-    @Column({ default: "ACTIVE" })
-    status!: string;
+    @Column({ default: true })
+    active!: boolean;
 
     @CreateDateColumn()
     created_at!: Date;

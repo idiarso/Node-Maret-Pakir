@@ -1,24 +1,31 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from "typeorm";
-import { Device, DeviceStatus } from "./Device";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Device } from './Device';
 
-@Entity("device_health_checks")
+@Entity('device_health_checks')
 export class DeviceHealthCheck {
-    @PrimaryGeneratedColumn()
-    id!: number;
+    @PrimaryGeneratedColumn('uuid')
+    id!: string;
+
+    @Column({ name: 'device_id' })
+    deviceId!: string;
 
     @ManyToOne(() => Device, device => device.healthChecks)
+    @JoinColumn({ name: 'device_id' })
     device!: Device;
 
-    @Column({
-        type: "enum",
-        enum: DeviceStatus,
-        enumName: "device_status"
-    })
-    status!: DeviceStatus;
+    @Column()
+    status!: string;
 
-    @Column({ nullable: true })
-    error_message?: string;
+    @Column({ type: 'jsonb', nullable: true })
+    metrics: any;
 
-    @CreateDateColumn()
-    checked_at!: Date;
+    @Column({ type: 'text', nullable: true })
+    message!: string;
+
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt!: Date;
+
+    constructor(partial: Partial<DeviceHealthCheck>) {
+        Object.assign(this, partial);
+    }
 } 

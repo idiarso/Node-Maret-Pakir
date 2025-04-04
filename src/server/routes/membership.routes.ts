@@ -1,28 +1,33 @@
 import { Router } from "express";
 import { MembershipController } from "../controllers/membership.controller";
-import { authenticateToken } from "../middleware/auth";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { UserRole } from "../../shared/types";
 
 const router = Router();
+const membershipController = MembershipController.getInstance();
+
+// Protect all routes with auth middleware
+router.use(authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]));
 
 // Get all memberships
-router.get("/", authenticateToken, MembershipController.getAllMemberships);
+router.get("/", membershipController.getAllMemberships.bind(membershipController));
 
 // Get active memberships
-router.get("/active", authenticateToken, MembershipController.getActiveMemberships);
+router.get("/active", membershipController.getActiveMemberships.bind(membershipController));
 
 // Get membership by ID
-router.get("/:id", authenticateToken, MembershipController.getMembershipById);
+router.get("/:id", membershipController.getMembershipById.bind(membershipController));
 
 // Get memberships by vehicle ID
-router.get("/vehicle/:vehicle_id", authenticateToken, MembershipController.getMembershipsByVehicle);
+router.get("/vehicle/:vehicle_id", membershipController.getMembershipsByVehicle.bind(membershipController));
 
 // Create new membership
-router.post("/", authenticateToken, MembershipController.createMembership);
+router.post("/", membershipController.createMembership.bind(membershipController));
 
 // Update membership
-router.put("/:id", authenticateToken, MembershipController.updateMembership);
+router.put("/:id", membershipController.updateMembership.bind(membershipController));
 
 // Delete membership
-router.delete("/:id", authenticateToken, MembershipController.deleteMembership);
+router.delete("/:id", membershipController.deleteMembership.bind(membershipController));
 
 export default router; 

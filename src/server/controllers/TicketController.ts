@@ -2,10 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { TicketService } from '../services/TicketService';
 import { AppError } from '../../shared/services/ErrorHandler';
 import { Logger } from '../../shared/services/Logger';
-import { validate } from '../middleware/validate';
-import { schemas } from '../validations/schemas';
-import { auth } from '../middleware/auth';
-import { adminAuth } from '../middleware/admin';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { UserRole } from '../../shared/types';
 
 export class TicketController {
     private static instance: TicketController;
@@ -133,44 +131,37 @@ export class TicketController {
             {
                 path: '/tickets',
                 method: 'post',
-                handler: this.createTicket.bind(this),
-                middleware: [auth, validate(schemas.createTicket)]
+                handler: [authMiddleware([UserRole.OPERATOR]), this.createTicket.bind(this)]
             },
             {
                 path: '/tickets/:barcode',
                 method: 'get',
-                handler: this.getTicket.bind(this),
-                middleware: [auth]
+                handler: [authMiddleware([UserRole.OPERATOR]), this.getTicket.bind(this)]
             },
             {
                 path: '/tickets/:barcode/complete',
                 method: 'post',
-                handler: this.completeTicket.bind(this),
-                middleware: [auth]
+                handler: [authMiddleware([UserRole.OPERATOR]), this.completeTicket.bind(this)]
             },
             {
                 path: '/tickets/:barcode/fee',
                 method: 'get',
-                handler: this.calculateFee.bind(this),
-                middleware: [auth]
+                handler: [authMiddleware([UserRole.OPERATOR]), this.calculateFee.bind(this)]
             },
             {
                 path: '/payments',
                 method: 'post',
-                handler: this.createPayment.bind(this),
-                middleware: [auth, validate(schemas.createPayment)]
+                handler: [authMiddleware([UserRole.OPERATOR]), this.createPayment.bind(this)]
             },
             {
                 path: '/tickets/active',
                 method: 'get',
-                handler: this.getActiveTickets.bind(this),
-                middleware: [auth]
+                handler: [authMiddleware([UserRole.OPERATOR]), this.getActiveTickets.bind(this)]
             },
             {
                 path: '/tickets/range',
                 method: 'get',
-                handler: this.getTicketsByDateRange.bind(this),
-                middleware: [auth, adminAuth]
+                handler: [authMiddleware([UserRole.ADMIN]), this.getTicketsByDateRange.bind(this)]
             }
         ];
     }

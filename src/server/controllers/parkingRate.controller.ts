@@ -10,7 +10,17 @@ const parkingRateRepository = AppDataSource.getRepository(ParkingRate);
 const cacheService = CacheService.getInstance();
 
 export class ParkingRateController {
-    
+    private static instance: ParkingRateController;
+
+    private constructor() {}
+
+    public static getInstance(): ParkingRateController {
+        if (!ParkingRateController.instance) {
+            ParkingRateController.instance = new ParkingRateController();
+        }
+        return ParkingRateController.instance;
+    }
+
     async getAllRates(req: Request, res: Response) {
         try {
             const rates = await cacheService.getOrSet(

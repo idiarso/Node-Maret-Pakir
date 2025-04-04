@@ -1,47 +1,36 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToOne, JoinColumn } from 'typeorm';
-import { User } from './User';
-import { Vehicle } from './Vehicle';
-import { PaymentMethod, PaymentStatus } from '../../shared/types';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from "typeorm";
+import { Vehicle } from "./Vehicle";
 
-@Entity()
+@Entity("payment_transactions")
 export class PaymentTransaction {
-  @PrimaryGeneratedColumn()
-  id!: number;
+    @PrimaryGeneratedColumn()
+    id!: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  amount!: number;
+    @Column({ name: "vehicleId" })
+    vehicleId!: number;
 
-  @Column({
-    type: 'enum',
-    enum: PaymentMethod
-  })
-  paymentMethod!: PaymentMethod;
+    @OneToOne(() => Vehicle, vehicle => vehicle.payment)
+    @JoinColumn({ name: "vehicleId" })
+    vehicle!: Vehicle;
 
-  @Column({
-    type: 'enum',
-    enum: PaymentStatus,
-    default: PaymentStatus.PENDING
-  })
-  paymentStatus!: PaymentStatus;
+    @Column()
+    amount!: number;
 
-  @ManyToOne(() => User)
-  @JoinColumn()
-  operator!: User;
+    @Column()
+    payment_method!: string;
 
-  @OneToOne(() => Vehicle, vehicle => vehicle.payment)
-  @JoinColumn()
-  vehicle!: Vehicle;
+    @Column()
+    transaction_date!: Date;
 
-  @Column({ unique: true })
-  receiptNumber!: string;
+    @Column({ default: "PENDING" })
+    status!: string;
 
-  @Column({ nullable: true })
-  notes!: string;
+    @Column({ nullable: true })
+    reference_number?: string;
 
-  @CreateDateColumn()
-  transactionTime!: Date;
+    @CreateDateColumn()
+    created_at!: Date;
 
-  constructor(partial: Partial<PaymentTransaction> = {}) {
-    Object.assign(this, partial);
-  }
+    @UpdateDateColumn()
+    updated_at!: Date;
 } 

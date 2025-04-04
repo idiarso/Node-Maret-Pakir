@@ -1,25 +1,21 @@
 import { Router } from "express";
 import { VehicleController } from "../controllers/vehicle.controller";
-import { authenticateToken } from "../middleware/auth";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { UserRole } from "../../shared/types";
 
 const router = Router();
 
-// Get all vehicles
-router.get("/", authenticateToken, VehicleController.getAllVehicles);
+// Protected routes
+router.get("/", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), VehicleController.getAllVehicles);
+router.get("/:id", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), VehicleController.getVehicleById);
+router.post("/", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), VehicleController.createVehicle);
+router.put("/:id", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), VehicleController.updateVehicle);
+router.delete("/:id", authMiddleware([UserRole.ADMIN]), VehicleController.deleteVehicle);
 
-// Get vehicle by ID
-router.get("/:id", authenticateToken, VehicleController.getVehicleById);
+// Vehicle type routes
+router.get("/types", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), VehicleController.getVehicleTypes);
 
 // Get vehicle by plate number
-router.get("/plate/:plate_number", authenticateToken, VehicleController.getVehicleByPlateNumber);
-
-// Create new vehicle
-router.post("/", authenticateToken, VehicleController.createVehicle);
-
-// Update vehicle
-router.put("/:id", authenticateToken, VehicleController.updateVehicle);
-
-// Delete vehicle
-router.delete("/:id", authenticateToken, VehicleController.deleteVehicle);
+router.get("/plate/:plate_number", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), VehicleController.getVehicleByPlateNumber);
 
 export default router; 

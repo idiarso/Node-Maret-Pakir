@@ -1,25 +1,39 @@
 import { Request, Response } from "express";
-import AppDataSource from "../config/ormconfig";
+import { AppDataSource } from "../config/database";
 import { ParkingArea } from "../entities/ParkingArea";
+import { Logger } from "../../shared/services/Logger";
+
+const logger = Logger.getInstance();
 
 export class ParkingAreaController {
+    private static instance: ParkingAreaController;
+    private parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
+
+    private constructor() {}
+
+    public static getInstance(): ParkingAreaController {
+        if (!ParkingAreaController.instance) {
+            ParkingAreaController.instance = new ParkingAreaController();
+        }
+        return ParkingAreaController.instance;
+    }
+
     // Get all parking areas
-    static async getAllParkingAreas(req: Request, res: Response) {
+    public async getAllParkingAreas(req: Request, res: Response) {
         try {
-            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
-            const parkingAreas = await parkingAreaRepository.find();
+            const parkingAreas = await this.parkingAreaRepository.find();
             res.json(parkingAreas);
         } catch (error) {
+            logger.error("Error fetching parking areas:", error);
             res.status(500).json({ message: "Error fetching parking areas", error });
         }
     }
 
     // Get parking area by ID
-    static async getParkingAreaById(req: Request, res: Response) {
+    public async getParkingAreaById(req: Request, res: Response) {
         try {
-            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
-            const parkingArea = await parkingAreaRepository.findOne({ where: { id } });
+            const parkingArea = await this.parkingAreaRepository.findOne({ where: { id } });
             
             if (!parkingArea) {
                 return res.status(404).json({ message: "Parking area not found" });
@@ -27,14 +41,14 @@ export class ParkingAreaController {
             
             res.json(parkingArea);
         } catch (error) {
+            logger.error("Error fetching parking area:", error);
             res.status(500).json({ message: "Error fetching parking area", error });
         }
     }
 
     // Create new parking area
-    static async createParkingArea(req: Request, res: Response) {
+    public async createParkingArea(req: Request, res: Response) {
         try {
-            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const { name, location, capacity, status } = req.body;
             
             if (!name || !location || !capacity) {
@@ -54,7 +68,7 @@ export class ParkingAreaController {
                 return res.status(400).json({ message: "Invalid status. Must be one of: active, inactive, maintenance" });
             }
 
-            const parkingArea = parkingAreaRepository.create({
+            const parkingArea = this.parkingAreaRepository.create({
                 name,
                 location,
                 capacity: capacityNum,
@@ -62,10 +76,10 @@ export class ParkingAreaController {
                 status: normalizedStatus
             });
 
-            await parkingAreaRepository.save(parkingArea);
+            await this.parkingAreaRepository.save(parkingArea);
             res.status(201).json(parkingArea);
         } catch (error: any) {
-            console.error('Error creating parking area:', error);
+            logger.error('Error creating parking area:', error);
             res.status(500).json({ 
                 message: "Error creating parking area", 
                 error: error.message || 'Unknown error occurred' 
@@ -74,13 +88,12 @@ export class ParkingAreaController {
     }
 
     // Update parking area
-    static async updateParkingArea(req: Request, res: Response) {
+    public async updateParkingArea(req: Request, res: Response) {
         try {
-            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
             const { name, capacity, status } = req.body;
 
-            const parkingArea = await parkingAreaRepository.findOne({ where: { id } });
+            const parkingArea = await this.parkingAreaRepository.findOne({ where: { id } });
             
             if (!parkingArea) {
                 return res.status(404).json({ message: "Parking area not found" });
@@ -103,10 +116,10 @@ export class ParkingAreaController {
                 parkingArea.status = normalizedStatus;
             }
 
-            await parkingAreaRepository.save(parkingArea);
+            await this.parkingAreaRepository.save(parkingArea);
             res.json(parkingArea);
         } catch (error: any) {
-            console.error('Error updating parking area:', error);
+            logger.error('Error updating parking area:', error);
             res.status(500).json({ 
                 message: "Error updating parking area", 
                 error: error.message || 'Unknown error occurred' 
@@ -115,27 +128,26 @@ export class ParkingAreaController {
     }
 
     // Delete parking area
-    static async deleteParkingArea(req: Request, res: Response) {
+    public async deleteParkingArea(req: Request, res: Response) {
         try {
-            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
-            const parkingArea = await parkingAreaRepository.findOne({ where: { id } });
+            const parkingArea = await this.parkingAreaRepository.findOne({ where: { id } });
             
             if (!parkingArea) {
                 return res.status(404).json({ message: "Parking area not found" });
             }
 
-            await parkingAreaRepository.remove(parkingArea);
+            await this.parkingAreaRepository.remove(parkingArea);
             res.json({ message: "Parking area deleted successfully" });
         } catch (error) {
+            logger.error('Error deleting parking area:', error);
             res.status(500).json({ message: "Error deleting parking area", error });
         }
     }
 
     // Update parking area occupancy
-    static async updateOccupancy(req: Request, res: Response) {
+    public async updateOccupancy(req: Request, res: Response) {
         try {
-            const parkingAreaRepository = AppDataSource.getRepository(ParkingArea);
             const id = parseInt(req.params.id);
             const { occupied } = req.body;
 
@@ -143,7 +155,7 @@ export class ParkingAreaController {
                 return res.status(400).json({ message: "Occupancy must be a number" });
             }
 
-            const parkingArea = await parkingAreaRepository.findOne({ where: { id } });
+            const parkingArea = await this.parkingAreaRepository.findOne({ where: { id } });
             
             if (!parkingArea) {
                 return res.status(404).json({ message: "Parking area not found" });
@@ -154,9 +166,10 @@ export class ParkingAreaController {
             }
 
             parkingArea.occupied = occupied;
-            await parkingAreaRepository.save(parkingArea);
+            await this.parkingAreaRepository.save(parkingArea);
             res.json(parkingArea);
         } catch (error) {
+            logger.error('Error updating occupancy:', error);
             res.status(500).json({ message: "Error updating occupancy", error });
         }
     }

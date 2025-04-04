@@ -11,7 +11,7 @@ const vehicleTypes = [
 // Hardware configuration
 const hardwareConfig = {
     gate: {
-        port: process.env.GATE_PORT || 'COM1',
+        port: process.env.GATE_PORT || '/dev/ttyUSB1',
         baudRate: parseInt(process.env.GATE_BAUD_RATE || '9600')
     },
     camera: {
@@ -22,13 +22,12 @@ const hardwareConfig = {
         output: 'jpeg'
     },
     printer: {
-        port: process.env.PRINTER_PORT || 'COM2',
-        baudRate: parseInt(process.env.PRINTER_BAUD_RATE || '9600'),
+        name: process.env.PRINTER_NAME || 'TM-T82X-S-A-2',
         width: 80,
         characterSet: 'SLOVENIA'
     },
     scanner: {
-        port: process.env.SCANNER_PORT || 'COM3',
+        port: process.env.SCANNER_PORT || '/dev/ttyUSB2',
         baudRate: parseInt(process.env.SCANNER_BAUD_RATE || '9600'),
         dataBits: 8,
         stopBits: 1,

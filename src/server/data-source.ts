@@ -1,7 +1,18 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
-import path from 'path';
+import * as path from 'path';
 import logger from './utils/logger';
+import { Device } from './entities/Device';
+import { DeviceHealthCheck } from './entities/DeviceHealthCheck';
+import { DeviceLog } from './entities/DeviceLog';
+import { User } from './entities/User';
+import { Vehicle } from './entities/Vehicle';
+import { ParkingArea } from './entities/ParkingArea';
+import { ParkingSession } from './entities/ParkingSession';
+import { Ticket } from './entities/Ticket';
+import { Gate } from './entities/Gate';
+import { Membership } from './entities/Membership';
+import { PaymentTransaction } from './entities/PaymentTransaction';
 
 // Load environment variables
 config();
@@ -13,11 +24,23 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'parking_system',
-  synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
-  entities: [path.join(__dirname, 'entities/**/*.{ts,js}')],
+  synchronize: process.env.NODE_ENV !== 'production',
+  logging: process.env.NODE_ENV !== 'production',
+  entities: [
+    Device,
+    DeviceHealthCheck,
+    DeviceLog,
+    User,
+    Vehicle,
+    ParkingArea,
+    ParkingSession,
+    Ticket,
+    Gate,
+    Membership,
+    PaymentTransaction
+  ],
   migrations: [path.join(__dirname, 'migrations/**/*.{ts,js}')],
-  subscribers: [path.join(__dirname, 'subscribers/**/*.{ts,js}')],
+  subscribers: [path.join(__dirname, 'subscribers/**/*.{ts,js}')]
 });
 
 // Initialize database function

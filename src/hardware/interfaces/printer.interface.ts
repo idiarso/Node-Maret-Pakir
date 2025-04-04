@@ -1,9 +1,7 @@
-import { SerialPort } from 'serialport';
 import { EventEmitter } from 'events';
 
 export interface PrinterConfig {
-  port: string;
-  baudRate: number;
+  name: string;
   width?: number;
   characterSet?: string;
 }
@@ -16,159 +14,88 @@ export interface PrintOptions {
 }
 
 export class PrinterController extends EventEmitter {
-  private port: SerialPort | null = null;
-  private readonly ESC = 0x1B;
-  private readonly GS = 0x1D;
+  private readonly printerName: string;
+  private readonly width: number;
+  private readonly characterSet: string;
 
   constructor(private readonly config: PrinterConfig) {
     super();
+    this.printerName = config.name;
+    this.width = config.width || 80;
+    this.characterSet = config.characterSet || 'SLOVENIA';
     this.initialize();
   }
 
   private async initialize(): Promise<void> {
     try {
-      this.port = new SerialPort({
-        path: this.config.port,
-        baudRate: this.config.baudRate,
-        autoOpen: false
+      // Check if printer exists
+      const { exec } = require('child_process');
+      exec(`lpstat -p ${this.printerName}`, (error: Error | null) => {
+        if (error) {
+          this.emit('error', new Error('Printer not found'));
+          return;
+        }
+        this.emit('ready');
       });
-
-      this.port.on('error', (error) => {
-        this.emit('error', error);
-      });
-
-      await this.open();
-      this.emit('ready');
     } catch (error) {
       this.emit('error', error);
     }
   }
 
-  private async open(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.port) {
-        reject(new Error('Port not initialized'));
-        return;
-      }
-
-      this.port.open((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
-  }
-
   public async print(text: string, options: PrintOptions = {}): Promise<void> {
-    if (!this.port) {
-      throw new Error('Printer not initialized');
-    }
+    try {
+      const { exec } = require('child_process');
+      const tempFile = `/tmp/print_${Date.now()}.txt`;
+      const fs = require('fs').promises;
 
-    const commands = this.formatText(text, options);
-    
-    return new Promise((resolve, reject) => {
-      this.port!.write(commands, (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
+      // Format text based on options
+      const formattedText = this.formatText(text, options);
+
+      // Write to temp file
+      await fs.writeFile(tempFile, formattedText);
+
+      // Print using lp command
+      return new Promise((resolve, reject) => {
+        exec(`lp -d ${this.printerName} ${tempFile}`, async (error: Error | null) => {
+          try {
+            // Clean up temp file
+            await fs.unlink(tempFile);
+
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve();
+          } catch (cleanupError) {
+            reject(cleanupError);
+          }
+        });
       });
-    });
+    } catch (error) {
+      throw error;
+    }
   }
 
-  public async printBarcode(data: string, height = 50): Promise<void> {
-    if (!this.port) {
-      throw new Error('Printer not initialized');
-    }
+  private formatText(text: string, options: PrintOptions): string {
+    let result = '';
 
-    const commands = [
-      // Select barcode height
-      Buffer.from([this.GS, 0x68, height]),
-      // Select barcode width
-      Buffer.from([this.GS, 0x77, 2]),
-      // Select position of HRI characters
-      Buffer.from([this.GS, 0x48, 2]),
-      // Select font for HRI characters
-      Buffer.from([this.GS, 0x66, 0]),
-      // Print barcode
-      Buffer.from([this.GS, 0x6B, 0x04]), // Select CODE39
-      Buffer.from(data),
-      Buffer.from([0x00]) // Null terminator
-    ];
-
-    return new Promise((resolve, reject) => {
-      this.port!.write(Buffer.concat(commands), (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
-  }
-
-  public async cut(): Promise<void> {
-    if (!this.port) {
-      throw new Error('Printer not initialized');
-    }
-
-    const command = Buffer.from([this.GS, 0x56, 0x00]); // Full cut
-    
-    return new Promise((resolve, reject) => {
-      this.port!.write(command, (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
-  }
-
-  private formatText(text: string, options: PrintOptions): Buffer {
-    const commands = [
-      // Initialize printer
-      Buffer.from([this.ESC, 0x40])
-    ];
-
-    // Text alignment
+    // Add text alignment
     if (options.align) {
-      const alignValue = options.align === 'center' ? 1 : options.align === 'right' ? 2 : 0;
-      commands.push(Buffer.from([this.ESC, 0x61, alignValue]));
+      const padding = ' '.repeat(Math.floor((this.width - text.length) / 2));
+      result += options.align === 'center' ? padding + text : 
+                options.align === 'right' ? ' '.repeat(this.width - text.length) + text :
+                text;
+    } else {
+      result += text;
     }
 
-    // Text size
-    if (options.size) {
-      const sizeValue = options.size === 'large' ? 0x10 : options.size === 'small' ? 0x01 : 0x00;
-      commands.push(Buffer.from([this.ESC, 0x21, sizeValue]));
-    }
+    // Add line breaks
+    result += '\n';
 
-    // Bold
-    if (options.bold) {
-      commands.push(Buffer.from([this.ESC, 0x45, 0x01]));
-    }
-
-    // Underline
-    if (options.underline) {
-      commands.push(Buffer.from([this.ESC, 0x2D, 0x01]));
-    }
-
-    // Add text
-    commands.push(Buffer.from(text));
-
-    // Reset formatting
-    commands.push(Buffer.from([this.ESC, 0x40]));
-
-    return Buffer.concat(commands);
+    return result;
   }
 
   public dispose(): void {
-    if (this.port) {
-      this.port.close();
-      this.port = null;
-    }
+    // Nothing to dispose for CUPS printing
   }
 } 

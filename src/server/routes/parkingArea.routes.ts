@@ -1,25 +1,19 @@
 import { Router } from "express";
 import { ParkingAreaController } from "../controllers/parkingArea.controller";
-import { authenticateToken } from "../middleware/auth";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { UserRole } from "../../shared/types";
 
 const router = Router();
+const parkingAreaController = ParkingAreaController.getInstance();
 
-// Get all parking areas
-router.get("/", authenticateToken, ParkingAreaController.getAllParkingAreas);
+// Protected routes
+router.get("/", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), (req, res) => parkingAreaController.getAllParkingAreas(req, res));
+router.get("/:id", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), (req, res) => parkingAreaController.getParkingAreaById(req, res));
+router.post("/", authMiddleware([UserRole.ADMIN]), (req, res) => parkingAreaController.createParkingArea(req, res));
+router.put("/:id", authMiddleware([UserRole.ADMIN]), (req, res) => parkingAreaController.updateParkingArea(req, res));
+router.delete("/:id", authMiddleware([UserRole.ADMIN]), (req, res) => parkingAreaController.deleteParkingArea(req, res));
 
-// Get parking area by ID
-router.get("/:id", authenticateToken, ParkingAreaController.getParkingAreaById);
-
-// Create new parking area
-router.post("/", authenticateToken, ParkingAreaController.createParkingArea);
-
-// Update parking area
-router.put("/:id", authenticateToken, ParkingAreaController.updateParkingArea);
-
-// Delete parking area
-router.delete("/:id", authenticateToken, ParkingAreaController.deleteParkingArea);
-
-// Update parking area occupancy
-router.patch("/:id/occupancy", authenticateToken, ParkingAreaController.updateOccupancy);
+// Occupancy routes
+router.patch("/:id/occupancy", authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), (req, res) => parkingAreaController.updateOccupancy(req, res));
 
 export default router; 

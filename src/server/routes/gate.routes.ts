@@ -1,36 +1,20 @@
-import express from 'express';
+import { Router } from 'express';
 import { GateController } from '../controllers/gate.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { UserRole } from '../../shared/types';
 
-const router = express.Router();
-const gateController = new GateController();
+const router = Router();
+const gateController = GateController.getInstance();
 
-// Apply auth middleware to all routes
-// Temporary disable auth for testing
-// router.use(authMiddleware);
+// Protected routes
+router.get('/', authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), (req, res) => gateController.getAllGates(req, res));
+router.get('/:id', authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), (req, res) => gateController.getGateById(req, res));
+router.post('/', authMiddleware([UserRole.ADMIN]), (req, res) => gateController.createGate(req, res));
+router.put('/:id', authMiddleware([UserRole.ADMIN]), (req, res) => gateController.updateGate(req, res));
+router.delete('/:id', authMiddleware([UserRole.ADMIN]), (req, res) => gateController.deleteGate(req, res));
 
-// Get all gates
-router.get('/', (req, res) => gateController.getAllGates(req, res));
-
-// Get gate by ID
-router.get('/:id', (req, res) => gateController.getGateById(req, res));
-
-// Create new gate
-router.post('/', (req, res) => gateController.createGate(req, res));
-
-// Update gate
-router.put('/:id', (req, res) => gateController.updateGate(req, res));
-
-// Delete gate
-router.delete('/:id', (req, res) => gateController.deleteGate(req, res));
-
-// Change gate status
-router.put('/:id/status', (req, res) => gateController.changeGateStatus(req, res));
-
-// Open gate
-router.post('/:id/open', GateController.openGate);
-
-// Close gate
-router.post('/:id/close', GateController.closeGate);
+// Gate control routes
+router.post('/:id/open', authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), GateController.openGate);
+router.post('/:id/close', authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), GateController.closeGate);
 
 export default router; 

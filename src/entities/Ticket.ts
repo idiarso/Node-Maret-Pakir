@@ -12,6 +12,9 @@ export class Ticket {
     @Column({ name: 'parking_session_id' })
     parking_session_id!: number;
 
+    @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+    status!: string;
+
     @OneToOne(() => ParkingSession)
     @JoinColumn({ name: 'parking_session_id' })
     parkingSession!: ParkingSession;

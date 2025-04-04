@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { ParkingRateController } from '../controllers/parkingRate.controller';
-import { authMiddleware, validateRequest } from '../middleware';
+import { authMiddleware } from '../middleware/auth.middleware';
 import { z } from 'zod';
 import { VehicleType } from '../entities/ParkingRate';
 
 const router = Router();
-const controller = new ParkingRateController();
+const controller = ParkingRateController.getInstance();
 
 // Validation schemas
 const createRateSchema = {
@@ -66,31 +66,26 @@ router.get('/', authMiddleware, controller.getAllRates);
 
 router.get('/:id', 
   authMiddleware, 
-  validateRequest(getRateByIdSchema),
   controller.getRateById
 );
 
 router.post('/', 
   authMiddleware, 
-  validateRequest(createRateSchema),
   controller.createRate
 );
 
 router.put('/:id', 
   authMiddleware, 
-  validateRequest(updateRateSchema),
   controller.updateRate
 );
 
 router.delete('/:id', 
   authMiddleware, 
-  validateRequest(deleteRateSchema),
   controller.deleteRate
 );
 
 router.get('/active/:vehicleType',
   authMiddleware,
-  validateRequest(getActiveRatesSchema),
   controller.getActiveRatesByVehicleType
 );
 

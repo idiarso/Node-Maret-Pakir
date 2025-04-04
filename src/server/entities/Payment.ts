@@ -18,6 +18,15 @@ export class Payment extends BaseEntity {
     @Column({ type: 'decimal', precision: 10, scale: 2 })
     amount: number = 0;
 
+    @Column({ type: 'decimal', precision: 10, scale: 2 })
+    rate: number = 0;
+
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    fine?: number;
+
+    @Column({ type: 'integer' })
+    duration: number = 0;
+
     @Column({
         type: 'enum',
         enum: PaymentStatus,

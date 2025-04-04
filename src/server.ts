@@ -4,10 +4,11 @@ import { createUserRouter } from './routes/user.routes';
 import { createVehicleRouter } from './routes/vehicle.routes';
 import { createPaymentRouter } from './routes/payment.routes';
 import { createSettingsRouter } from './routes/settings.routes';
+import { createTicketRouter } from './server/routes/ticket.routes';
 import { WebSocketServer } from 'ws';
 import { HardwareManager } from './services/hardware.manager';
 import { TicketController } from './controllers/ticket.controller';
-import { authMiddleware, authenticatedHandler } from './middleware/auth.middleware';
+import { authMiddleware } from './middleware/auth.middleware';
 import dotenv from 'dotenv';
 import { UserRole } from './shared/types';
 import AppDataSource, { initializeDatabase } from './server/config/ormconfig';
@@ -38,7 +39,7 @@ async function startServer() {
     logger.info('Database initialized successfully');
 
     // Initialize controllers
-    const ticketController = new TicketController(AppDataSource, hardwareManager);
+    TicketController.initialize(AppDataSource, hardwareManager);
 
     // Middleware
     app.use(cors());
@@ -49,8 +50,7 @@ async function startServer() {
     app.use('/api/vehicles', createVehicleRouter(AppDataSource));
     app.use('/api/payments', createPaymentRouter(AppDataSource));
     app.use('/api/settings', createSettingsRouter(AppDataSource));
-    app.post('/api/tickets', authMiddleware([UserRole.OPERATOR]), authenticatedHandler(ticketController.generateTicket));
-    app.get('/api/tickets/:barcode', authMiddleware([UserRole.OPERATOR]), authenticatedHandler(ticketController.validateTicket));
+    app.use('/api/tickets', createTicketRouter(AppDataSource, hardwareManager));
 
     // WebSocket server
     const wss = new WebSocketServer({ noServer: true });

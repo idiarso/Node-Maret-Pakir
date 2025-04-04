@@ -1,26 +1,43 @@
 import { Router } from 'express';
 import { TicketController } from '../controllers/ticket.controller';
-import { auth } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { UserRole } from '../../shared/types';
 
-const router = Router();
-const ticketController = TicketController.getInstance();
+export const createTicketRouter = () => {
+    const router = Router();
+    const ticketController = TicketController.getInstance();
 
-// All routes require authentication
-router.use(auth);
+    // Protected routes
+    router.get('/', 
+        authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), 
+        (req, res) => ticketController.listTickets(req, res)
+    );
+    
+    router.get('/:id', 
+        authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), 
+        (req, res) => ticketController.getTicket(req, res)
+    );
+    
+    router.post('/', 
+        authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), 
+        (req, res) => ticketController.createTicket(req, res)
+    );
+    
+    router.put('/:id', 
+        authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), 
+        (req, res) => ticketController.updateTicket(req, res)
+    );
+    
+    router.delete('/:id', 
+        authMiddleware([UserRole.ADMIN]), 
+        (req, res) => ticketController.cancelTicket(req, res)
+    );
 
-// Create new ticket
-router.post('/', ticketController.createTicket.bind(ticketController));
+    // Ticket validation routes
+    router.post('/:id/validate', 
+        authMiddleware([UserRole.ADMIN, UserRole.OPERATOR]), 
+        (req, res) => ticketController.validateTicket(req, res)
+    );
 
-// Get ticket by ID
-router.get('/:id', ticketController.getTicket.bind(ticketController));
-
-// Get ticket by ticket number
-router.get('/number/:ticketNumber', ticketController.getTicketByNumber.bind(ticketController));
-
-// Update ticket
-router.patch('/:id', ticketController.updateTicket.bind(ticketController));
-
-// List tickets with pagination and filters
-router.get('/', ticketController.listTickets.bind(ticketController));
-
-export default router; 
+    return router;
+}; 

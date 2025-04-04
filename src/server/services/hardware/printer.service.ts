@@ -1,39 +1,29 @@
-import { SerialPort, SerialPortOpenOptions } from 'serialport';
 import { LoggerService } from '../logger.service';
 import { Ticket } from '../../entities/Ticket';
 import { Payment } from '../../entities/Payment';
 import { VehicleType } from '../../entities/VehicleType';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+const execAsync = promisify(exec);
 
 export class PrinterService {
     private static instance: PrinterService;
-    private port: SerialPort;
+    private printerName: string;
 
     private constructor() {
-        const portPath = process.env.PRINTER_PORT || 'COM2';
-        const baudRate = process.env.PRINTER_BAUD_RATE ? parseInt(process.env.PRINTER_BAUD_RATE) : 9600;
-
-        try {
-            const options: SerialPortOpenOptions<any> = {
-                path: portPath,
-                baudRate: baudRate,
-                dataBits: 8,
-                stopBits: 1,
-                parity: 'none'
-            };
-
-            this.port = new SerialPort(options);
-
-            this.port.on('open', () => {
-                LoggerService.info('Receipt printer connected', { port: portPath, baudRate, context: 'PrinterService.constructor' });
-            });
-
-            this.port.on('error', (error: Error) => {
-                LoggerService.error('Receipt printer error', { error, context: 'PrinterService.constructor' });
-            });
-        } catch (error) {
-            LoggerService.error('Failed to initialize receipt printer', { error, context: 'PrinterService.constructor' });
-            throw new Error('Failed to initialize receipt printer');
-        }
+        this.printerName = process.env.PRINTER_NAME || 'TM-T82X-S-A';
+        
+        // Check if printer exists
+        exec(`lpstat -p ${this.printerName}`, (error) => {
+            if (error) {
+                LoggerService.error('Printer not found', { error, context: 'PrinterService.constructor' });
+                throw new Error('Printer not found');
+            }
+            LoggerService.info('Printer connected', { printer: this.printerName, context: 'PrinterService.constructor' });
+        });
     }
 
     public static getInstance(): PrinterService {
@@ -43,104 +33,90 @@ export class PrinterService {
         return PrinterService.instance;
     }
 
-    private async write(data: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            this.port.write(data, (error: Error | null | undefined) => {
-                if (error) {
-                    LoggerService.error('Failed to write to printer', { error, context: 'PrinterService.write' });
-                    reject(error);
-                } else {
-                    this.port.drain((error: Error | null | undefined) => {
-                        if (error) {
-                            LoggerService.error('Failed to drain printer buffer', { error, context: 'PrinterService.write' });
-                            reject(error);
-                        } else {
-                            resolve();
-                        }
-                    });
-                }
-            });
-        });
-    }
-
     public async printTicket(ticket: Ticket, vehicleType: VehicleType): Promise<void> {
         try {
-            const receipt = [
-                '\x1B\x40',  // Initialize printer
-                '\x1B\x61\x01',  // Center alignment
-                'PARKING TICKET\n',
-                '=============\n\n',
-                `Ticket #: ${ticket.ticketNumber}\n`,
-                `Vehicle Type: ${vehicleType.name}\n`,
-                `Plate #: ${ticket.plateNumber}\n`,
-                `Entry Time: ${ticket.entryTime.toLocaleString()}\n\n`,
-                'Please keep this ticket safe.\n',
-                'Present this ticket upon exit.\n\n',
-                '\x1B\x61\x00',  // Left alignment
-                `Rate: $${vehicleType.price.toFixed(2)}/hour\n\n`,
-                '\x1B\x61\x01',  // Center alignment
-                'Thank you for parking with us!\n\n\n\n',
-                '\x1B\x69',  // Cut paper
-            ].join('');
-
-            await this.write(receipt);
-            LoggerService.info('Ticket printed', { ticketNumber: ticket.ticketNumber, context: 'PrinterService.printTicket' });
+            const tempFile = path.join('/tmp', `ticket_${ticket.id}.txt`);
+            
+            // Generate ticket content
+            const content = this.generateTicketContent(ticket, vehicleType);
+            
+            // Write content to temp file
+            await fs.writeFile(tempFile, content);
+            
+            // Print using lp command
+            await execAsync(`lp -d ${this.printerName} ${tempFile}`);
+            
+            // Clean up temp file
+            await fs.unlink(tempFile);
+            
+            LoggerService.info('Ticket printed successfully', { ticketId: ticket.id, context: 'PrinterService.printTicket' });
         } catch (error) {
             LoggerService.error('Failed to print ticket', { error, context: 'PrinterService.printTicket' });
-            throw new Error('Failed to print ticket');
+            throw error;
         }
     }
 
-    public async printPayment(payment: Payment, ticket: Ticket, vehicleType: VehicleType): Promise<void> {
+    public async printReceipt(payment: Payment, ticket: Ticket): Promise<void> {
         try {
-            const parkingDuration = Math.ceil((new Date().getTime() - ticket.entryTime.getTime()) / (1000 * 60 * 60));
+            const tempFile = path.join('/tmp', `receipt_${payment.id}.txt`);
             
-            const receipt = [
-                '\x1B\x40',  // Initialize printer
-                '\x1B\x61\x01',  // Center alignment
-                'PARKING RECEIPT\n',
-                '==============\n\n',
-                `Receipt #: ${payment.id}\n`,
-                `Ticket #: ${ticket.ticketNumber}\n`,
-                `Vehicle Type: ${vehicleType.name}\n`,
-                `Plate #: ${ticket.plateNumber}\n\n`,
-                '\x1B\x61\x00',  // Left alignment
-                `Entry Time: ${ticket.entryTime.toLocaleString()}\n`,
-                `Exit Time: ${new Date().toLocaleString()}\n`,
-                `Duration: ${parkingDuration} hour(s)\n\n`,
-                `Rate: $${vehicleType.price.toFixed(2)}/hour\n`,
-                `Amount: $${payment.amount.toFixed(2)}\n\n`,
-                `Payment Method: ${payment.paymentMethod || 'CASH'}\n`,
-                payment.transactionId ? `Transaction ID: ${payment.transactionId}\n` : '',
-                '\n\x1B\x61\x01',  // Center alignment
-                'Thank you for parking with us!\n\n\n\n',
-                '\x1B\x69',  // Cut paper
-            ].join('');
-
-            await this.write(receipt);
-            LoggerService.info('Payment receipt printed', { paymentId: payment.id, context: 'PrinterService.printPayment' });
+            // Generate receipt content
+            const content = this.generateReceiptContent(payment, ticket);
+            
+            // Write content to temp file
+            await fs.writeFile(tempFile, content);
+            
+            // Print using lp command
+            await execAsync(`lp -d ${this.printerName} ${tempFile}`);
+            
+            // Clean up temp file
+            await fs.unlink(tempFile);
+            
+            LoggerService.info('Receipt printed successfully', { paymentId: payment.id, context: 'PrinterService.printReceipt' });
         } catch (error) {
-            LoggerService.error('Failed to print payment receipt', { error, context: 'PrinterService.printPayment' });
-            throw new Error('Failed to print payment receipt');
+            LoggerService.error('Failed to print receipt', { error, context: 'PrinterService.printReceipt' });
+            throw error;
         }
     }
 
-    public async cleanup(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            if (!this.port) {
-                resolve();
-                return;
-            }
+    private generateTicketContent(ticket: Ticket, vehicleType: VehicleType): string {
+        const date = new Date().toLocaleString('id-ID');
+        return `
+================================
+        TIKET PARKIR
+================================
+No. Tiket: ${ticket.ticketNumber}
+Tanggal  : ${date}
+Plat No. : ${ticket.plateNumber}
+Jenis    : ${vehicleType.name}
+================================
+    Simpan tiket ini dengan baik
+    Kehilangan tiket dikenakan
+    denda sesuai ketentuan
+================================
+`;
+    }
 
-            this.port.close((error: Error | null | undefined) => {
-                if (error) {
-                    LoggerService.error('Failed to close printer port', { error, context: 'PrinterService.cleanup' });
-                    reject(error);
-                } else {
-                    LoggerService.info('Receipt printer disconnected', { context: 'PrinterService.cleanup' });
-                    resolve();
-                }
-            });
-        });
+    private generateReceiptContent(payment: Payment, ticket: Ticket): string {
+        const date = new Date().toLocaleString('id-ID');
+        return `
+================================
+        STRUK PEMBAYARAN
+================================
+No. Struk : ${payment.id}
+No. Tiket : ${ticket.ticketNumber}
+Tanggal  : ${date}
+Plat No. : ${ticket.plateNumber}
+--------------------------------
+Durasi   : ${payment.duration} jam
+Tarif    : Rp ${payment.rate}
+Denda    : Rp ${payment.fine || 0}
+--------------------------------
+Total    : Rp ${payment.amount}
+================================
+      Terima kasih atas
+      kunjungan Anda
+================================
+`;
     }
 } 

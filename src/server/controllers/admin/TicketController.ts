@@ -1,11 +1,22 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../../config/ormconfig';
+import AppDataSource from '../../config/ormconfig';
 import { Ticket } from '../../entities/Ticket';
 import { VehicleType } from '../../entities/VehicleType';
+import { TicketStatus } from '../../../shared/types';
 
 export class TicketController {
-    private ticketRepository = AppDataSource.getRepository(Ticket);
-    private vehicleTypeRepository = AppDataSource.getRepository(VehicleType);
+    private static instance: TicketController;
+    private readonly ticketRepository = AppDataSource.getRepository(Ticket);
+    private readonly vehicleTypeRepository = AppDataSource.getRepository(VehicleType);
+
+    private constructor() {}
+
+    public static getInstance(): TicketController {
+        if (!TicketController.instance) {
+            TicketController.instance = new TicketController();
+        }
+        return TicketController.instance;
+    }
 
     async getTickets(req: Request, res: Response) {
         try {
@@ -19,7 +30,7 @@ export class TicketController {
 
             if (search) {
                 queryBuilder.where(
-                    '(ticket.barcode LIKE :search OR ticket.plateNumber LIKE :search)',
+                    '(ticket.ticketNumber LIKE :search OR ticket.plateNumber LIKE :search)',
                     { search: `%${search}%` }
                 );
             }
@@ -60,12 +71,13 @@ export class TicketController {
                 return res.status(404).json({ message: 'Vehicle type not found' });
             }
 
-            const ticket = this.ticketRepository.create({
-                barcode: this.generateBarcode(),
+            const ticket = new Ticket({
+                ticketNumber: this.generateTicketNumber(),
                 plateNumber,
-                vehicleType,
-                status: 'ACTIVE',
-                entryTime: new Date()
+                vehicleTypeId,
+                status: TicketStatus.ACTIVE,
+                entryTime: new Date(),
+                createdBy: (req as any).user?.id || 0
             });
 
             await this.ticketRepository.save(ticket);
@@ -98,14 +110,14 @@ export class TicketController {
                     return res.status(404).json({ message: 'Vehicle type not found' });
                 }
 
-                ticket.vehicleType = vehicleType;
+                ticket.vehicleTypeId = vehicleTypeId;
             }
 
             if (plateNumber) {
                 ticket.plateNumber = plateNumber;
             }
 
-            if (status) {
+            if (status && Object.values(TicketStatus).includes(status)) {
                 ticket.status = status;
             }
 
@@ -158,13 +170,12 @@ export class TicketController {
 
             // Format data for CSV
             const csvData = tickets.map(ticket => ({
-                barcode: ticket.barcode,
+                ticketNumber: ticket.ticketNumber,
                 plateNumber: ticket.plateNumber,
                 entryTime: ticket.entryTime.toISOString(),
                 exitTime: ticket.exitTime?.toISOString() || '',
                 vehicleType: ticket.vehicleType.name,
-                status: ticket.status,
-                amount: ticket.amount || ''
+                status: ticket.status
             }));
 
             res.json(csvData);
@@ -174,7 +185,7 @@ export class TicketController {
         }
     }
 
-    private generateBarcode(): string {
+    private generateTicketNumber(): string {
         const timestamp = Date.now().toString();
         const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         return `TKT${timestamp.slice(-6)}${random}`;

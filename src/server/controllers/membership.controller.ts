@@ -7,8 +7,19 @@ const membershipRepository = AppDataSource.getRepository(Membership);
 const vehicleRepository = AppDataSource.getRepository(Vehicle);
 
 export class MembershipController {
+    private static instance: MembershipController;
+
+    private constructor() {}
+
+    public static getInstance(): MembershipController {
+        if (!MembershipController.instance) {
+            MembershipController.instance = new MembershipController();
+        }
+        return MembershipController.instance;
+    }
+
     // Get all memberships
-    static async getAllMemberships(req: Request, res: Response) {
+    async getAllMemberships(req: Request, res: Response) {
         try {
             const memberships = await membershipRepository.find({
                 relations: ["vehicle"]
@@ -20,7 +31,7 @@ export class MembershipController {
     }
 
     // Get membership by ID
-    static async getMembershipById(req: Request, res: Response) {
+    async getMembershipById(req: Request, res: Response) {
         try {
             const id = parseInt(req.params.id);
             const membership = await membershipRepository.findOne({
@@ -39,7 +50,7 @@ export class MembershipController {
     }
 
     // Create new membership
-    static async createMembership(req: Request, res: Response) {
+    async createMembership(req: Request, res: Response) {
         try {
             const { vehicle_id, type, start_date, end_date } = req.body;
             
@@ -56,8 +67,8 @@ export class MembershipController {
             // Check for active membership
             const activeMembership = await membershipRepository.findOne({
                 where: {
-                    vehicle: { id: vehicle_id },
-                    status: "ACTIVE"
+                    vehicleId: vehicle_id,
+                    active: true
                 }
             });
 
@@ -65,13 +76,18 @@ export class MembershipController {
                 return res.status(400).json({ message: "Vehicle already has an active membership" });
             }
 
-            const membership = membershipRepository.create({
-                vehicle,
+            const membershipData = {
+                vehicleId: vehicle_id,
                 type,
                 start_date: new Date(start_date),
-                end_date: end_date ? new Date(end_date) : null,
-                status: "ACTIVE"
-            });
+                active: true
+            } as Partial<Membership>;
+
+            if (end_date) {
+                membershipData.end_date = new Date(end_date);
+            }
+
+            const membership = membershipRepository.create(membershipData);
 
             await membershipRepository.save(membership);
             res.status(201).json(membership);
@@ -81,10 +97,10 @@ export class MembershipController {
     }
 
     // Update membership
-    static async updateMembership(req: Request, res: Response) {
+    async updateMembership(req: Request, res: Response) {
         try {
             const id = parseInt(req.params.id);
-            const { type, start_date, end_date, status } = req.body;
+            const { type, start_date, end_date, active } = req.body;
 
             const membership = await membershipRepository.findOne({ where: { id } });
             
@@ -95,7 +111,7 @@ export class MembershipController {
             if (type) membership.type = type;
             if (start_date) membership.start_date = new Date(start_date);
             if (end_date) membership.end_date = new Date(end_date);
-            if (status) membership.status = status;
+            if (active !== undefined) membership.active = active;
 
             await membershipRepository.save(membership);
             res.json(membership);
@@ -105,7 +121,7 @@ export class MembershipController {
     }
 
     // Delete membership
-    static async deleteMembership(req: Request, res: Response) {
+    async deleteMembership(req: Request, res: Response) {
         try {
             const id = parseInt(req.params.id);
             const membership = await membershipRepository.findOne({ where: { id } });
@@ -122,10 +138,10 @@ export class MembershipController {
     }
 
     // Get active memberships
-    static async getActiveMemberships(req: Request, res: Response) {
+    async getActiveMemberships(req: Request, res: Response) {
         try {
             const memberships = await membershipRepository.find({
-                where: { status: "ACTIVE" },
+                where: { active: true },
                 relations: ["vehicle"]
             });
             res.json(memberships);
@@ -135,7 +151,7 @@ export class MembershipController {
     }
 
     // Get memberships by vehicle ID
-    static async getMembershipsByVehicle(req: Request, res: Response) {
+    async getMembershipsByVehicle(req: Request, res: Response) {
         try {
             const vehicle_id = parseInt(req.params.vehicle_id);
             const memberships = await membershipRepository.find({

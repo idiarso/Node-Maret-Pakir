@@ -5,6 +5,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Logger } from '../../shared/services/Logger';
 import multer from 'multer';
 import * as path from 'path';
+import { UserRole } from '../../shared/types';
 
 const logger = Logger.getInstance();
 
@@ -94,7 +95,7 @@ router.put('/settings', BackupController.updateBackupSettings);
 
 // Backup operations
 router.post('/trigger', BackupController.triggerBackup);
-router.get('/list', BackupController.listBackups);
+router.get('/list', authMiddleware([UserRole.ADMIN]), (req, res) => BackupController.listBackups(req, res));
 router.post('/restore/:filename', BackupController.restoreBackup);
 router.delete('/delete/:filename', BackupController.deleteBackup);
 router.get('/download/:filename', BackupController.downloadBackup);

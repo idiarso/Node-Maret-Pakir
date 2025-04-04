@@ -2,14 +2,14 @@ import request from 'supertest';
 import express from 'express';
 import deviceRoutes from '../routes/device.routes';
 import { DeviceController } from '../controllers/device.controller';
-import { authenticateToken } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth.middleware';
 
 // Mock the controller
 jest.mock('../controllers/device.controller');
 
 // Mock the auth middleware
-jest.mock('../middleware/auth', () => ({
-    authenticateToken: jest.fn((req, res, next) => next())
+jest.mock('../middleware/auth.middleware', () => ({
+    authMiddleware: jest.fn((req, res, next) => next())
 }));
 
 describe('Device Routes', () => {
@@ -41,7 +41,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual(mockDevices);
             expect(DeviceController.getAllDevices).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 
@@ -58,7 +58,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual(mockDevice);
             expect(DeviceController.getDeviceById).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 
@@ -81,7 +81,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual(mockDevice);
             expect(DeviceController.createDevice).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 
@@ -103,7 +103,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual(mockDevice);
             expect(DeviceController.updateDevice).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 
@@ -119,7 +119,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual({ message: 'Device deleted successfully' });
             expect(DeviceController.deleteDevice).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 
@@ -141,7 +141,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual(mockHealthCheck);
             expect(DeviceController.performHealthCheck).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 
@@ -160,7 +160,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual(mockLogs);
             expect(DeviceController.getDeviceLogs).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 
@@ -179,7 +179,7 @@ describe('Device Routes', () => {
 
             expect(response.body).toEqual(mockHealthChecks);
             expect(DeviceController.getDeviceHealthChecks).toHaveBeenCalled();
-            expect(authenticateToken).toHaveBeenCalled();
+            expect(authMiddleware).toHaveBeenCalled();
         });
     });
 }); 

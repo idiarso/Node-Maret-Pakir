@@ -1,117 +1,138 @@
-import { AppDataSource } from '../config/ormconfig';
-import { User, UserRole } from '../entities/User';
-import { AppError } from '../../shared/services/ErrorHandler';
+import { User } from '../entities/User';
+import { UserRole } from '../../shared/types';
+import { AppDataSource } from '../config/database';
 import { Logger } from '../../shared/services/Logger';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
+const logger = Logger.getInstance();
+
+interface RegisterDTO {
+  username: string;
+  password: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+}
+
+interface LoginDTO {
+  username: string;
+  password: string;
+}
+
+interface TokenPayload {
+  id: number;
+  username: string;
+  role: UserRole;
+}
+
 export class AuthService {
-    private static instance: AuthService;
-    private userRepository = AppDataSource.getRepository(User);
-    private logger = Logger.getInstance();
+  private static instance: AuthService;
+  private userRepository = AppDataSource.getRepository(User);
 
-    private constructor() {}
+  private constructor() {}
 
-    public static getInstance(): AuthService {
-        if (!AuthService.instance) {
-            AuthService.instance = new AuthService();
-        }
-        return AuthService.instance;
+  public static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService();
     }
+    return AuthService.instance;
+  }
 
-    public async login(username: string, password: string): Promise<{ user: User; token: string }> {
-        const user = await this.userRepository.findOne({ where: { username } });
-        
-        if (!user || !user.isActive) {
-            throw new AppError(401, 'Invalid credentials');
-        }
+  public async register(data: RegisterDTO): Promise<User> {
+    try {
+      const existingUser = await this.userRepository.findOne({
+        where: [
+          { username: data.username },
+          { email: data.email }
+        ]
+      });
 
-        const isValidPassword = await bcrypt.compare(password, user.passwordHash);
-        if (!isValidPassword) {
-            throw new AppError(401, 'Invalid credentials');
-        }
+      if (existingUser) {
+        throw new Error('Username or email already exists');
+      }
 
-        // Update last login
-        user.lastLogin = new Date();
-        await this.userRepository.save(user);
+      const passwordHash = await bcrypt.hash(data.password, 10);
+      const user = this.userRepository.create({
+        ...data,
+        passwordHash,
+        active: true
+      });
 
-        const token = this.generateToken(user);
-
-        return { user, token };
+      await this.userRepository.save(user);
+      return user;
+    } catch (error) {
+      logger.error('Error in register:', error);
+      throw error;
     }
+  }
 
-    public async createUser(userData: {
-        username: string;
-        password: string;
-        fullName: string;
-        email: string;
-        role: UserRole;
-    }): Promise<User> {
-        const existingUser = await this.userRepository.findOne({
-            where: [
-                { username: userData.username },
-                { email: userData.email }
-            ]
-        });
+  public async login(data: LoginDTO): Promise<{ token: string; user: TokenPayload }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { username: data.username }
+      });
 
-        if (existingUser) {
-            throw new AppError(400, 'Username or email already exists');
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (!user.active) {
+        throw new Error('User is inactive');
+      }
+
+      const isValidPassword = await bcrypt.compare(data.password, user.passwordHash);
+      if (!isValidPassword) {
+        throw new Error('Invalid password');
+      }
+
+      // Update last login
+      user.lastLogin = new Date();
+      await this.userRepository.save(user);
+
+      const token = jwt.sign(
+        {
+          id: user.id,
+          username: user.username,
+          role: user.role
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+      );
+
+      return {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role
         }
-
-        const passwordHash = await bcrypt.hash(userData.password, 10);
-        const user = this.userRepository.create({
-            ...userData,
-            passwordHash
-        });
-
-        await this.userRepository.save(user);
-        this.logger.info(`User created: ${user.username}`);
-
-        return user;
+      };
+    } catch (error) {
+      logger.error('Error in login:', error);
+      throw error;
     }
+  }
 
-    public async updateUser(
-        id: number,
-        userData: Partial<{
-            fullName: string;
-            email: string;
-            role: UserRole;
-            isActive: boolean;
-        }>
-    ): Promise<User> {
-        const user = await this.userRepository.findOne({ where: { id } });
-        if (!user) {
-            throw new AppError(404, 'User not found');
-        }
+  public async validateToken(token: string): Promise<TokenPayload> {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as TokenPayload;
+      const user = await this.userRepository.findOne({
+        where: { id: decoded.id }
+      });
 
-        Object.assign(user, userData);
-        await this.userRepository.save(user);
-        this.logger.info(`User updated: ${user.username}`);
+      if (!user || !user.active) {
+        throw new Error('Invalid token');
+      }
 
-        return user;
+      return {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      };
+    } catch (error) {
+      logger.error('Error in validateToken:', error);
+      throw error;
     }
-
-    public async changePassword(id: number, oldPassword: string, newPassword: string): Promise<void> {
-        const user = await this.userRepository.findOne({ where: { id } });
-        if (!user) {
-            throw new AppError(404, 'User not found');
-        }
-
-        const isValidPassword = await bcrypt.compare(oldPassword, user.passwordHash);
-        if (!isValidPassword) {
-            throw new AppError(401, 'Invalid old password');
-        }
-
-        user.passwordHash = await bcrypt.hash(newPassword, 10);
-        await this.userRepository.save(user);
-        this.logger.info(`Password changed for user: ${user.username}`);
-    }
-
-    private generateToken(user: User): string {
-        return jwt.sign(
-            { id: user.id, role: user.role },
-            process.env.JWT_SECRET || 'your-secret-key',
-            { expiresIn: '24h' }
-        );
-    }
+  }
 } 

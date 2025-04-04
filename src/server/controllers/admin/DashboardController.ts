@@ -1,13 +1,35 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../../config/ormconfig';
+import AppDataSource from '../../config/ormconfig';
 import { Ticket } from '../../entities/Ticket';
 import { Payment } from '../../entities/Payment';
 import { VehicleType } from '../../entities/VehicleType';
+import { MoreThanOrEqual } from 'typeorm';
+import { TicketStatus } from '../../../shared/types';
+
+interface WeeklyStat {
+    date: string;
+    revenue: number;
+}
+
+interface HourlyStat {
+    hour: number;
+    count: string;
+}
 
 export class DashboardController {
-    private ticketRepository = AppDataSource.getRepository(Ticket);
-    private paymentRepository = AppDataSource.getRepository(Payment);
-    private vehicleTypeRepository = AppDataSource.getRepository(VehicleType);
+    private static instance: DashboardController;
+    private readonly ticketRepository = AppDataSource.getRepository(Ticket);
+    private readonly paymentRepository = AppDataSource.getRepository(Payment);
+    private readonly vehicleTypeRepository = AppDataSource.getRepository(VehicleType);
+
+    private constructor() {}
+
+    public static getInstance(): DashboardController {
+        if (!DashboardController.instance) {
+            DashboardController.instance = new DashboardController();
+        }
+        return DashboardController.instance;
+    }
 
     async getDashboardStats(req: Request, res: Response) {
         try {
@@ -17,17 +39,13 @@ export class DashboardController {
             // Get today's stats
             const vehiclesIn = await this.ticketRepository.count({
                 where: {
-                    entryTime: {
-                        $gte: today
-                    }
+                    entryTime: MoreThanOrEqual(today)
                 }
             });
 
             const vehiclesOut = await this.ticketRepository.count({
                 where: {
-                    exitTime: {
-                        $gte: today
-                    }
+                    exitTime: MoreThanOrEqual(today)
                 }
             });
 
@@ -68,7 +86,7 @@ export class DashboardController {
             .where('payment.createdAt >= :weekStart', { weekStart })
             .groupBy('date')
             .orderBy('date', 'ASC')
-            .getRawMany();
+            .getRawMany<WeeklyStat>();
 
         return {
             labels: stats.map(stat => new Date(stat.date).toLocaleDateString('id-ID', { weekday: 'short' })),
@@ -87,7 +105,7 @@ export class DashboardController {
             .where('ticket.entryTime >= :today', { today })
             .groupBy('hour')
             .orderBy('hour', 'ASC')
-            .getRawMany();
+            .getRawMany<HourlyStat>();
 
         const hours = Array.from({ length: 24 }, (_, i) => i);
         const vehiclesIn = hours.map(hour => {
@@ -102,7 +120,7 @@ export class DashboardController {
             .where('ticket.exitTime >= :today', { today })
             .groupBy('hour')
             .orderBy('hour', 'ASC')
-            .getRawMany();
+            .getRawMany<HourlyStat>();
 
         return {
             labels: hours.map(hour => `${hour}:00`),
@@ -118,7 +136,7 @@ export class DashboardController {
         const totalSpots = 100; // This should come from configuration
         const activeTickets = await this.ticketRepository.count({
             where: {
-                status: 'ACTIVE'
+                status: TicketStatus.ACTIVE
             }
         });
 

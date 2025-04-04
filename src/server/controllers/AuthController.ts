@@ -2,8 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/AuthService';
 import { AppError } from '../../shared/services/ErrorHandler';
 import { Logger } from '../../shared/services/Logger';
-import { validate, schemas } from '../middleware/validate';
-import { auth, adminAuth } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { UserRole } from '../../shared/types';
 
 export class AuthController {
     private static instance: AuthController;
@@ -104,22 +104,22 @@ export class AuthController {
             {
                 path: '/login',
                 method: 'post',
-                handler: [validate(schemas.login), this.login]
+                handler: [this.login]
             },
             {
                 path: '/users',
                 method: 'post',
-                handler: [auth, adminAuth, validate(schemas.createUser), this.createUser]
+                handler: [authMiddleware([UserRole.ADMIN]), this.createUser]
             },
             {
                 path: '/users/:id',
                 method: 'put',
-                handler: [auth, adminAuth, this.updateUser]
+                handler: [authMiddleware([UserRole.ADMIN]), this.updateUser]
             },
             {
                 path: '/users/change-password',
                 method: 'post',
-                handler: [auth, this.changePassword]
+                handler: [authMiddleware(), this.changePassword]
             }
         ];
     }

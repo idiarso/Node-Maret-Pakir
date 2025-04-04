@@ -8,7 +8,7 @@ const router = Router();
 router.post('/login', AuthController.login);
 
 // Protected routes
-router.get('/me', authMiddleware, AuthController.getProfile);
-router.post('/change-password', authMiddleware, AuthController.changePassword);
+router.get('/me', authMiddleware(), AuthController.getProfile);
+router.post('/change-password', authMiddleware(), AuthController.changePassword);
 
 export default router; 

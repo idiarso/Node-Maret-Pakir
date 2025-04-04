@@ -1,11 +1,25 @@
 #!/bin/bash
 
-echo "Stopping NodeTSpark services..."
+# Timestamp for logging
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stopping services..."
 
-# Stop all processes
-pm2 stop nodetsspark-backend nodetsspark-frontend
+# Change to the project directory
+cd "$(dirname "$0")"
 
-# Delete processes from PM2
-pm2 delete nodetsspark-backend nodetsspark-frontend
+# Stop backend service
+if [ -f backend.pid ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stopping backend service..."
+    kill $(cat backend.pid)
+    rm backend.pid
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend service stopped."
+fi
 
-echo "All services stopped successfully!" 
+# Stop frontend service
+if [ -f frontend/frontend.pid ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stopping frontend service..."
+    kill $(cat frontend/frontend.pid)
+    rm frontend/frontend.pid
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Frontend service stopped."
+fi
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] All services stopped successfully!" 

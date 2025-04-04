@@ -161,6 +161,43 @@ export class TicketController {
         }
     }
 
+    async cancelTicket(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const ticket = await this.ticketService.update(Number(id), {
+                status: TicketStatus.CANCELLED
+            });
+
+            LoggerService.info('Ticket cancelled:', { id });
+            return res.json(ticket);
+        } catch (error) {
+            if (error instanceof ApiError) throw error;
+            LoggerService.error('Error cancelling ticket:', error);
+            throw new ApiError(500, 'Failed to cancel ticket');
+        }
+    }
+
+    async validateTicket(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const ticket = await this.ticketService.findById(Number(id));
+
+            if (!ticket) {
+                throw new ApiError(404, 'Ticket not found');
+            }
+
+            if (ticket.status !== TicketStatus.ACTIVE) {
+                throw new ApiError(400, 'Ticket is not active');
+            }
+
+            return res.json({ valid: true, ticket });
+        } catch (error) {
+            if (error instanceof ApiError) throw error;
+            LoggerService.error('Error validating ticket:', error);
+            throw new ApiError(500, 'Failed to validate ticket');
+        }
+    }
+
     private async generateTicketNumber(): Promise<string> {
         const date = new Date();
         const prefix = date.getFullYear().toString().slice(-2) +

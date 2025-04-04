@@ -20,6 +20,9 @@ import { ParkingRate } from "../entities/ParkingRate";
 import { Shift } from "../entities/Shift";
 import { Client as pgClient } from 'pg';
 import { Logger } from '../../shared/services/Logger';
+import bcrypt from 'bcryptjs';
+import { UserRole } from '../../shared/types';
+import path from 'path';
 
 const logger = Logger.getInstance();
 
@@ -30,7 +33,7 @@ const AppDataSource = new DataSource({
     username: config.database.username,
     password: config.database.password,
     database: config.database.name,
-    synchronize: false,
+    synchronize: true, // Enable synchronize for development
     logging: config.isDevelopment,
     entities: [
         User,
@@ -52,8 +55,8 @@ const AppDataSource = new DataSource({
         ParkingRate,
         Shift
     ],
-    migrations: ['src/server/migrations/**/*.ts'],
-    subscribers: ['src/server/subscribers/**/*.ts'],
+    migrations: [path.join(__dirname, '../migrations/**/*.{ts,js}')],
+    subscribers: [path.join(__dirname, '../subscribers/**/*.{ts,js}')],
     migrationsRun: false,
 });
 
@@ -96,65 +99,26 @@ export async function initializeDatabase() {
         await AppDataSource.initialize();
         logger.info('Connected to application database');
 
-        // Create enum types if they don't exist
-        await AppDataSource.query(`
-            DO $$ BEGIN
-                CREATE TYPE user_role AS ENUM ('ADMIN', 'OPERATOR');
-            EXCEPTION
-                WHEN duplicate_object THEN null;
-            END $$;
+        // Create default admin user if it doesn't exist
+        const userRepository = AppDataSource.getRepository(User);
+        const adminUser = await userRepository.findOne({ where: { username: 'admin' } });
+
+        if (!adminUser) {
+            logger.info('Creating default admin user...');
+            const user = new User({});
+            user.username = 'admin';
+            user.email = 'admin@parking-system.com';
+            user.fullName = 'System Administrator';
+            user.role = UserRole.ADMIN;
+            user.active = true;
+            // Hash the password 'admin'
+            const salt = await bcrypt.genSalt(10);
+            user.passwordHash = await bcrypt.hash('admin', salt);
             
-            DO $$ BEGIN
-                CREATE TYPE vehicle_type AS ENUM ('MOTOR', 'MOBIL', 'TRUK', 'BUS', 'VAN');
-            EXCEPTION
-                WHEN duplicate_object THEN null;
-            END $$;
+            await userRepository.save(user);
+            logger.info('Default admin user created successfully');
+        }
 
-            -- Drop existing tables to clean up schema
-            DROP TABLE IF EXISTS users CASCADE;
-        `);
-
-        // Create tables if they don't exist (safer than synchronize)
-        await AppDataSource.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(255) NOT NULL UNIQUE,
-                email VARCHAR(255) NOT NULL UNIQUE,
-                password_hash VARCHAR(255) NOT NULL,
-                full_name VARCHAR(255) NOT NULL,
-                role user_role NOT NULL DEFAULT 'OPERATOR',
-                active BOOLEAN NOT NULL DEFAULT true,
-                last_login TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS parking_areas (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                location VARCHAR(255) NOT NULL,
-                capacity INTEGER NOT NULL CHECK (capacity >= 0),
-                occupied INTEGER NOT NULL DEFAULT 0 CHECK (occupied >= 0),
-                status VARCHAR(50) NOT NULL DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                CONSTRAINT check_valid_occupancy CHECK (occupied <= capacity)
-            );
-
-            -- Insert default admin user if it doesn't exist
-            INSERT INTO users (username, email, password_hash, full_name, role, active)
-            VALUES (
-                'admin',
-                'admin@parking-system.com',
-                '$2b$10$5QH.JRwwfHnwwmNDhUyK8.LQd4MrgBf/IQfV3mV8VyFYYvHJ5UzrO', -- This is the hash for 'admin'
-                'System Administrator',
-                'ADMIN',
-                true
-            )
-            ON CONFLICT (username) DO NOTHING;
-        `);
-
-        logger.info('Database schema initialized');
         return AppDataSource;
     } catch (error) {
         logger.error('Error during database initialization:', error);

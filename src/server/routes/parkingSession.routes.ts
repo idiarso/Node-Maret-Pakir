@@ -5,7 +5,7 @@ import { authMiddleware } from '../middleware/auth.middleware';
 const router = express.Router();
 
 // Apply auth middleware to all routes
-router.use(authMiddleware);
+router.use(authMiddleware());
 
 // Vehicle entry and exit
 router.post('/entry', ParkingSessionController.handleVehicleEntry);
